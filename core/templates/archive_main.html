@@ -2,66 +2,109 @@
 {% load static %}
 
 {% block extra_head %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     .search-container {
       max-width: 1200px;
-      margin: 20px auto;
+      margin: 40px auto 30px;
       padding: 0 20px;
       position: relative;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      border-radius: 12px;
+      background: white;
+      overflow: hidden;
+      transition: all 0.3s ease;
     }
+    
+    .search-container:focus-within {
+      box-shadow: 0 8px 24px rgba(79, 128, 255, 0.15);
+      transform: translateY(-2px);
+    }
+    
+    .search-icon {
+      position: absolute;
+      left: 30px;
+      color: #999;
+      font-size: 20px;
+      z-index: 2;
+    }
+    
     .search-container input[type="text"] {
-      width: calc(100% - 120px);
-      padding: 12px;
-      border: 1px solid #ccc;
-      border-radius: 4px 0 0 0;
-      font-size: 1em;
+      width: 100%;
+      padding: 18px 18px 18px 60px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1em;
       box-sizing: border-box;
-      margin-bottom: 0;
-      transition: border-color 0.3s ease;
-      height: 42px;
+      margin: 0;
+      transition: all 0.3s ease;
+      height: 60px;
+      color: #333;
+      font-family: 'DINNextLTPro', sans-serif;
+      background: transparent;
     }
+    
     .search-container input[type="text"]:focus {
       outline: none;
-      border-color: #4f80ff;
     }
+    
+    .search-container input[type="text"]::placeholder {
+      color: #aaa;
+      transition: color 0.3s ease;
+    }
+    
+    .search-container input[type="text"]:focus::placeholder {
+      color: #ccc;
+    }
+    
     .search-container button {
-      position: absolute;
-      right: 20px;
-      top: 0;
-      width: 120px;
-      height: 42px;
-      line-height: 42px;
-      padding: 0;
+      min-width: 140px;
+      height: 60px;
+      padding: 0 25px;
       background-color: #4f80ff;
       color: white;
       border: none;
-      border-radius: 0 4px 0 0;
+      border-radius: 0 12px 12px 0;
       cursor: pointer;
-      font-size: 1em;
-      transition: background-color 0.3s ease;
-      box-sizing: border-box;
+      font-size: 1.1em;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      font-family: 'DINNextLTPro', sans-serif;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
+    
     .search-container button:hover {
       background-color: #3a6cd9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .search-container button .button-icon {
+      margin-left: 8px;
+      font-size: 16px;
     }
     #search-results {
+      max-width: 1200px;
       width: calc(100% - 40px);
-      margin: 0;
+      margin: -5px auto 0;
       padding: 0;
       overflow-y: auto;
       max-height: 80vh;
       background: white;
-      border: 1px solid #ccc;
-      border-top: none;
-      border-radius: 0 0 4px 4px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      position: absolute;
-      left: 20px;
-      right: 20px;
-      z-index: 1000;
+      border: none;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+      position: relative;
+      z-index: 990;
+      display: none;
     }
     #search-results.active {
-      border-color: #4f80ff;
+      display: block;
     }
     #search-results::-webkit-scrollbar {
       width: 8px;
@@ -290,6 +333,43 @@
       border-top: 2px solid #999;
     }
 
+    /* Neue Styles für Animationen */
+    @keyframes fadeOutScale {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+    }
+
+    @keyframes fadeInScale {
+      0% {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .tiles {
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      transform-origin: center top;
+    }
+
+    .tiles.fade-out {
+      animation: fadeOutScale 0.4s ease forwards;
+    }
+
+    .tiles.fade-in {
+      opacity: 0;
+      animation: fadeInScale 0.5s ease forwards;
+    }
+
     /* Neue Styles für Lazy Loading */
     .charts-table tr {
       opacity: 0;
@@ -333,10 +413,10 @@
   {% include 'partials/header.html' %}
 
   <div class="search-container">
-    <input type="text" id="search-input" placeholder="Texteingabe...">
-    <button id="select-button">Auswählen</button>
-    <div id="search-results"></div>
+    <i class="search-icon fas fa-search"></i>
+    <input type="text" id="search-input" placeholder="Grafiken durchsuchen...">
   </div>
+  <div id="search-results"></div>
 
   <div id="selected-charts" class="selected-charts" style="display: none;"></div>
 
@@ -372,7 +452,6 @@
       var searchInput = document.getElementById("search-input");
       var searchResults = document.getElementById("search-results");
       var defaultTiles = document.getElementById("default-tiles");
-      var selectButton = document.getElementById("select-button");
       var selectedChartsContainer = document.getElementById("selected-charts");
       var loadMoreIndicator = document.getElementById("load-more-indicator");
       var currentSearchResults = [];
@@ -380,6 +459,10 @@
       var itemsPerPage = 24;
       var loadingMore = false;
       var totalResults = 0;
+
+      // Stelle sicher, dass die Kacheln mit der Fade-In-Animation angezeigt werden
+      defaultTiles.classList.remove('fade-out');
+      defaultTiles.classList.add('fade-in');
 
       // Intersection Observer für Lazy Loading der Bilder
       var imageObserver = new IntersectionObserver((entries, observer) => {
@@ -399,51 +482,6 @@
           loadMoreCharts();
         }
       });
-
-      function showSelectedCharts() {
-        if (currentSearchResults.length > 0) {
-          // Verstecke die Suchergebnisse und Default-Tiles
-          searchResults.style.display = "none";
-          searchResults.classList.remove("active");
-          defaultTiles.style.display = "none";
-          
-          // Leere und zeige die Tabelle
-          const chartsTableBody = document.getElementById("charts-table-body");
-          chartsTableBody.innerHTML = "";
-          
-          // Füge die gefundenen Grafiken zur Tabelle hinzu
-          currentSearchResults.forEach((chart, index) => {
-            const row = document.createElement('tr');
-            row.style.cursor = 'pointer';
-            row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
-            
-            row.innerHTML = `
-              <td>${formatDate(chart.published_date)}</td>
-              <td><img src="${chart.thumbnail}" alt="${chart.title}"></td>
-              <td>${chart.title}</td>
-              <td>${chart.chart_id}</td>
-              <td>${chart.description || ''}</td>
-              <td>${chart.tags || ''}</td>
-            `;
-            
-            chartsTableBody.appendChild(row);
-
-            // Verzögertes Einblenden der Zeilen
-            setTimeout(() => {
-              row.classList.add('visible');
-            }, index * 100);
-          });
-
-          // Zeige die Tabellen-Container
-          document.querySelector('.charts-table-container').style.display = 'block';
-          document.querySelector('.charts-table').style.display = 'table';
-          
-          // Aktualisiere die Überschrift mit der Anzahl der gefundenen Grafiken und dem Suchbegriff
-          const headerText = document.querySelector('.charts-table-container h2');
-          const searchQuery = document.getElementById('search-input').value.trim();
-          headerText.textContent = `${currentSearchResults.length} Grafiken mit "${searchQuery}" gefunden`;
-        }
-      }
 
       function loadMoreCharts() {
         loadingMore = true;
@@ -488,31 +526,63 @@
       if (searchInput) {
         searchInput.addEventListener("input", function() {
           var query = searchInput.value.trim();
+          
+          // Hole die aktuelle Tabelle
+          const chartsTable = document.querySelector('.charts-table-container');
+          const defaultTiles = document.querySelector('.tiles');
+          const searchResultsElement = document.getElementById('search-results');
+          
           if (query.length > 0) {
-            defaultTiles.style.display = "none";
-            searchResults.style.display = "block";
-            searchResults.classList.add("active");
+            // Animiere die Kacheln aus
+            defaultTiles.classList.add('fade-out');
+            defaultTiles.classList.remove('fade-in');
+            
+            // Nach der Animation verstecken
+            setTimeout(() => {
+              defaultTiles.style.display = "none";
+            }, 400); // Entspricht der Animationsdauer
+            
+            // Zeige die Tabelle
+            chartsTable.style.display = "block";
+            // Verstecke die Suchergebnisse
+            searchResultsElement.classList.remove('active');
+            // Führe die Suche durch
             fetchResults(query);
           } else {
-            // Zurück zur Ursprungsansicht
+            // Zeige die Tabelle mit allen Grafiken
+            chartsTable.style.display = "block";
+            // Verstecke die Suchergebnisse
+            searchResultsElement.classList.remove('active');
+            // Lade alle Grafiken neu
+            currentTablePage = 0;
+            hasMoreCharts = true;
+            chartsTableBody.innerHTML = "";
+            loadChartData();
+            
+            // Wir holen die Gesamtanzahl der Grafiken separat, um sie sofort anzuzeigen
+            fetch("/chart_search/")
+              .then(response => response.json())
+              .then(data => {
+                if (data.total_count) {
+                  const headerText = document.querySelector('.charts-table-container h2');
+                  headerText.textContent = `Alle Grafiken (${data.total_count})`;
+                }
+              })
+              .catch(error => {
+                console.error('Fehler beim Laden der Gesamtanzahl:', error);
+              });
+              
+            // Zeige die Kacheln wieder an mit Animation
+            defaultTiles.classList.remove('fade-out');
             defaultTiles.style.display = "grid";
-            searchResults.style.display = "none";
-            searchResults.classList.remove("active");
-            searchResults.innerHTML = "";
-            selectedChartsContainer.style.display = "none";
-            loadMoreIndicator.style.display = "none";
+            defaultTiles.style.opacity = "0"; // Starte mit unsichtbaren Kacheln
+            
+            // Warte einen kurzen Moment, damit das Display:grid angewendet wird
+            setTimeout(() => {
+              defaultTiles.classList.add('fade-in');
+            }, 50);
           }
         });
-
-        searchInput.addEventListener("keypress", function(e) {
-          if (e.key === "Enter") {
-            showSelectedCharts();
-          }
-        });
-      }
-
-      if (selectButton) {
-        selectButton.addEventListener("click", showSelectedCharts);
       }
 
       // Beobachte den "Mehr laden" Indikator
@@ -530,15 +600,22 @@
           .then(response => response.json())
           .then(data => {
             currentSearchResults = data.results;
-            totalResults = data.total_count;
+            totalResults = data.results.length; // Verwende die tatsächliche Anzahl der zurückgegebenen Ergebnisse
             
-            if (data.results.length === 0) {
-              searchResults.innerHTML = "<p style='padding: 20px; text-align: center; color: #666;'>Keine Ergebnisse gefunden</p>";
+            // Aktualisiere die Tabelle direkt
+            const chartsTableBody = document.getElementById("charts-table-body");
+            chartsTableBody.innerHTML = ""; // Leere die Tabelle
+            
+            // Aktualisiere die Überschrift mit der Anzahl der gefundenen Grafiken
+            const headerText = document.querySelector('.charts-table-container h2');
+            
+            if (totalResults === 0) {
+              headerText.textContent = `Keine Grafiken für "${query}" gefunden`;
+              chartsTableBody.innerHTML = "<tr><td colspan='6' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
               return;
             }
             
-            var html = "<div class='results-info'>" + totalResults + " Grafiken gefunden</div>";
-            html += "<table><thead><tr><th style='width: 120px;'>Datum</th><th style='width: 150px;'>Vorschau</th><th>Titel</th><th style='width: 120px;'>Chart ID</th><th>Beschreibung</th><th style='width: 120px;'>Label</th></tr></thead>";
+            headerText.textContent = `${totalResults} Grafiken für "${query}" gefunden`;
             
             // Funktion zum Hervorheben des Suchbegriffs
             function highlightText(text, searchTerm) {
@@ -547,23 +624,34 @@
               return text.replace(regex, match => `<span class="highlight">${match}</span>`);
             }
             
-            data.results.forEach(chart => {
+            // Füge die Ergebnisse zur Tabelle hinzu
+            data.results.forEach((chart, index) => {
+              const row = document.createElement('tr');
+              row.style.cursor = 'pointer';
+              row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
+              
               const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
-              html += "<tr onclick='window.location.href=\"/chart/" + chart.chart_id + "/\"' style='cursor: pointer;'>";
-              html += "<td>" + formattedDate + "</td>";
-              html += "<td><img src='" + chart.thumbnail + "' width='50' /></td>";
-              html += "<td>" + highlightText(chart.title, query) + "</td>";
-              html += "<td>" + highlightText(chart.chart_id, query) + "</td>";
-              html += "<td>" + highlightText(chart.description || '', query) + "</td>";
-              html += "<td>" + highlightText(chart.tags || '', query) + "</td>";
-              html += "</tr>";
+              row.innerHTML = `
+                <td>${formattedDate}</td>
+                <td><img src="${chart.thumbnail}" alt="${chart.title}" width="50"></td>
+                <td>${highlightText(chart.title, query)}</td>
+                <td>${highlightText(chart.chart_id, query)}</td>
+                <td>${highlightText(chart.description || '', query)}</td>
+                <td>${highlightText(chart.tags || '', query)}</td>
+              `;
+              
+              chartsTableBody.appendChild(row);
+
+              // Verzögertes Einblenden der Zeilen
+              setTimeout(() => {
+                row.classList.add('visible');
+              }, index * 50);
             });
-            html += "</table>";
-            searchResults.innerHTML = html;
           })
           .catch(error => {
             console.error('Error fetching search results:', error);
-            searchResults.innerHTML = "<p style='padding: 20px; text-align: center; color: #666;'>Ein Fehler ist aufgetreten</p>";
+            const chartsTableBody = document.getElementById("charts-table-body");
+            chartsTableBody.innerHTML = "<tr><td colspan='6' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
           });
       }
 
@@ -593,8 +681,15 @@
         loadingSpinner.style.display = 'block';
         
         try {
+          // Beim ersten Laden holen wir die Gesamtanzahl der Grafiken
           const response = await fetch(`/chart_search/?page=${currentTablePage}`);
           const data = await response.json();
+          
+          // Aktualisiere die Überschrift mit der Gesamtanzahl der Grafiken
+          if (currentTablePage === 0 && data.total_count) {
+            const headerText = document.querySelector('.charts-table-container h2');
+            headerText.textContent = `Alle Grafiken (${data.total_count})`;
+          }
           
           if (data.results.length === 0) {
             hasMoreCharts = false;
