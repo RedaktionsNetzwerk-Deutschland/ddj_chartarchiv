@@ -1,0 +1,90 @@
+{% load static %}
+
+<footer class="footer mt-auto py-3 bg-light">
+    <div class="container">
+        <div class="row">
+            {# Linke Spalte #}
+            <div class="col-md-4">
+                <h5>RND Archive</h5>
+                <p class="text-muted">
+                    Ein Projekt des RedaktionsNetzwerk Deutschland zur Archivierung und Verwaltung von Datawrapper-Grafiken.
+                </p>
+            </div>
+            
+            {# Mittlere Spalte #}
+            <div class="col-md-4">
+                <h5>Nützliche Links</h5>
+                <ul class="list-unstyled">
+                    <li>
+                        <a href="https://www.datawrapper.de" target="_blank" rel="noopener noreferrer" class="text-decoration-none">
+                            <i class="fas fa-chart-bar me-1"></i>Datawrapper
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://academy.datawrapper.de" target="_blank" rel="noopener noreferrer" class="text-decoration-none">
+                            <i class="fas fa-graduation-cap me-1"></i>Datawrapper Academy
+                        </a>
+                    </li>
+                    <li>
+                        <a href="https://www.rnd.de" target="_blank" rel="noopener noreferrer" class="text-decoration-none">
+                            <i class="fas fa-newspaper me-1"></i>RND
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            {# Rechte Spalte #}
+            <div class="col-md-4">
+                <h5>Kontakt</h5>
+                <ul class="list-unstyled">
+                    <li>
+                        <i class="fas fa-envelope me-1"></i>
+                        <a href="mailto:support@rnd.de" class="text-decoration-none">support@rnd.de</a>
+                    </li>
+                    <li>
+                        <i class="fas fa-question-circle me-1"></i>
+                        <a href="#" class="text-decoration-none" data-bs-toggle="modal" data-bs-target="#helpModal">Hilfe</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        {# Copyright #}
+        <div class="row mt-3">
+            <div class="col text-center">
+                <small class="text-muted">
+                    &copy; {% now "Y" %} RedaktionsNetzwerk Deutschland GmbH. Alle Rechte vorbehalten.
+                </small>
+            </div>
+        </div>
+    </div>
+</footer>
+
+{# Hilfe-Modal #}
+<div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="helpModalLabel">Hilfe & Support</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Kontakt</h6>
+                <p>Bei Fragen oder Problemen wenden Sie sich bitte an:</p>
+                <ul>
+                    <li>E-Mail: support@rnd.de</li>
+                    <li>Telefon: +49 (0) 123 456789</li>
+                </ul>
+                
+                <h6>Dokumentation</h6>
+                <p>Eine ausführliche Dokumentation finden Sie in unserem internen Wiki:</p>
+                <a href="#" class="btn btn-primary">
+                    <i class="fas fa-book me-1"></i>Zur Dokumentation
+                </a>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div> 

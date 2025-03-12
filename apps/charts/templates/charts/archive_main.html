@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Grafik-Archiv - RND Archive{% endblock %}
+
+{% block extra_css %}
+<link href="{% static 'charts/css/archive_main.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+{# Suchbereich #}
+<section class="search-section">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <h1 class="text-center mb-4">Grafik-Archiv</h1>
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" class="form-control form-control-lg"
+                           placeholder="Suchen Sie nach Titel, ID, Tags oder Beschreibung...">
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# Filter und Sortierung #}
+<section class="filters-section">
+    <div class="container">
+        <div class="row align-items-center mb-3">
+            {# Ergebnis-Zähler #}
+            <div class="col-md-4">
+                <p class="result-count mb-0" id="resultCount">
+                    Grafiken werden geladen...
+                </p>
+            </div>
+            
+            {# Sortierung #}
+            <div class="col-md-4 text-md-center">
+                <select id="sortSelect" class="form-select sort-select">
+                    <option value="-published_date">Neueste zuerst</option>
+                    <option value="published_date">Älteste zuerst</option>
+                    <option value="title">Titel (A-Z)</option>
+                    <option value="-title">Titel (Z-A)</option>
+                </select>
+            </div>
+            
+            {# Filter-Reset #}
+            <div class="col-md-4 text-md-end">
+                <button id="resetFilters" class="btn btn-outline-secondary">
+                    <i class="fas fa-undo-alt me-1"></i>Filter zurücksetzen
+                </button>
+            </div>
+        </div>
+        
+        {# Tag-Filter #}
+        <div class="tag-filters">
+            <span class="tag-filter" data-tag="Infografik">Infografik</span>
+            <span class="tag-filter" data-tag="Diagramm">Diagramm</span>
+            <span class="tag-filter" data-tag="Karte">Karte</span>
+            <span class="tag-filter" data-tag="Statistik">Statistik</span>
+            <span class="tag-filter" data-tag="Politik">Politik</span>
+            <span class="tag-filter" data-tag="Wirtschaft">Wirtschaft</span>
+            <span class="tag-filter" data-tag="Gesellschaft">Gesellschaft</span>
+            <span class="tag-filter" data-tag="Sport">Sport</span>
+            <span class="tag-filter" data-tag="Kultur">Kultur</span>
+        </div>
+    </div>
+</section>
+
+{# Grafik-Grid #}
+<section class="chart-grid">
+    <div class="container">
+        <div class="row" id="chartGrid">
+            {# Wird dynamisch mit JavaScript gefüllt #}
+        </div>
+        
+        {# Lade-Mehr-Button #}
+        <div class="load-more-section">
+            <button id="loadMore" class="btn btn-load-more" style="display: none;">
+                Weitere Grafiken laden
+            </button>
+        </div>
+    </div>
+</section>
+
+{# Toast-Container für Benachrichtigungen #}
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    {# Wird dynamisch mit JavaScript gefüllt #}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'charts/js/archive_main.js' %}"></script>
+{% endblock %} 

@@ -1,0 +1,64 @@
+{% load static %}
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        {# Logo und Markenname #}
+        <a class="navbar-brand" href="{% url 'index' %}">
+            <img src="{% static 'core/img/logo.png' %}" alt="RND Logo" height="30" class="d-inline-block align-text-top me-2">
+            RND Archive
+        </a>
+        
+        {# Toggle-Button für mobile Ansicht #}
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Navigation ein-/ausblenden">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        {# Hauptnavigation #}
+        <div class="collapse navbar-collapse" id="navbarMain">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'archive_main' %}active{% endif %}" href="{% url 'archive_main' %}">
+                        <i class="fas fa-archive me-1"></i>Archiv
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.resolver_match.url_name == 'chartmaker' %}active{% endif %}" href="{% url 'chartmaker' %}">
+                        <i class="fas fa-chart-line me-1"></i>Chartmaker
+                    </a>
+                </li>
+            </ul>
+            
+            {# Benutzer-Menü #}
+            <ul class="navbar-nav">
+                {% if user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user me-1"></i>{{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            {% if user.is_staff %}
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'admin:index' %}">
+                                        <i class="fas fa-cog me-1"></i>Administration
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'logout' %}">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Abmelden
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'login' %}">
+                            <i class="fas fa-sign-in-alt me-1"></i>Anmelden
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav> 

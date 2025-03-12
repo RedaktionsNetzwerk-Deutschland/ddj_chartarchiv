@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Startseite</title>
+    {% load static %}
+    <style>
+        @font-face {
+            font-family: 'DINNextLTPro';
+            font-display: swap;
+            src: url('https://assets.rndtech.de/one/fonts/DINNextLTPro/DINNextLTPro-Bold.ttf') format('truetype');
+            font-weight: bold;
+        }
+
+        @font-face {
+            font-family: 'DINNextLTPro';
+            font-display: swap;
+            src: url('https://assets.rndtech.de/one/fonts/DINNextLTPro/DINNextLTPro-Regular.ttf') format('truetype');
+            font-weight: normal;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'DINNextLTPro', Arial, sans-serif;
+        }
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+        }
+        .loading.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4f80ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .startseite {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-image: url('{% static "img/archiv.png" %}');
+            background-size: cover;
+            background-position: center;
+            padding-top: 100px;
+            box-sizing: border-box;
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+        }
+        .startseite.loaded {
+            opacity: 1;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 40px;
+            padding: 30px 50px;
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            filter: blur(10px);
+            margin: -20px;
+            z-index: 1;
+        }
+        .logo {
+            width: 80px;
+            height: auto;
+            margin-right: 20px;
+            position: relative;
+            z-index: 2;
+        }
+        .slogan {
+            font-family: 'DINNextLTPro', Arial, sans-serif;
+            font-size: 2.5em;
+            font-weight: bold;
+            color: white;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 2;
+        }
+        .buttons {
+            display: flex;
+            gap: 20px;
+            position: relative;
+            z-index: 2;
+        }
+        .btn {
+            padding: 12px 30px;
+            font-size: 1.1em;
+            border: none;
+            cursor: pointer;
+            background-color: #4f80ff;
+            color: white;
+            border-radius: 4px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .btn:hover {
+            background-color: #3a6cd9;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="loading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="startseite">
+        <header class="header">
+            <img src="{% static 'img/rnd_logo.png' %}" alt="Logo" class="logo">
+            <h1 class="slogan">Willkommen zur rnd-Grafik-Bibliothek.</h1>
+        </header>
+        <div class="buttons">
+            <button onclick="window.location.href='{% url 'register' %}'" class="btn">Registrieren</button>
+            <button onclick="window.location.href='{% url 'archive_main' %}'" class="btn">Einloggen</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const startseite = document.querySelector('.startseite');
+            const loading = document.querySelector('.loading');
+            const backgroundImage = new Image();
+            
+            backgroundImage.src = '{% static "img/archiv.png" %}';
+            
+            backgroundImage.onload = function() {
+                // Kurze Verzögerung für sanftere Übergänge
+                setTimeout(() => {
+                    startseite.classList.add('loaded');
+                    loading.classList.add('fade-out');
+                }, 300);
+            };
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Archiv Webapp{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+      @font-face {
+        font-family: 'DINNextLTPro';
+        font-display: swap;
+        src: url('https://assets.rndtech.de/one/fonts/DINNextLTPro/DINNextLTPro-Bold.ttf') format('truetype');
+      }
+
+      @font-face {
+        font-family: 'Source Serif Pro';
+        font-display: swap;
+        font-style: normal;
+        font-weight: 400;
+        src: url('https://assets.rndtech.de/one/fonts/SourceSerifPro/SourceSerifPro-Regular.woff2') format('woff2'),
+             url('https://assets.rndtech.de/one/fonts/SourceSerifPro/SourceSerifPro-Regular.woff') format('woff'),
+             url('https://assets.rndtech.de/one/fonts/SourceSerifPro/SourceSerifPro-Regular.ttf') format('truetype');
+      }
+
+      @font-face {
+        font-family: 'InterRegular';
+        font-display: swap;
+        font-style: normal;
+        font-weight: 400;
+        src: url('https://assets.rndtech.de/one/fonts/Inter/Inter-Regular.woff2') format('woff2'),
+             url('https://assets.rndtech.de/one/fonts/Inter/Inter-Regular.woff') format('woff'),
+             url('https://assets.rndtech.de/one/fonts/Inter/Inter-Regular.ttf') format('truetype');
+      }
+
+      body {
+         font-family: 'Source Serif Pro', serif;
+         background-color: #f2f2f2;
+         margin: 0;
+         padding: 0;
+      }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {% block content %}{% endblock %}
+</body>
+</html> 

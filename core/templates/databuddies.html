@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Databuddies - RND Archive{% endblock %}
+
+{% block extra_head %}
+<style>
+    .typing-container {
+        text-align: center;
+        margin-top: 5vh;
+        font-family: 'DINNextLTPro', sans-serif;
+        font-size: 2.5em;
+        opacity: 0;
+        animation: fadeIn 1s ease-in forwards;
+        animation-delay: 6s;
+    }
+
+    .typing-text {
+        display: inline-block;
+        overflow: hidden;
+        border-right: 2px solid #000;
+        white-space: nowrap;
+        margin: 0;
+        width: 0;
+        animation: 
+            typing 3s steps(17),
+            blink-caret 0.75s step-end infinite;
+        animation-delay: 6s;
+        color: #666666;
+        animation-fill-mode: forwards;
+    }
+
+    .content-container {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 2vh;
+        /* overflow-x: hidden;
+        overflow-y: visible; */
+        min-height: 65vh;
+        width: 100%;
+    }
+
+    .robot-container {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: moveLeft 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+        animation-delay: 9.5s;
+    }
+
+    .splash-container {
+        position: absolute;
+        right: -10%;
+        top: 11vh;
+        opacity: 0;
+        animation: appearSplash 0.5s ease-out forwards;
+        animation-delay: 11s;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .splash-container img {
+        width: 55%;
+        height: auto;
+        position: relative;
+    }
+
+    .splash-text {
+        position: absolute;
+        top: 26%;
+        left: 52%;
+        transform: translate(-50%, -50%) rotate(-5deg);
+        color: white;
+        font-family: 'DINNextLTPro', sans-serif;
+        font-size: 4.3em;
+        font-weight: bold;
+        text-align: center;
+        z-index: 2;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .robot-image {
+        height: 60vh;
+        width: auto;
+        max-width: 100%;
+        object-fit: contain;
+        transform: scale(1.15);
+        animation: shrinkImage 2s ease-out forwards;
+        animation-delay: 5s;
+    }
+
+    @keyframes typing {
+        from { width: 0 }
+        to { width: 9.5em }
+    }
+
+    @keyframes blink-caret {
+        from, to { border-color: transparent }
+        50% { border-color: #4f80ff }
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0 }
+        to { opacity: 1 }
+    }
+
+    @keyframes shrinkImage {
+        from { transform: scale(1.15) }
+        to { transform: scale(1) }
+    }
+
+    @keyframes moveLeft {
+        0% { 
+            transform: translateX(0);
+        }
+        80% { 
+            transform: translateX(-95%);
+        }
+        90% { 
+            transform: translateX(-85%);
+        }
+        100% { 
+            transform: translateX(-90%);
+        }
+    }
+
+    @keyframes appearSplash {
+        0% { 
+            opacity: 0;
+            transform: scale(0.8) rotate(-10deg);
+        }
+        50% { 
+            opacity: 1;
+            transform: scale(1.1) rotate(2deg);
+        }
+        75% {
+            transform: scale(0.95) rotate(-1deg);
+        }
+        100% { 
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .typing-container {
+            font-size: 1.8em;
+        }
+        .robot-image {
+            height: 40vh;
+        }
+        .content-container {
+            min-height: 45vh;
+        }
+        .splash-container {
+            right: 5%;
+            top: -15vh;
+        }
+        @keyframes moveLeft {
+            0% { 
+                transform: translateX(0);
+            }
+            80% {
+                transform: translateX(-115%);
+            }
+            90% {
+                transform: translateX(-105%);
+            }
+            100% {
+                transform: translateX(-110%);
+            }
+        }
+        .splash-text {
+            font-size: 2.5em;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include 'partials/header.html' %}
+
+<div class="container">
+    <div class="typing-container">
+        <p class="typing-text">Willkommen bei den</p>
+    </div>
+    <div class="content-container">
+        <div class="robot-container">
+            <img src="{% static 'img/Robot_final.png' %}" alt="Databuddies Robot" class="robot-image">
+        </div>
+        <div class="splash-container">
+            <img src="{% static 'img/farbklecks_databuddies.png' %}" alt="Splash Effect">
+            <p class="splash-text">Databuddies</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

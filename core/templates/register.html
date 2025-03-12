@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+  <style>
+    .register-container {
+      max-width: 400px;
+      margin: 80px auto;
+      background-color: #fff;
+      padding: 40px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border-radius: 8px;
+    }
+    .register-container h1 {
+      font-family: 'DINNextLTPro', sans-serif;
+      font-size: 2.8em;
+      margin-bottom: 30px;
+      text-align: center;
+      color: #222;
+    }
+    .register-container form p {
+      font-size: 1.1em;
+      margin-bottom: 15px;
+      color: #555;
+    }
+    .register-container form input[type="text"],
+    .register-container form input[type="email"],
+    .register-container form input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0 20px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1em;
+      box-sizing: border-box;
+      transition: border-color 0.3s ease;
+    }
+    .register-container form input[type="text"]:focus,
+    .register-container form input[type="email"]:focus,
+    .register-container form input[type="password"]:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+    .register-container form button {
+      width: 100%;
+      padding: 12px;
+      background-color: #007bff;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      font-size: 1.1em;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .register-container form button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+{% endblock %}
+
+{% block title %}Registrierung{% endblock %}
+
+{% block content %}
+<div class="register-container">
+    <h1>Registrierung</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Registrieren</button>
+    </form>
+</div>
+{% endblock %} 

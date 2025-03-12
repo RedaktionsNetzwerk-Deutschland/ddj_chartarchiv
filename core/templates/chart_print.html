@@ -1,0 +1,824 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+  <style>
+    .print-container {
+      max-width: 1400px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    .print-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    .print-title {
+      font-family: 'DINNextLTPro', sans-serif;
+      font-size: 2.5em;
+      color: #333;
+      margin: 0;
+    }
+    .print-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-top: 40px;
+    }
+    .chart-preview {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .chart-preview img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+    .update-info {
+      font-family: 'DINNextLTPro', sans-serif;
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+    }
+    .update-info strong {
+      font-weight: bold;
+      color: #333;
+    }
+    .text-fields {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .field-group {
+      margin-bottom: 25px;
+    }
+    .field-label {
+      display: block;
+      font-family: 'DINNextLTPro', sans-serif;
+      font-size: 1.2em;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    .field-input {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.1em;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: 'Source Serif Pro', serif;
+      transition: border-color 0.3s ease;
+    }
+    .field-input:focus {
+      outline: none;
+      border-color: #4f80ff;
+    }
+    .color-section {
+      margin-top: 30px;
+    }
+    .color-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .color-buttons {
+      display: flex;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .color-mode-btn {
+      padding: 4px 12px;
+      font-size: 0.8em;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .back-btn {
+      padding: 4px 12px;
+      font-size: 0.8em;
+      border: 1px solid #666;
+      border-radius: 4px;
+      background: #f0f0f0;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: #666;
+    }
+    .back-btn:hover {
+      background: #e0e0e0;
+      border-color: #444;
+      color: #444;
+    }
+    .color-mode-btn:hover {
+      background: #f5f5f5;
+      border-color: #999;
+    }
+    .color-mode-btn.active {
+      background: #4f80ff;
+      color: white;
+      border-color: #4f80ff;
+    }
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .color-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f8f8f8;
+      padding: 8px;
+      border-radius: 4px;
+    }
+    .color-squares {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .color-square {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    .color-info {
+      flex-grow: 1;
+    }
+    .color-code {
+      font-family: monospace;
+      font-size: 0.9em;
+      color: #666;
+    }
+    .color-label {
+      font-size: 0.8em;
+      color: #999;
+      display: block;
+    }
+    .auto-color {
+      display: none;
+    }
+    .auto-color.visible {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .manual-input {
+      display: none;
+    }
+    .manual-input.visible {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .hex-input {
+      width: 100px;
+      padding: 4px 8px;
+      font-family: monospace;
+      font-size: 0.9em;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .dimensions-section {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+    .dimensions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 15px;
+    }
+    .dimension-field {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+    }
+    .dimension-hint {
+      font-size: 0.8em;
+      color: #666;
+      font-style: italic;
+      position: absolute;
+      top: -20px;
+      left: 60px;
+      white-space: nowrap;
+    }
+    .height-field-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dimension-input {
+      padding: 8px 12px;
+      font-size: 1em;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-family: monospace;
+      width: 80px;
+      text-align: right;
+      transition: all 0.3s ease;
+    }
+    .dimension-input:focus {
+      outline: none;
+      border-color: #4f80ff;
+    }
+    .dimension-input.flash {
+      background-color: #ffebee;
+      border-color: #ff4444;
+    }
+    .dimension-label {
+      font-size: 0.9em;
+      color: #666;
+      min-width: 50px;
+    }
+    .dimension-unit {
+      font-size: 0.9em;
+      color: #666;
+      margin-left: 4px;
+    }
+    .export-button {
+      padding: 12px 40px;
+      font-size: 1.2em;
+      background-color: #4f80ff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: 'DINNextLTPro', sans-serif;
+    }
+    .export-button:hover {
+      background-color: #3a6cd9;
+      transform: translateY(-2px);
+      box-shadow: 0 2px 8px rgba(79, 128, 255, 0.3);
+    }
+    
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(79, 128, 255, 0.7);
+      }
+      70% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(79, 128, 255, 0);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(79, 128, 255, 0);
+      }
+    }
+    
+    .export-button.loading {
+      animation: pulse 1.5s infinite;
+      cursor: wait;
+      background-color: #3a6cd9;
+    }
+    .dimensions-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 15px;
+    }
+  </style>
+{% endblock %}
+
+{% block title %}Printexport - {{ chart.title }}{% endblock %}
+
+{% block content %}
+  {% include 'partials/header.html' %}
+  
+  <div class="print-container">
+    <div class="print-header">
+      <h1 class="print-title">Printexport</h1>
+      <button class="export-button" onclick="handleExport()">Export</button>
+    </div>
+    
+    <div class="print-layout">
+      <!-- Linke Spalte: Grafik-Vorschau -->
+      <div class="chart-preview">
+        <img src="{{ chart.thumbnail.url }}" alt="{{ chart.title }}">
+        <div class="update-info">
+          <strong>Aktualisiert am:</strong> {{ chart.published_date|date:"d.m.Y H:i" }}
+        </div>
+      </div>
+      
+      <!-- Rechte Spalte: Textfelder -->
+      <div class="text-fields">
+        <div class="field-group">
+          <label for="headline" class="field-label">1. Überschrift</label>
+          <input type="text" id="headline" class="field-input" value="{{ chart.title|default:'' }}" placeholder="Überschrift eingeben...">
+        </div>
+        
+        <div class="field-group">
+          <label for="subheadline" class="field-label">2. Unterzeile</label>
+          <input type="text" id="subheadline" class="field-input" value="{{ chart.description|default:'' }}" placeholder="Unterzeile eingeben...">
+        </div>
+
+        <div class="color-section">
+          <div class="color-header">
+            <label class="field-label">3. Farbcodes</label>
+            <div class="color-buttons">
+              <button class="back-btn" onclick="resetColors()" style="display: none;">zurück</button>
+              <button class="color-mode-btn" onclick="setColorMode('auto')">auto</button>
+              <button class="color-mode-btn" onclick="setColorMode('manual')">manuel</button>
+            </div>
+          </div>
+          <div class="color-grid">
+            {% for label, color in colors %}
+            <div class="color-item">
+              <div class="color-squares">
+                <div class="color-square" style="background-color: {{ color }};"></div>
+              </div>
+              <div class="color-info">
+                <span class="color-code">{{ color }}</span>
+                <span class="color-label">{{ label }}</span>
+              </div>
+              <div class="manual-input" style="display: none;">
+                <input type="text" class="hex-input" value="{{ color }}" placeholder="#RRGGBB">
+              </div>
+            </div>
+            {% empty %}
+            <div class="color-item">Keine Farbcodes verfügbar</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="dimensions-section">
+          <div class="dimensions-header">
+            <label class="field-label">4. Dimensionen</label>
+            <button class="back-btn" onclick="resetDimensions()" style="display: none;">zurück</button>
+          </div>
+          <div class="dimensions-grid">
+            <div class="dimension-field">
+              <label class="dimension-label" for="width">Breite</label>
+              <select id="width-select" class="dimension-input" style="width: auto;" onchange="handleWidthChange(this.value)">
+                <option value="auto">manuell</option>
+                <option value="51">1-spaltig (51mm)</option>
+                <option value="106.2">2-spaltig (106,2mm)</option>
+                <option value="161.4">3-spaltig (161,4mm)</option>
+              </select>
+              <input type="text" 
+                     id="width" 
+                     class="dimension-input" 
+                     value="{{ width }}" 
+                     data-original-width="{{ width }}"
+                     data-original-height="{{ height }}"
+                     oninput="handleDimensionInput(this)"
+                     style="display: none;">
+              <span class="dimension-unit">mm</span>
+            </div>
+            <div class="dimension-field">
+              <div class="height-field-container">
+                <label class="dimension-label" for="height">Höhe</label>
+                <input type="text" 
+                       id="height" 
+                       class="dimension-input" 
+                       value="{{ height }}" 
+                       oninput="handleDimensionInput(this)">
+                <span class="dimension-unit">mm</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Speichere die ursprünglichen Farben
+    const originalColors = [];
+    document.querySelectorAll('.color-item').forEach(item => {
+      const square = item.querySelector('.color-square');
+      const code = item.querySelector('.color-code');
+      if (square && code) {
+        originalColors.push({
+          color: square.style.backgroundColor,
+          hex: code.textContent
+        });
+      }
+    });
+
+    function generateRedVariation(index) {
+      const baseRed = 255;
+      const variation = index * 20;
+      const red = Math.max(0, Math.min(255, baseRed - variation));
+      const green = Math.max(0, Math.min(255, variation));
+      const blue = Math.max(0, Math.min(255, variation / 2));
+      
+      return `#${red.toString(16).padStart(2, '0')}${green.toString(16).padStart(2, '0')}${blue.toString(16).padStart(2, '0')}`;
+    }
+
+    function resetColors() {
+      const items = document.querySelectorAll('.color-item');
+      items.forEach((item, index) => {
+        const square = item.querySelector('.color-square');
+        const code = item.querySelector('.color-code');
+        if (square && code && originalColors[index]) {
+          square.style.backgroundColor = originalColors[index].color;
+          code.textContent = originalColors[index].hex;
+        }
+      });
+      
+      // Deaktiviere alle Buttons und verstecke zurück-Button
+      document.querySelectorAll('.color-mode-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector('.back-btn').style.display = 'none';
+      
+      // Verstecke zusätzliche Elemente
+      document.querySelectorAll('.auto-color').forEach(el => el.classList.remove('visible'));
+      document.querySelectorAll('.manual-input').forEach(el => el.classList.remove('visible'));
+    }
+
+    function setColorMode(mode) {
+      const clickedButton = event.target;
+      const buttons = document.querySelectorAll('.color-mode-btn');
+      const wasActive = clickedButton.classList.contains('active');
+      const backBtn = document.querySelector('.back-btn');
+      
+      // Entferne zuerst alle aktiven Zustände
+      buttons.forEach(btn => btn.classList.remove('active'));
+      
+      // Hole alle Farbelemente
+      const items = document.querySelectorAll('.color-item');
+      const manualInputs = document.querySelectorAll('.manual-input');
+      
+      // Wenn der geklickte Button bereits aktiv war, deaktiviere ihn und zeige Originalansicht
+      if (wasActive) {
+        resetColors();
+        return;
+      }
+      
+      // Ansonsten aktiviere den geklickten Button und zeige entsprechende Ansicht
+      clickedButton.classList.add('active');
+      backBtn.style.display = 'block';
+      
+      if (mode === 'auto') {
+        // Aktualisiere die Hauptfarbquadrate und Codes direkt
+        items.forEach((item, index) => {
+          const square = item.querySelector('.color-square');
+          const code = item.querySelector('.color-code');
+          const newColor = generateRedVariation(index);
+          if (square && code) {
+            square.style.backgroundColor = newColor;
+            code.textContent = newColor;
+          }
+        });
+        manualInputs.forEach(el => el.style.display = 'none');
+      } else {
+        // Zeige manuelle Eingabefelder und füge Event Listener hinzu
+        manualInputs.forEach((el, index) => {
+          el.style.display = 'block';
+          const input = el.querySelector('.hex-input');
+          if (input) {
+            input.addEventListener('input', function(e) {
+              const color = e.target.value;
+              const item = items[index];
+              const square = item.querySelector('.color-square');
+              const code = item.querySelector('.color-code');
+              if (square && code) {
+                square.style.backgroundColor = color;
+                code.textContent = color;
+              }
+            });
+          }
+        });
+      }
+    }
+
+    function calculateRecommendedHeight(width) {
+      const widthInput = document.getElementById('width');
+      const originalWidth = parseFloat(widthInput.getAttribute('data-original-width'));
+      const originalHeight = parseFloat(widthInput.getAttribute('data-original-height'));
+      const ratio = originalHeight / originalWidth;
+      
+      return Math.round(width * ratio);
+    }
+
+    function resetDimensions() {
+      const widthInput = document.getElementById('width');
+      const heightInput = document.getElementById('height');
+      const backBtn = document.querySelector('.dimensions-header .back-btn');
+      
+      // Setze die ursprünglichen Werte wieder ein
+      widthInput.value = widthInput.getAttribute('data-original-width');
+      heightInput.value = heightInput.getAttribute('data-original-height');
+      
+      // Verstecke den Zurück-Button
+      backBtn.style.display = 'none';
+      
+      // Verstecke die Höhenempfehlung
+      document.getElementById('height-hint').style.display = 'none';
+    }
+
+    function handleDimensionInput(input) {
+      // Entferne alle Nicht-Zahlen und Dezimalpunkte
+      let value = input.value.replace(/[^\d.]/g, '');
+      
+      // Erlaube nur einen Dezimalpunkt
+      const parts = value.split('.');
+      if (parts.length > 2) {
+        value = parts[0] + '.' + parts.slice(1).join('');
+      }
+      
+      // Beschränke die Gesamtlänge auf 4 Ziffern
+      const digits = value.replace('.', '');  // Entferne den Dezimalpunkt für die Zählung
+      if (digits.length > 4) {
+        // Zeige visuelles Feedback
+        input.classList.add('flash');
+        setTimeout(() => {
+          input.classList.remove('flash');
+        }, 500);
+        
+        // Kürze auf 4 Ziffern
+        if (value.includes('.')) {
+          // Bei Dezimalzahlen: Behalte den Dezimalpunkt und kürze entsprechend
+          const intPart = parts[0];
+          const decPart = parts[1] || '';
+          const totalLength = intPart.length + decPart.length;
+          if (totalLength > 4) {
+            if (intPart.length >= 4) {
+              value = intPart.slice(0, 4);
+            } else {
+              value = intPart + '.' + decPart.slice(0, 4 - intPart.length);
+            }
+          }
+        } else {
+          // Bei ganzen Zahlen: Einfach auf 4 Ziffern kürzen
+          value = value.slice(0, 4);
+        }
+      }
+      
+      // Setze den bereinigten Wert zurück
+      input.value = value;
+      
+      // Zeige den Zurück-Button an, wenn sich die Werte von den Originalwerten unterscheiden
+      const widthInput = document.getElementById('width');
+      const heightInput = document.getElementById('height');
+      const backBtn = document.querySelector('.dimensions-header .back-btn');
+      
+      if (widthInput.value !== widthInput.getAttribute('data-original-width') ||
+          heightInput.value !== heightInput.getAttribute('data-original-height')) {
+        backBtn.style.display = 'block';
+      }
+      
+      // Wenn die Breite geändert wird, setze die Höhe auf "auto"
+      if (input.id === 'width') {
+        const heightInput = document.getElementById('height');
+        heightInput.value = 'auto';
+      }
+    }
+
+    function handleWidthChange(value) {
+      const widthInput = document.getElementById('width');
+      const heightInput = document.getElementById('height');
+      
+      if (value === 'auto') {
+        widthInput.style.display = 'inline-block';
+        widthInput.value = widthInput.getAttribute('data-original-width');
+        heightInput.value = widthInput.getAttribute('data-original-height');
+      } else {
+        widthInput.style.display = 'none';
+        widthInput.value = value;
+        heightInput.value = 'auto';
+      }
+    }
+
+    // Initialisiere das Dropdown mit dem aktuellen Wert
+    document.addEventListener('DOMContentLoaded', function() {
+      const widthInput = document.getElementById('width');
+      const currentWidth = parseFloat(widthInput.value);
+      const widthSelect = document.getElementById('width-select');
+      
+      // Setze den passenden Wert im Dropdown
+      if (currentWidth === 51) {
+        widthSelect.value = '51';
+      } else if (currentWidth === 106.2) {
+        widthSelect.value = '106.2';
+      } else if (currentWidth === 161.4) {
+        widthSelect.value = '161.4';
+      } else {
+        widthSelect.value = 'auto';
+        widthInput.style.display = 'inline-block';
+      }
+    });
+
+    // Speichere die ursprünglichen Werte beim Laden
+    const originalValues = {
+      headline: document.getElementById('headline').value,
+      subheadline: document.getElementById('subheadline').value,
+      width: document.getElementById('width').value,
+      height: document.getElementById('height').value,
+      colors: originalColors
+    };
+
+    // Prüfe, ob es Änderungen gab
+    function hasChanges() {
+      const currentHeadline = document.getElementById('headline').value;
+      const currentSubheadline = document.getElementById('subheadline').value;
+      const currentWidth = document.getElementById('width').value;
+      const currentHeight = document.getElementById('height').value;
+      
+      // Prüfe Textänderungen
+      if (currentHeadline !== originalValues.headline || 
+          currentSubheadline !== originalValues.subheadline) {
+        return true;
+      }
+      
+      // Prüfe Dimensionsänderungen
+      if (currentWidth !== originalValues.width || 
+          currentHeight !== originalValues.height) {
+        return true;
+      }
+      
+      // Prüfe Farbänderungen
+      const currentColors = {};
+      document.querySelectorAll('.color-item').forEach((item, index) => {
+        const colorCode = item.querySelector('.color-code');
+        const colorLabel = item.querySelector('.color-label');
+        if (colorCode && colorLabel) {
+          const label = colorLabel.textContent.trim();
+          const color = colorCode.textContent.trim();
+          if (label && color) {
+            currentColors[label] = color;
+          }
+        }
+      });
+      
+      // Vergleiche mit den ursprünglichen Farben
+      for (const [index, original] of originalColors.entries()) {
+        const item = document.querySelector(`.color-item:nth-child(${index + 1})`);
+        if (item) {
+          const currentCode = item.querySelector('.color-code')?.textContent.trim();
+          if (currentCode !== original.hex) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    }
+
+    // Exportiere die Grafik als PDF
+    async function exportChartAsPDF(withChanges = false) {
+      const chartId = '{{ chart.chart_id }}';
+      try {
+        let response;
+        
+        if (withChanges) {
+          const formData = new FormData();
+          formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+          
+          const currentHeadline = document.getElementById('headline').value;
+          const currentSubheadline = document.getElementById('subheadline').value;
+          const currentWidth = document.getElementById('width').value;
+          const currentHeight = document.getElementById('height').value;
+          
+          if (currentHeadline !== originalValues.headline) {
+            formData.append('title', currentHeadline);
+          }
+          if (currentSubheadline !== originalValues.subheadline) {
+            formData.append('description', currentSubheadline);
+          }
+          
+          formData.append('width', currentWidth);
+          formData.append('height', currentHeight);
+          
+          // Export-Parameter
+          formData.append('unit', 'mm');
+          formData.append('mode', 'rgb');
+          formData.append('plain', 'false');
+          formData.append('scale', '0.7');
+          formData.append('zoom', '1');
+          formData.append('fullVector', 'false');
+          formData.append('ligatures', 'true');
+          formData.append('transparent', 'true');
+          formData.append('logo', 'auto');
+          formData.append('dark', 'false');
+          
+          // Farben sammeln
+          const currentColors = {};
+          document.querySelectorAll('.color-item').forEach(item => {
+            const colorLabel = item.querySelector('.color-label');
+            const colorCode = item.querySelector('.color-code');
+            if (colorLabel && colorCode) {
+              const label = colorLabel.textContent.trim();
+              const color = colorCode.textContent.trim();
+              if (label && color) {
+                currentColors[label] = color;
+              }
+            }
+          });
+          
+          if (Object.keys(currentColors).length > 0) {
+            formData.append('colors', JSON.stringify(currentColors));
+          }
+          
+          response = await fetch(`/chart/${chartId}/duplicate-and-export/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-CSRFToken': '{{ csrf_token }}'
+            }
+          });
+        } else {
+          response = await fetch(`/chart/${chartId}/export-pdf/`);
+        }
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Server Antwort:', errorText);
+          throw new Error(`PDF Export fehlgeschlagen: ${errorText}`);
+        }
+        
+        // Blob aus der Response erstellen
+        const blob = await response.blob();
+        
+        // Download starten
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `chart_${chartId}.pdf`;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+      } catch (error) {
+        console.error('Export Fehler:', error);
+        alert('Beim Export ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.');
+      }
+    }
+
+    async function handleExport() {
+      const exportButton = document.querySelector('.export-button');
+      exportButton.disabled = true;
+      exportButton.classList.add('loading');
+      exportButton.textContent = 'Exportiere...';
+      
+      try {
+        const hasModifications = hasChanges();
+        
+        // API-Call Details sammeln
+        const chartId = '{{ chart.chart_id }}';
+        const currentWidth = document.getElementById('width').value;
+        const currentHeight = document.getElementById('height').value;
+        
+        // API-Call Parameter zusammenstellen
+        const apiParams = {
+          unit: 'mm',
+          mode: 'rgb',
+          plain: false,
+          scale: 0.7,   // Auf 0.7 für kleinere Schriftgröße
+          zoom: 1,    // Auf 1 für konsistente Schriftgröße
+          fullVector: false,
+          ligatures: true,
+          transparent: true,
+          logo: 'auto',
+          dark: false,
+          width: currentWidth,
+          height: currentHeight
+        };
+        
+        // API-Call Details in der Konsole ausgeben
+        console.group('API-Call Details');
+        console.log('URL:', `/chart/${chartId}/duplicate-and-export/`);
+        console.log('Method:', 'POST');
+        console.log('Parameters:', apiParams);
+        
+        // cURL Befehl generieren
+        const curlCommand = `curl -X POST \\
+  'https://api.datawrapper.de/v3/charts/${chartId}/export/pdf' \\
+  -H 'Content-Type: application/json' \\
+  -d '${JSON.stringify(apiParams, null, 2)}'`;
+        
+        console.log('\nEquivalenter cURL Befehl:');
+        console.log(curlCommand);
+        console.groupEnd();
+        
+        await exportChartAsPDF(hasModifications);
+      } finally {
+        exportButton.disabled = false;
+        exportButton.classList.remove('loading');
+        exportButton.textContent = 'Export';
+      }
+    }
+  </script>
+{% endblock %} 

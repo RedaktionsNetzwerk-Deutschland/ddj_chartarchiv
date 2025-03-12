@@ -1,0 +1,222 @@
+/**
+ * Stile für die Archiv-Hauptseite
+ */
+
+/* Suchbereich */
+.search-section {
+    background-color: var(--rnd-light);
+    border-bottom: 1px solid rgba(0,0,0,.1);
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+.search-box {
+    position: relative;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.search-box .form-control {
+    padding-left: 3rem;
+    border-radius: 2rem;
+    border: 2px solid transparent;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    transition: all 0.3s ease;
+}
+
+.search-box .form-control:focus {
+    border-color: var(--rnd-primary);
+    box-shadow: 0 0 0 0.25rem rgba(0,94,184,.25);
+}
+
+.search-box .search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--rnd-gray);
+}
+
+/* Filter-Bereich */
+.filters-section {
+    margin-bottom: 2rem;
+}
+
+.tag-filter {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    margin: 0.25rem;
+    border-radius: 1rem;
+    background-color: #f8f9fa;
+    color: var(--rnd-gray);
+    border: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tag-filter:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+.tag-filter.active {
+    background-color: var(--rnd-primary);
+    color: white;
+    border-color: var(--rnd-primary);
+}
+
+/* Grafik-Grid */
+.chart-grid {
+    margin-bottom: 3rem;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,.15);
+}
+
+.card-img-top {
+    height: 200px;
+    background-color: #f8f9fa;
+    overflow: hidden;
+}
+
+.card-img-top img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.placeholder-image {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--rnd-gray);
+    background-color: #f8f9fa;
+}
+
+.card-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.card-text {
+    font-size: 0.9rem;
+    color: var(--rnd-gray);
+}
+
+.tags .badge {
+    font-size: 0.8rem;
+    font-weight: normal;
+    padding: 0.35rem 0.65rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    background-color: #e9ecef;
+    color: var(--rnd-gray);
+}
+
+/* Pagination */
+.load-more-section {
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.btn-load-more {
+    padding: 0.75rem 2rem;
+    border-radius: 2rem;
+    background-color: white;
+    border: 2px solid var(--rnd-primary);
+    color: var(--rnd-primary);
+    transition: all 0.3s ease;
+}
+
+.btn-load-more:hover {
+    background-color: var(--rnd-primary);
+    color: white;
+}
+
+/* Ergebnis-Zähler */
+.result-count {
+    color: var(--rnd-gray);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+/* Sortier-Dropdown */
+.sort-select {
+    min-width: 200px;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 768px) {
+    .search-section {
+        padding: 1rem 0;
+    }
+    
+    .card-img-top {
+        height: 150px;
+    }
+    
+    .filters-section {
+        overflow-x: auto;
+        white-space: nowrap;
+        padding-bottom: 1rem;
+    }
+    
+    .tag-filter {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Animationen */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    animation: fadeIn 0.5s ease forwards;
+}
+
+/* Loading-Spinner */
+.loading-spinner-container {
+    text-align: center;
+    padding: 3rem 0;
+}
+
+/* Keine Ergebnisse */
+.no-results {
+    text-align: center;
+    padding: 3rem 0;
+    color: var(--rnd-gray);
+}
+
+.no-results i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+/* Drucken */
+@media print {
+    .search-section,
+    .filters-section,
+    .load-more-section {
+        display: none;
+    }
+    
+    .card {
+        break-inside: avoid;
+        box-shadow: none;
+    }
+    
+    .card:hover {
+        transform: none;
+    }
+} 

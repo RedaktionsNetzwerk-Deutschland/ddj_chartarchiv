@@ -1,0 +1,36 @@
+<header style="background-color: #4f80ff; padding: 20px;">
+  {% load static %}
+  <style>
+    .header-button {
+      background-color: white;
+      color: #4f80ff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-family: 'DINNextLTPro', sans-serif;
+      font-size: 1em;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .header-button:hover {
+      background-color: #e0e0e0;
+      color: #3a6cd9;
+      transform: translateY(-2px);
+      box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
+    }
+  </style>
+
+  <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center;">
+      <a href="{% url 'archive_main' %}" style="text-decoration: none; display: flex; align-items: center;">
+        <img src="{% static 'img/rnd_logo.png' %}" alt="Logo" style="width: 50px; height: auto; margin-right: 10px;">
+        <h1 style="color: white; font-family: 'DINNextLTPro', sans-serif; margin: 0;">Grafikarchiv</h1>
+      </a>
+    </div>
+    <div style="display: flex; gap: 15px;">
+      <a href="{% url 'chartmaker' %}" class="header-button">selber machen</a>
+      <a href="{% url 'databuddies' %}" class="header-button">Databuddies</a>
+    </div>
+  </div>
+</header> 

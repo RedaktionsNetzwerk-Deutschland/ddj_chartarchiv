@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}RND Archive{% endblock %}</title>
+    
+    {# Favicon #}
+    <link rel="icon" type="image/png" href="{% static 'core/img/favicon.png' %}">
+    
+    {# Bootstrap CSS #}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    {# Font Awesome #}
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    {# Basis CSS #}
+    <link href="{% static 'core/css/base.css' %}" rel="stylesheet">
+    
+    {# Seiten-spezifisches CSS #}
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {# Navigation #}
+    {% include "partials/nav.html" %}
+    
+    {# Hauptinhalt #}
+    <main class="container-fluid py-4">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Schließen"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        
+        {% block content %}
+        {% endblock %}
+    </main>
+    
+    {# Footer #}
+    {% include "partials/footer.html" %}
+    
+    {# Bootstrap JS #}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {# jQuery #}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    {# Basis JavaScript #}
+    <script src="{% static 'core/js/base.js' %}"></script>
+    
+    {# Seiten-spezifisches JavaScript #}
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 
