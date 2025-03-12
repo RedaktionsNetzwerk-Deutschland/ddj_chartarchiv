@@ -366,11 +366,11 @@
           <div class="dimensions-grid">
             <div class="dimension-field">
               <label class="dimension-label" for="width">Breite</label>
-              <select id="width-select" class="dimension-input" style="width: auto;" onchange="handleWidthChange(this.value)">
+              <select id="width-select" class="dimension-input" style="width: auto; text-align: left;" onchange="handleWidthChange(this.value)">
                 <option value="auto">manuell</option>
-                <option value="51">1-spaltig (51mm)</option>
-                <option value="106.2">2-spaltig (106,2mm)</option>
-                <option value="161.4">3-spaltig (161,4mm)</option>
+                <option value="51">1-spaltig</option>
+                <option value="106.2">2-spaltig</option>
+                <option value="161.4">3-spaltig</option>
               </select>
               <input type="text" 
                      id="width" 
@@ -378,8 +378,7 @@
                      value="{{ width }}" 
                      data-original-width="{{ width }}"
                      data-original-height="{{ height }}"
-                     oninput="handleDimensionInput(this)"
-                     style="display: none;">
+                     oninput="handleDimensionInput(this)">
               <span class="dimension-unit">mm</span>
             </div>
             <div class="dimension-field">
@@ -587,11 +586,9 @@
       const heightInput = document.getElementById('height');
       
       if (value === 'auto') {
-        widthInput.style.display = 'inline-block';
         widthInput.value = widthInput.getAttribute('data-original-width');
         heightInput.value = widthInput.getAttribute('data-original-height');
       } else {
-        widthInput.style.display = 'none';
         widthInput.value = value;
         heightInput.value = 'auto';
       }
