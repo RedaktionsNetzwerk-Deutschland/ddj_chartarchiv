@@ -10,6 +10,7 @@ import pandas as pd
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 
 # Create your views here.
 
@@ -91,6 +92,12 @@ def chart_print(request, chart_id):
     
     # Hole Farbcodes aus der Datawrapper-API
     api_key = os.getenv('DATAWRAPPER_API_KEY')
+    
+    if not api_key:
+        print("WARNUNG: DATAWRAPPER_API_KEY nicht gefunden in Umgebungsvariablen")
+        api_key = 'XXXXXXXX'  # Fallback nur wenn wirklich nötig
+    
+    print(f"API Key: {api_key}")
     headers = {"Authorization": f"Bearer {api_key}"}
     
     try:

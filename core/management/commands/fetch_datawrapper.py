@@ -130,6 +130,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         api_key = os.getenv('DATAWRAPPER_API_KEY', 'XXXXXXXX')
+        print("API Key:", api_key)
         headers = {"Authorization": f"Bearer {api_key}"}
         
         # Setze das Startdatum für die Filterung als offset-aware Datum (UTC)
