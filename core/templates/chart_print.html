@@ -687,9 +687,9 @@
           const currentWidth = document.getElementById('width').value;
           const currentHeight = document.getElementById('height').value;
           
-          if (currentHeadline !== originalValues.headline) {
-            formData.append('title', currentHeadline);
-          }
+          // Sende den Titel immer mit
+          formData.append('title', currentHeadline);
+          
           if (currentSubheadline !== originalValues.subheadline) {
             formData.append('description', currentSubheadline);
           }

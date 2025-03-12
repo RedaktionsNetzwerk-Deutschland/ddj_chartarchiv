@@ -32,7 +32,6 @@ def archive_main(request):
 
 def chart_search(request):
     q = request.GET.get('q', '')
-    print(f"Suchbegriff: {q}")  # Debug-Ausgabe
     data = {'results': [], 'total_count': 0}
     
     if q:
@@ -45,19 +44,13 @@ def chart_search(request):
                 Q(embed_js__icontains=q)
         
         total_count = Chart.objects.filter(query).count()
-        print(f"Gefundene Einträge: {total_count}")  # Debug-Ausgabe
         
         charts = Chart.objects.filter(query).order_by('-published_date')[:100]
-        print(f"Abgerufene Charts: {len(charts)}")  # Debug-Ausgabe
     else:
         total_count = Chart.objects.count()
-        print(f"Gesamtanzahl Charts: {total_count}")  # Debug-Ausgabe
         charts = Chart.objects.all().order_by('-published_date')[:100]
     
     for chart in charts:
-        # Debug-Ausgabe des Datums
-        print(f"Chart {chart.chart_id} Datum: {chart.published_date}")
-        
         # Extrahiere Tags aus den Custom Fields
         tags = []
         try:
@@ -80,7 +73,6 @@ def chart_search(request):
         })
     
     data['total_count'] = total_count
-    print(f"Zurückgegebene Daten: {len(data['results'])} Einträge")  # Debug-Ausgabe
     return JsonResponse(data)
 
 def chart_detail(request, chart_id):
@@ -94,15 +86,13 @@ def chart_print(request, chart_id):
     api_key = os.getenv('DATAWRAPPER_API_KEY')
     
     if not api_key:
+        # Fehlermeldung beibehalten
         print("WARNUNG: DATAWRAPPER_API_KEY nicht gefunden in Umgebungsvariablen")
         api_key = 'XXXXXXXX'  # Fallback nur wenn wirklich nötig
     
-    print(f"API Key: {api_key}")
     headers = {"Authorization": f"Bearer {api_key}"}
     
     try:
-        print(f"\n[DEBUG] Requesting data for chart {chart_id}")
-        
         response = requests.get(
             f"https://api.datawrapper.de/v3/charts/{chart_id}",
             headers=headers
@@ -110,67 +100,45 @@ def chart_print(request, chart_id):
         response.raise_for_status()
         chart_data = response.json()
         
-        # Debug-Ausgabe der vollständigen API-Antwort
-        print("\n[DEBUG] Complete API Response:")
-        print(json.dumps(chart_data, indent=2))
-        
         # Extrahiere die Farbcodes aus den Metadaten
         colors = []
         metadata = chart_data.get('metadata', {})
         visualize = metadata.get('visualize', {})
         
-        print(f"\n[DEBUG] Chart type: {visualize.get('type')}")
-        print(f"\n[DEBUG] Visualize section:")
-        print(json.dumps(visualize, indent=2))
-        
         # 1. Prüfe auf Pie-Chart spezifische Farben
         if visualize.get('type') == 'pie-chart':
             pie_data = visualize.get('pie', {})
-            print(f"\n[DEBUG] Pie chart data:")
-            print(json.dumps(pie_data, indent=2))
             
             pie_colors = pie_data.get('colors', [])
             if pie_colors:
-                print(f"[DEBUG] Found pie colors: {pie_colors}")
                 for i, color in enumerate(pie_colors):
                     colors.append((f'Segment {i+1}', color))
         
         # 2. Prüfe auf custom-colors
         custom_colors = visualize.get('custom-colors', {})
         if custom_colors:
-            print(f"\n[DEBUG] Found custom colors:")
-            print(json.dumps(custom_colors, indent=2))
             for label, color in custom_colors.items():
                 colors.append((label, color))
         
         # 3. Prüfe auf color-category Map
         color_category = visualize.get('color-category', {})
         if color_category:
-            print(f"\n[DEBUG] Found color category:")
-            print(json.dumps(color_category, indent=2))
             color_map = color_category.get('map', {})
             for label, color in color_map.items():
                 if color and isinstance(color, str):  # Prüfe ob der Farbwert gültig ist
                     colors.append((label, color))
-                    print(f"[DEBUG] Added color: {label} -> {color}")
         
         # 4. Prüfe auf base color
         base_color = visualize.get('base-color')
         if base_color:
-            print(f"\n[DEBUG] Found base color: {base_color}")
             colors.append(('Base', base_color))
         
         # 5. Prüfe auf column colors
         columns = visualize.get('columns', {})
         if columns:
-            print(f"\n[DEBUG] Found column colors:")
-            print(json.dumps(columns, indent=2))
             for col_name, col_data in columns.items():
                 if isinstance(col_data, dict) and 'color' in col_data:
                     colors.append((col_name, col_data['color']))
-                    print(f"[DEBUG] Added column color: {col_name} -> {col_data['color']}")
-            
-        print(f"\n[DEBUG] Final Colors List: {colors}")
         
         # Hole die Dimensionen der Grafik
         dimensions = metadata.get('publish', {}).get('chart-dimensions', {})
@@ -181,6 +149,7 @@ def chart_print(request, chart_id):
         height_mm = round(height_px / pixels_per_mm)
             
     except Exception as e:
+        # Fehlermeldung beibehalten
         print(f"Fehler beim Abrufen der Daten: {e}")
         colors = []
         width_mm = 210  # Standard A4 Breite in mm
@@ -220,7 +189,6 @@ def export_chart_pdf(request, chart_id):
 def duplicate_and_export_chart(request, chart_id):
     """Dupliziert eine Grafik, aktualisiert sie und exportiert sie als PDF"""
     try:
-        print(f"Starting duplicate process for chart {chart_id}")
         api_key = os.getenv('DATAWRAPPER_API_KEY')
         if not api_key:
             raise Exception("API Key nicht gefunden")
@@ -229,9 +197,6 @@ def duplicate_and_export_chart(request, chart_id):
         
         # Hole alle Ordner
         folders_url = "https://api.datawrapper.de/v3/folders"
-        print(f"\n[API Call] Get Folders:")
-        print(f"URL: {folders_url}")
-        print(f"Method: GET")
         
         folders_response = requests.get(folders_url, headers=headers)
         folders_response.raise_for_status()
@@ -250,17 +215,13 @@ def duplicate_and_export_chart(request, chart_id):
         # Suche den printexport-Ordner in RND
         printexport_folder = None
         if 'folders' in rnd_folder:
-            print("..............................")
-            
             for subfolder in rnd_folder['folders']:
-                print(subfolder)
                 if subfolder.get('name') == 'printexport':
                     printexport_folder = subfolder
                     break
         
         # Erstelle printexport-Ordner falls nicht vorhanden
         if not printexport_folder:
-            print("\n[API Call] Create printexport folder")
             create_folder_url = "https://api.datawrapper.de/v3/folders"
             create_folder_data = {
                 "name": "printexport",
@@ -273,20 +234,20 @@ def duplicate_and_export_chart(request, chart_id):
             )
             create_response.raise_for_status()
             printexport_folder = create_response.json()
-            print(f"Created printexport folder with ID: {printexport_folder['id']}")
         
-        # Debug: Print request data
-        print("Request POST data:", request.POST)
+        # Änderungen aus dem Request holen
+        data = request.POST
+        print("data:", data)
         
         # 1. Grafik duplizieren direkt in den printexport-Ordner
         duplicate_url = f"https://api.datawrapper.de/v3/charts/{chart_id}/copy"
-        print(f"\n[API Call] Duplicate Chart:")
-        print(f"URL: {duplicate_url}")
-        print(f"Method: POST")
-        print(f"Headers: {headers}")
         
-        duplicate_data = {"folderId": printexport_folder['id']}
-       
+        # Erstelle die Duplizierungsdaten mit dem Titel
+        duplicate_data = {
+            "folderId": printexport_folder['id'],
+            "title": data.get('title', '')  # Setze den Titel direkt während der Duplizierung
+        }
+        print(duplicate_data)
         duplicate_response = requests.post(
             duplicate_url,
             headers={**headers, 'Content-Type': 'application/json'},
@@ -295,23 +256,35 @@ def duplicate_and_export_chart(request, chart_id):
         duplicate_response.raise_for_status()
         new_chart_data = duplicate_response.json()
         new_chart_id = new_chart_data['id']
-        print(f"Response: {new_chart_data}")
-        print(f"Successfully duplicated chart. New ID: {new_chart_id}")
+        
+        # Stelle sicher, dass der Titel korrekt gesetzt wurde
+        if data.get('title'):
+            print("Titel im Request:", data.get('title'))
+            # Überprüfe den Titel und setze ihn nochmals, falls nötig
+            check_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}"
+            check_response = requests.get(check_url, headers=headers)
+            check_response.raise_for_status()
+            current_title = check_response.json().get('title', '')
+            print("Aktueller Titel:", current_title)
+            
+            if current_title != data.get('title'):
+                # Setze den Titel erneut, falls er nicht korrekt ist
+                update_title_response = requests.patch(
+                    check_url,
+                    headers={**headers, 'Content-Type': 'application/json'},
+                    json={"title": data.get('title')}
+                )
+                update_title_response.raise_for_status()
         
         # Duplicat wird in den printexport-Ordner geschrieben
         update_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}"
         update_data = {"folderId": printexport_folder['id']}
         update_response = requests.patch(update_url, headers=headers, json=update_data)
         update_response.raise_for_status()
-
         
-        
-        # 2. Änderungen aus dem Request holen
-        data = request.POST
+        # 3. Weitere Änderungen aus dem Request holen
         properties_to_update = {}
-        
-        if data.get('title'):
-            properties_to_update['title'] = data.get('title')
+            
         if data.get('description'):
             properties_to_update['metadata'] = {
                 'describe': {
@@ -343,7 +316,6 @@ def duplicate_and_export_chart(request, chart_id):
                 'width': width_px,
                 'height': height_px
             }
-            print(f"Updated dimensions: {width_mm}mm x {height_mm}mm -> {width_px}px x {height_px}px")
             
         # Farben aktualisieren
         if data.get('colors'):
@@ -357,19 +329,14 @@ def duplicate_and_export_chart(request, chart_id):
                 properties_to_update['metadata']['visualize']['color-category'] = {
                     'map': colors
                 }
-                print("Updated colors:", colors)
             except json.JSONDecodeError as e:
+                # Fehlermeldung beibehalten
                 print(f"Error decoding colors JSON: {e}")
                 print("Raw colors data:", data.get('colors'))
         
-        # 3. Grafik aktualisieren
+        # 4. Grafik aktualisieren
         if properties_to_update:
             update_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}"
-            print(f"\n[API Call] Update Chart:")
-            print(f"URL: {update_url}")
-            print(f"Method: PATCH")
-            print(f"Headers: {headers}")
-            print(f"Data: {properties_to_update}")
             
             update_response = requests.patch(
                 update_url,
@@ -377,20 +344,14 @@ def duplicate_and_export_chart(request, chart_id):
                 json=properties_to_update
             )
             update_response.raise_for_status()
-            print(f"Response: {update_response.json()}")
         
-        # 4. Grafik publishen
+        # 5. Grafik publishen
         publish_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}/publish"
-        print(f"\n[API Call] Publish Chart:")
-        print(f"URL: {publish_url}")
-        print(f"Method: POST")
-        print(f"Headers: {headers}")
         
         publish_response = requests.post(publish_url, headers=headers)
         publish_response.raise_for_status()
-        print(f"Response: {publish_response.json()}")
         
-        # 5. PDF exportieren mit den korrekten Parametern
+        # 6. PDF exportieren mit den korrekten Parametern
         export_params = {
             'unit': 'mm',  # Einheit auf mm setzen
             'mode': 'rgb',
@@ -417,20 +378,6 @@ def duplicate_and_export_chart(request, chart_id):
             export_params['height'] = 'auto'  # Standardmäßig auf "auto" setzen
             
         export_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}/export/pdf"
-        print(f"\n[API Call] Export PDF:")
-        print(f"URL: {export_url}")
-        print(f"Method: GET")
-        print(f"Headers: {headers}")
-        print(f"Parameters: {export_params}")
-        
-        # Detaillierte Debug-Ausgabe des API-Calls
-        print("\n[Vollständiger API-Call]")
-        print("curl -X GET \\")
-        print(f"  '{export_url}' \\")
-        headers_str = '\n'.join([f"  -H '{k}: {v}' \\" for k, v in headers.items()])
-        print(headers_str)
-        params_str = '&'.join([f"{k}={v}" for k, v in export_params.items()])
-        print(f"  '?{params_str}'")
         
         export_response = requests.get(
             export_url,
@@ -438,8 +385,6 @@ def duplicate_and_export_chart(request, chart_id):
             params=export_params
         )
         export_response.raise_for_status()
-        print("\n[API Response Status]:", export_response.status_code)
-        print("PDF export successful")
         
         # PDF-Response erstellen
         pdf_response = HttpResponse(export_response.content, content_type='application/pdf')
@@ -447,6 +392,7 @@ def duplicate_and_export_chart(request, chart_id):
         return pdf_response
         
     except Exception as e:
+        # Fehlermeldung beibehalten
         print(f"Error during export process: {str(e)}")
         if isinstance(e, requests.exceptions.RequestException) and hasattr(e.response, 'text'):
             print(f"API response: {e.response.text}")
