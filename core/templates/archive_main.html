@@ -150,6 +150,7 @@
       font-size: 1.4em;
       font-weight: bold;
       border: none;
+      aspect-ratio: 4/1;
     }
     .tile.with-bg::before {
       content: '';
@@ -357,7 +358,7 @@
     }
 
     .tiles {
-      transition: opacity 0.5s ease, transform 0.5s ease;
+      transition: all 0.5s ease;
       transform-origin: center top;
     }
 
@@ -366,7 +367,6 @@
     }
 
     .tiles.fade-in {
-      opacity: 0;
       animation: fadeInScale 0.5s ease forwards;
     }
 
@@ -461,8 +461,10 @@
       var totalResults = 0;
 
       // Stelle sicher, dass die Kacheln mit der Fade-In-Animation angezeigt werden
-      defaultTiles.classList.remove('fade-out');
       defaultTiles.classList.add('fade-in');
+      
+      // Variable, um den Timeout zu speichern
+      let fadeOutTimeout;
 
       // Intersection Observer für Lazy Loading der Bilder
       var imageObserver = new IntersectionObserver((entries, observer) => {
@@ -532,14 +534,24 @@
           const defaultTiles = document.querySelector('.tiles');
           const searchResultsElement = document.getElementById('search-results');
           
+          // Lösche vorherige Timeouts, um Konflikte zu vermeiden
+          if (fadeOutTimeout) {
+            clearTimeout(fadeOutTimeout);
+            fadeOutTimeout = null;
+          }
+          
           if (query.length > 0) {
             // Animiere die Kacheln aus
             defaultTiles.classList.add('fade-out');
             defaultTiles.classList.remove('fade-in');
             
             // Nach der Animation verstecken
-            setTimeout(() => {
-              defaultTiles.style.display = "none";
+            fadeOutTimeout = setTimeout(() => {
+              // Prüfe nochmals, ob die Suche noch aktiv ist
+              if (searchInput.value.trim().length > 0) {
+                defaultTiles.style.display = "none";
+              }
+              fadeOutTimeout = null;
             }, 400); // Entspricht der Animationsdauer
             
             // Zeige die Tabelle
@@ -553,6 +565,23 @@
             chartsTable.style.display = "block";
             // Verstecke die Suchergebnisse
             searchResultsElement.classList.remove('active');
+            
+            // Bereite die Kacheln für die Animation vor
+            // Entferne alte Animationsklassen
+            defaultTiles.classList.remove('fade-out');
+            
+            // Setze die Kacheln auf sichtbar
+            defaultTiles.style.display = "grid";
+            
+            // Füge die Einblend-Animation hinzu
+            // Verzögere leicht, um sicherzustellen, dass der Display-Wechsel verarbeitet wurde
+            setTimeout(() => {
+              // Prüfe nochmals, ob die Suche noch leer ist
+              if (searchInput.value.trim().length === 0) {
+                defaultTiles.classList.add('fade-in');
+              }
+            }, 50);
+            
             // Lade alle Grafiken neu
             currentTablePage = 0;
             hasMoreCharts = true;
@@ -571,16 +600,6 @@
               .catch(error => {
                 console.error('Fehler beim Laden der Gesamtanzahl:', error);
               });
-              
-            // Zeige die Kacheln wieder an mit Animation
-            defaultTiles.classList.remove('fade-out');
-            defaultTiles.style.display = "grid";
-            defaultTiles.style.opacity = "0"; // Starte mit unsichtbaren Kacheln
-            
-            // Warte einen kurzen Moment, damit das Display:grid angewendet wird
-            setTimeout(() => {
-              defaultTiles.classList.add('fade-in');
-            }, 50);
           }
         });
       }
