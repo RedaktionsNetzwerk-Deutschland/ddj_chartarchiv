@@ -24,7 +24,7 @@ class Command(BaseCommand):
         for chart in Chart.objects.all():
             try:
                 response = requests.get(
-                    f"https://api.datawrapper.de/v3/charts/{chart.i}",
+                    f"https://api.datawrapper.de/v3/charts/{chart.chart_id}",
                     headers=headers
                 )
                 if response.status_code == 404:
@@ -44,63 +44,9 @@ class Command(BaseCommand):
                 
         return deleted_count
 
-    def get_all_charts(self, headers):
-        """Holt alle Charts von Datawrapper"""
-        chart_ids = []
-        next_link = "https://api.datawrapper.de/v3/charts"
-        
-        while next_link:
-            try: 
-                response = requests.get(next_link, headers=headers)
-                response.raise_for_status()
-                data = response.json()
-                return data
-            except requests.exceptions.RequestException as e:
-                print(f"Fehler beim Abrufen der Charts: {e}")
-                break
-        
-    def finde_charts_nach_datum(self, daten, datum_grenze):
-        """
-        Findet alle Charts, die nach einem bestimmten Datum erstellt wurden.
-        
-        Args:
-            daten: Die zu durchsuchende Datenstruktur
-            datum_grenze: Das Grenzdatum als datetime-Objekt
-            
-        Returns:
-            Eine Liste mit chart_ids
-        """
-        chart_ids = []
-        
-        def durchsuche_rekursiv(daten):
-            if isinstance(daten, dict):
-                # Prüfe, ob es sich um einen Chart handelt
-                if "id" in daten and "createdAt" in daten:
-                    try:
-                        # Konvertiere das Erstellungsdatum in ein datetime-Objekt
-                        created_date = datetime.fromisoformat(daten["createdAt"].replace('Z', '+00:00'))
-                        
-                        # Prüfe, ob das Chart nach dem Grenzdatum erstellt wurde
-                        if created_date > datum_grenze:
-                            chart_ids.append(daten["id"])
-                    except Exception as e:
-                        print(f"Fehler beim Parsen des Datums für Chart {daten.get('id')}: {e}")
-                
-                # Durchsuche alle Werte im Dict rekursiv
-                for wert in daten.values():
-                    durchsuche_rekursiv(wert)
-                    
-            elif isinstance(daten, list):
-                # Durchsuche alle Elemente in der Liste rekursiv
-                for element in daten:
-                    durchsuche_rekursiv(element)
-        
-        durchsuche_rekursiv(daten)
-        return chart_ids  
-        
     def get_all_folders(self, headers):
         """Holt alle Ordner von Datawrapper"""
-        chart_ids = []
+        folders = []
         next_link = "https://api.datawrapper.de/v3/folders"
         
         while next_link:
