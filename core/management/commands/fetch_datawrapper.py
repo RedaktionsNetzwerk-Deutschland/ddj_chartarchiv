@@ -20,11 +20,13 @@ class Command(BaseCommand):
 
     def check_deleted_charts(self, headers):
         """Prüft und löscht Grafiken, die in Datawrapper nicht mehr existieren"""
+        start_time = time.time()
+        self.stdout.write("Prüfe auf gelöschte Grafiken...")
         deleted_count = 0
         for chart in Chart.objects.all():
             try:
                 response = requests.get(
-                    f"https://api.datawrapper.de/v3/charts/{chart.i}",
+                    f"https://api.datawrapper.de/v3/charts/{chart.chart_id}",
                     headers=headers
                 )
                 if response.status_code == 404:
@@ -41,130 +43,144 @@ class Command(BaseCommand):
                     
             except Exception as e:
                 self.stderr.write(f'Fehler beim Prüfen von Chart {chart.chart_id}: {e}')
-                
+        end_time = time.time()
+        self.stdout.write(f"Gelöschte Grafiken geprüft in {end_time - start_time:.2f} Sekunden")
         return deleted_count
 
-    def get_all_charts(self, headers):
-        """Holt alle Charts von Datawrapper"""
-        chart_ids = []
-        next_link = "https://api.datawrapper.de/v3/charts"
+    def get_all_folders(self, headers):
+        """Holt alle Ordner von Datawrapper und erstellt ein DataFrame"""
+        try:
+            url = "https://api.datawrapper.de/v3/folders"
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            folders_data = response.json()
+            
+            all_folders = []
+            
+            def process_folder(folder):
+                folder_info = {
+                    'id': folder.get('id'),
+                    'name': folder.get('name'),
+                    'charts': folder.get('charts', []),
+                    'children': folder.get('children', [])
+                }
+                # Nur Ordner mit gültiger ID und Namen hinzufügen
+                if folder_info['id'] and folder_info['name']:
+                    all_folders.append(folder_info)
+                
+                # Rekursiv durch Unterordner gehen
+                for child in folder.get('children', []):
+                    process_folder(child)
+            
+            # Verarbeite jeden Root-Ordner
+            for folder in folders_data.get('list', []):
+                process_folder(folder)
+                
+            return all_folders
+        except Exception as e:
+            self.stderr.write(f'Fehler beim Abrufen der Ordner: {e}')
+            return []
+
+    def filter_folders(self, folders, exclude_names=['printexport']):
+        """Filtert Ordner basierend auf ausgeschlossenen Namen"""
+        filtered_folders = []
+        exclude_names_lower = [name.lower() for name in exclude_names]
         
-        while next_link:
-            try: 
-                response = requests.get(next_link, headers=headers)
-                response.raise_for_status()
-                data = response.json()
-                return data
-            except requests.exceptions.RequestException as e:
-                print(f"Fehler beim Abrufen der Charts: {e}")
-                break
-        
-    def finde_charts_nach_datum(self, daten, datum_grenze):
+        for folder in folders:
+            folder_name = folder.get('name')
+            if folder_name is None:
+                continue
+            
+            if folder_name.lower() not in exclude_names_lower:
+                filtered_folders.append(folder)
+            
+        return filtered_folders
+
+    def get_all_chart_ids(self, folders, start_date):
         """
-        Findet alle Charts, die nach einem bestimmten Datum erstellt wurden.
+        Extrahiert alle Chart-IDs aus den gefilterten Ordnern, die nach start_date erstellt wurden
         
         Args:
-            daten: Die zu durchsuchende Datenstruktur
-            datum_grenze: Das Grenzdatum als datetime-Objekt
-            
-        Returns:
-            Eine Liste mit chart_ids
+            folders: Liste der gefilterten Ordner
+            start_date: datetime-Objekt für das Filterdatum
         """
-        chart_ids = []
+        chart_ids = set()  # Verwende ein Set um Duplikate zu vermeiden
         
-        def durchsuche_rekursiv(daten):
-            if isinstance(daten, dict):
-                # Prüfe, ob es sich um einen Chart handelt
-                if "id" in daten and "createdAt" in daten:
+        # Füge die speziellen RND-Ordner-Charts hinzu
+        rnd_folder_id = "NcuSh8hB"  # Case-sensitive ID
+        try:
+            response = requests.get(
+                f"https://api.datawrapper.de/v3/folders/{rnd_folder_id}?expand=true",  # expand=true für vollständige Chart-Details
+                headers=self.headers
+            )
+            if response.status_code == 200:
+                rnd_folder = response.json()
+                if 'charts' in rnd_folder:
+                    for chart in rnd_folder['charts']:
+                        try:
+                            # Hole das Erstellungsdatum
+                            if isinstance(chart, dict):
+                                created_at = chart.get('createdAt')
+                                chart_id = chart.get('id')
+                            else:
+                                # Wenn chart ein String ist, müssen wir die Details separat abrufen
+                                chart_id = chart
+                                chart_response = requests.get(
+                                    f"https://api.datawrapper.de/v3/charts/{chart_id}",
+                                    headers=self.headers
+                                )
+                                if chart_response.status_code == 200:
+                                    chart_data = chart_response.json()
+                                    created_at = chart_data.get('createdAt')
+                                else:
+                                    continue
+
+                            if created_at:
+                                # Konvertiere das Datum
+                                created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                                # Füge die ID nur hinzu, wenn das Datum nach start_date liegt
+                                if created_date > start_date:
+                                    chart_ids.add(chart_id)
+                        except Exception as e:
+                            self.stderr.write(f'Fehler beim Verarbeiten der Chart {chart_id}: {e}')
+                            continue
+
+        except Exception as e:
+            self.stderr.write(f'Fehler beim Abrufen des RND-Ordners: {e}')
+
+        # Füge Charts aus allen anderen gefilterten Ordnern hinzu
+        for folder in folders:
+            if 'charts' in folder:
+                for chart in folder['charts']:
                     try:
-                        # Konvertiere das Erstellungsdatum in ein datetime-Objekt
-                        created_date = datetime.fromisoformat(daten["createdAt"].replace('Z', '+00:00'))
-                        
-                        # Prüfe, ob das Chart nach dem Grenzdatum erstellt wurde
-                        if created_date > datum_grenze:
-                            chart_ids.append(daten["id"])
+                        # Hole das Erstellungsdatum
+                        if isinstance(chart, dict):
+                            created_at = chart.get('createdAt')
+                            chart_id = chart.get('id')
+                        else:
+                            # Wenn chart ein String ist, müssen wir die Details separat abrufen
+                            chart_id = chart
+                            chart_response = requests.get(
+                                f"https://api.datawrapper.de/v3/charts/{chart_id}",
+                                headers=self.headers
+                            )
+                            if chart_response.status_code == 200:
+                                chart_data = chart_response.json()
+                                created_at = chart_data.get('createdAt')
+                            else:
+                                continue
+
+                        if created_at:
+                            # Konvertiere das Datum
+                            created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                            # Füge die ID nur hinzu, wenn das Datum nach start_date liegt
+                            if created_date > start_date:
+                                chart_ids.add(chart_id)
                     except Exception as e:
-                        print(f"Fehler beim Parsen des Datums für Chart {daten.get('id')}: {e}")
-                
-                # Durchsuche alle Werte im Dict rekursiv
-                for wert in daten.values():
-                    durchsuche_rekursiv(wert)
-                    
-            elif isinstance(daten, list):
-                # Durchsuche alle Elemente in der Liste rekursiv
-                for element in daten:
-                    durchsuche_rekursiv(element)
+                        self.stderr.write(f'Fehler beim Verarbeiten der Chart {chart_id}: {e}')
+                        continue
         
-        durchsuche_rekursiv(daten)
-        return chart_ids  
-        
-    def get_all_folders(self, headers):
-        """Holt alle Ordner von Datawrapper"""
-        chart_ids = []
-        next_link = "https://api.datawrapper.de/v3/folders"
-        
-        while next_link:
-            try:
-                response = requests.get(next_link, headers=headers)
-                response.raise_for_status()
-                data = response.json()
-                
-                # Debug-Ausgabe
-                self.stdout.write(f"Ordner-API Antwort: {data}")
-                
-                # Füge die Ordner dieser Seite hinzu
-                current_folders = data.get('list', [])
-                folders.extend(current_folders)
-                self.stdout.write(f"Gefundene Ordner in diesem Durchgang: {len(current_folders)}")
-                
-                # Prüfe, ob es eine nächste Seite gibt
-                next_link = data.get('next', None)
-            except Exception as e:
-                self.stderr.write(f'Fehler beim Abrufen der Ordner: {e}')
-                break
-        
-        return folders
-
-    def get_charts_from_folder(self, folder_id, headers):
-        """Holt alle Grafiken aus einem bestimmten Ordner"""
-        charts = []
-        next_link = f"https://api.datawrapper.de/v3/folders/{folder_id}/charts"
-        
-        while next_link:
-            try:
-                response = requests.get(next_link, headers=headers)
-                response.raise_for_status()
-                data = response.json()
-                
-                # Debug-Ausgabe
-                self.stdout.write(f"Charts im Ordner {folder_id} - API Antwort: {data}")
-                
-                # Füge die Grafiken dieser Seite hinzu
-                current_charts = data.get('list', [])
-                charts.extend(current_charts)
-                self.stdout.write(f"Gefundene Grafiken in diesem Ordner und Durchgang: {len(current_charts)}")
-                
-                # Prüfe, ob es eine nächste Seite gibt
-                next_link = data.get('next', None)
-            except Exception as e:
-                self.stderr.write(f'Fehler beim Abrufen der Grafiken aus Ordner {folder_id}: {e}')
-                break
-        
-        return charts
-
-    def filter_charts_by_date(self, charts, start_date):
-        """Filtert Charts nach dem Erstellungsdatum"""
-        filtered_charts = []
-        for chart in charts:
-            created_at = chart.get('createdAt')
-            if created_at:
-                try:
-                    created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                    if created_date >= start_date:
-                        filtered_charts.append(chart)
-                except Exception as e:
-                    self.stderr.write(f'Fehler beim Parsen des Erstellungsdatums für Chart {chart.get("id")}: {e}')
-        return filtered_charts
+        return list(chart_ids)
 
     def get_custom_fields(self, chart_details):
         """Extrahiert alle Custom Fields aus den Chart-Details"""
@@ -197,84 +213,71 @@ class Command(BaseCommand):
         return {k: str(v) for k, v in custom_fields.items() if v is not None}
 
     def handle(self, *args, **kwargs):
+        # API-Key aus der .env Datei laden
         api_key = os.getenv('DATAWRAPPER_API_KEY', 'XXXXXXXX')
-        headers = {"Authorization": f"Bearer {api_key}"}
+        self.headers = {"Authorization": f"Bearer {api_key}"}
         
         # Setze das Startdatum für die Filterung als offset-aware Datum (UTC)
-        start_date = datetime(2024, 4, 1, tzinfo=timezone.utc)
+        start_date = datetime(2024, 6, 1, tzinfo=timezone.utc)  # Geändert auf 1. Juni 2024
 
         while True:
             self.stdout.write('Fetching charts from Datawrapper API...')
             
             # Prüfe zuerst auf gelöschte Grafiken
-            deleted_count = self.check_deleted_charts(headers)
-            self.stdout.write(f'Gelöschte Grafiken entfernt: {deleted_count}')
+            # TODO: Später wieder einfügen
+            #deleted_count = self.check_deleted_charts(self.headers)
+            #self.stdout.write(f'Gelöschte Grafiken entfernt: {deleted_count}')
             
-            # Hole zuerst alle Ordner
-            folders = self.get_all_folders(headers)
-            self.stdout.write(f'Gefundene Ordner: {len(folders)}')
+            # Hole alle Ordner
+            all_folders = self.get_all_folders(self.headers)
+            self.stdout.write(f'Gefundene Ordner: {len(all_folders)}')
+           
+            # Filtere unerwünschte Ordner
+            filtered_folders = self.filter_folders(all_folders, exclude_names=['printexport'])
+            self.stdout.write(f'Gefilterte Ordner: {len(filtered_folders)}')
             
-            # Sammle alle Grafiken aus allen Ordnern
-            all_charts = []
-            for folder in folders:
-                folder_id = folder.get('id')
-                folder_name = folder.get('name', '')  # Setze leeren String als Default
-                
-                # Überspringe den printexport Ordner
-                if folder_name and folder_name.lower() == 'printexport':
-                    self.stdout.write(f'Überspringe printexport Ordner (ID: {folder_id})')
-                    continue
-                    
-                self.stdout.write(f'Verarbeite Ordner: {folder_name} (ID: {folder_id})')
-                folder_charts = self.get_charts_from_folder(folder_id, headers)
-                all_charts.extend(folder_charts)
+
+            # Hole alle Chart-IDs mit Datumsfilter
+            all_chart_ids = self.get_all_chart_ids(filtered_folders, start_date)
+            self.stdout.write(f'Gefundene Chart-IDs nach {start_date}: {len(all_chart_ids)}')
             
-            # Hole auch die Grafiken ohne Ordner
-            root_charts_url = "https://api.datawrapper.de/v3/charts?expand=true&limit=100"
-            try:
-                response = requests.get(root_charts_url, headers=headers)
-                response.raise_for_status()
-                data = response.json()
-                root_charts = data.get('list', [])
-                self.stdout.write(f'Gefundene Root-Grafiken: {len(root_charts)}')
-                all_charts.extend(root_charts)
-            except Exception as e:
-                self.stderr.write(f'Fehler beim Abrufen der Root-Grafiken: {e}')
-
-            self.stdout.write(f'Insgesamt gefundene Grafiken: {len(all_charts)}')
-
-            # Filtere Charts nach dem Erstellungsdatum
-            filtered_charts = self.filter_charts_by_date(all_charts, start_date)
-            self.stdout.write(f'Gefilterte Grafiken nach dem 1.4.2024: {len(filtered_charts)}')
-
-            # Verarbeite nur die gefilterten Grafiken
-            for chart in filtered_charts:
-                chart_id = chart.get('id')
-                if not chart_id:
-                    continue
-
-                if not Chart.objects.filter(chart_id=chart_id).exists():
+            
+            # Hole existierende Chart-IDs aus der Datenbank
+            existing_chart_ids = set(Chart.objects.values_list('chart_id', flat=True))
+            
+            # Filtere die bereits existierenden Charts aus
+            new_chart_ids = [chart_id for chart_id in all_chart_ids if chart_id not in existing_chart_ids]
+            self.stdout.write(f'Neue Chart-IDs zum Verarbeiten: {len(new_chart_ids)}')
+           
+            # Verarbeite nur die neuen Charts
+            for chart_id in new_chart_ids:
+                try:
                     # Vollständige Metadaten abrufen
                     chart_details_url = f"https://api.datawrapper.de/v3/charts/{chart_id}?expand=true"
+                    
                     try:
-                        details_response = requests.get(chart_details_url, headers=headers)
+                        details_response = requests.get(chart_details_url, headers=self.headers)
                         details_response.raise_for_status()
                         chart_details = details_response.json()
-
+                        
+                        
                         # Prüfe, ob die Grafik zum printexport Ordner gehört
                         folder_id = chart_details.get('folderId')
                         if folder_id:
                             folder_response = requests.get(
                                 f"https://api.datawrapper.de/v3/folders/{folder_id}",
-                                headers=headers
+                                headers=self.headers
                             )
                             if folder_response.status_code == 200:
                                 folder_data = folder_response.json()
                                 if folder_data.get('name', '').lower() == 'printexport':
                                     self.stdout.write(f"Chart {chart_id} ist im printexport Ordner, überspringe...")
                                     continue
-
-                        title = chart_details.get('title', 'No title')
+                        # Prüfe, ob die Grafik veröffentlicht wurde
+                        if chart_details.get('publishedAt') is None:
+                            self.stdout.write(f"Chart {chart_id} ist nicht veröffentlicht, überspringe...")
+                            continue
+                        title = chart_details.get('title', '')
                         description = chart_details.get('metadata', {}).get('describe', {}).get('intro', '')
                         notes = chart_details.get('metadata', {}).get('describe', {}).get('notes', '')
                         
@@ -292,15 +295,10 @@ class Command(BaseCommand):
                         published_at_str = chart_details.get('publishedAt')
                         
                         # Stelle sicher, dass iframe_url einen Wert hat
-                        iframe_url = chart_details.get('publicUrl')
-                        if not iframe_url:
-                            self.stderr.write(f'Keine iframe_url für Chart {chart_id} gefunden, überspringe...')
-                            continue
-                            
+                        iframe_url = chart_details.get('publicUrl', '')  # Leerer String als Default
+                        
                         # Stelle sicher, dass embed_js einen Wert hat
                         embed_js = chart_details.get('metadata', {}).get('publish', {}).get('embed', '')
-                        if not embed_js:
-                            embed_js = ''  # Setze einen leeren String als Fallback
                         
                         published_date = None
                         if published_at_str:
@@ -309,28 +307,6 @@ class Command(BaseCommand):
                             except Exception:
                                 pass
 
-                        # Debug-Ausgabe der Custom Fields
-                        self.stdout.write(f"\nGefundene Custom Fields für Chart {chart_id}:")
-                        for field_key, field_value in custom_fields.items():
-                            self.stdout.write(f"  {field_key}: {field_value}")
-
-                        # Thumbnail erstellen
-                        thumbnail_filename = f"thumbnail_{chart_id}.png"
-                        thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbnails')
-                        os.makedirs(thumbnail_dir, exist_ok=True)
-                        thumbnail_path = os.path.join(thumbnail_dir, thumbnail_filename)
-                        
-                        # Exportiere die Grafik als PNG und erstelle ein Thumbnail
-                        export_url = f"https://api.datawrapper.de/v3/charts/{chart_id}/export/png"
-                        try:
-                            export_response = requests.get(export_url, headers=headers)
-                            export_response.raise_for_status()
-                            self.generate_thumbnail(export_response.content, thumbnail_path)
-                            self.stdout.write(f"Thumbnail für Chart {chart_id} erstellt")
-                        except Exception as e:
-                            self.stderr.write(f'Fehler beim Erstellen des Thumbnails für {chart_id}: {e}')
-                            continue
-
                         # Chart in der Datenbank speichern
                         chart_obj = Chart.objects.create(
                             published_date=published_date,
@@ -338,18 +314,38 @@ class Command(BaseCommand):
                             title=title,
                             description=description,
                             notes=notes,
-                            comments=comments_text,  # Füge die gesammelten Kommentare hinzu
-                            iframe_url=iframe_url,
-                            embed_js=embed_js
+                            comments=comments_text,
+                            iframe_url=iframe_url or '',  # Stellt sicher, dass mindestens ein leerer String gesetzt wird
+                            embed_js=embed_js,
+                            evergreen=False  # Setze einen Default-Wert für evergreen
                         )
-                        chart_obj.thumbnail.name = os.path.join('thumbnails', thumbnail_filename)
+
+                        # Thumbnail erstellen nur wenn eine URL vorhanden ist
+                        if iframe_url:
+                            thumbnail_filename = f"thumbnail_{chart_id}.png"
+                            thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbnails')
+                            os.makedirs(thumbnail_dir, exist_ok=True)
+                            thumbnail_path = os.path.join(thumbnail_dir, thumbnail_filename)
+                            
+                            try:
+                                export_url = f"https://api.datawrapper.de/v3/charts/{chart_id}/export/png"
+                                export_response = requests.get(export_url, headers=self.headers)
+                                export_response.raise_for_status()
+                                self.generate_thumbnail(export_response.content, thumbnail_path)
+                                chart_obj.thumbnail.name = os.path.join('thumbnails', thumbnail_filename)
+                            except Exception as e:
+                                self.stderr.write(f'Warnung: Thumbnail konnte nicht erstellt werden für {chart_id}: {e}')
+
                         chart_obj.save()
                         self.stdout.write(f"Saved new chart: {title} (ID: {chart_id})")
+                        
                     except Exception as e:
-                        self.stderr.write(f'Error fetching chart details for {chart_id}: {e}')
+                        self.stderr.write(f'Warnung: Probleme beim Abrufen der Chart-Details für {chart_id}: {e}')
                         continue
-                else:
-                    self.stdout.write(f"Chart {chart_id} exists already. Skipping.")
+                        
+                except Exception as e:
+                    self.stderr.write(f'Fehler bei der Verarbeitung von Chart {chart_id}: {e}')
+                    continue
 
             self.stdout.write('Sleeping for 120 seconds...')
             time.sleep(120)

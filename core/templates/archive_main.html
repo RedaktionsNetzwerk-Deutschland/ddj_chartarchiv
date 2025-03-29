@@ -700,7 +700,6 @@
         loadingSpinner.style.display = 'block';
         
         try {
-          // Beim ersten Laden holen wir die Gesamtanzahl der Grafiken
           const response = await fetch(`/chart_search/?page=${currentTablePage}`);
           const data = await response.json();
           
@@ -710,8 +709,10 @@
             headerText.textContent = `Alle Grafiken (${data.total_count})`;
           }
           
+          // Prüfe, ob es weitere Daten gibt
+          hasMoreCharts = data.has_more;
+          
           if (data.results.length === 0) {
-            hasMoreCharts = false;
             loadingSpinner.style.display = 'none';
             return;
           }
@@ -723,11 +724,11 @@
             
             row.innerHTML = `
               <td>${formatDate(chart.published_date)}</td>
-              <td><img src="${chart.thumbnail}" alt="${chart.title}"></td>
+              <td><img src="${chart.thumbnail}" alt="${chart.title}" loading="lazy"></td>
               <td>${chart.title}</td>
               <td>${chart.chart_id}</td>
               <td>${chart.description || ''}</td>
-              <td>${chart.label || ''}</td>
+              <td>${chart.tags || ''}</td>
             `;
             
             chartsTableBody.appendChild(row);
@@ -735,16 +736,17 @@
             // Verzögertes Einblenden der Zeilen
             setTimeout(() => {
               row.classList.add('visible');
-            }, index * 100); // Staffelung um je 100ms
+            }, index * 50);
           });
 
           currentTablePage++;
           
         } catch (error) {
           console.error('Fehler beim Laden der Daten:', error);
+          hasMoreCharts = false;
         } finally {
           isLoadingTable = false;
-          loadingSpinner.style.display = 'none';
+          loadingSpinner.style.display = hasMoreCharts ? 'block' : 'none';
         }
       }
 
@@ -757,7 +759,7 @@
         });
       }, {
         root: null,
-        rootMargin: '100px', // Lade neue Einträge schon 100px bevor der Spinner sichtbar wird
+        rootMargin: '200px', // Erhöht auf 200px für früheres Laden
         threshold: 0.1
       });
 

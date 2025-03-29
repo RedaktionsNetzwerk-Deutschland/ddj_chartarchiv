@@ -32,7 +32,8 @@ def archive_main(request):
 
 def chart_search(request):
     q = request.GET.get('q', '')
-    data = {'results': [], 'total_count': 0}
+    page = int(request.GET.get('page', 0))
+    items_per_page = 100  # Anzahl der Items pro Seite
     
     if q:
         # Erweiterte Suche über alle relevanten Textfelder
@@ -44,12 +45,14 @@ def chart_search(request):
                 Q(embed_js__icontains=q)
         
         total_count = Chart.objects.filter(query).count()
-        
-        charts = Chart.objects.filter(query).order_by('-published_date')[:100]
+        # Paginierte Ergebnisse
+        charts = Chart.objects.filter(query).order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
     else:
         total_count = Chart.objects.count()
-        charts = Chart.objects.all().order_by('-published_date')[:100]
+        # Paginierte Ergebnisse
+        charts = Chart.objects.all().order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
     
+    results = []
     for chart in charts:
         # Extrahiere Tags aus den Custom Fields
         tags = []
@@ -62,17 +65,21 @@ def chart_search(request):
         except:
             tags = ''
         
-        data['results'].append({
+        results.append({
             'chart_id': chart.chart_id,
             'title': chart.title,
             'description': chart.description,
             'notes': chart.notes,
-            'tags': tags,  # Nur die Tags statt der kompletten Comments
+            'tags': tags,
             'thumbnail': chart.thumbnail.url if chart.thumbnail else '',
             'published_date': chart.published_date.isoformat() if chart.published_date else None
         })
     
-    data['total_count'] = total_count
+    data = {
+        'results': results,
+        'total_count': total_count,
+        'has_more': (page + 1) * items_per_page < total_count
+    }
     return JsonResponse(data)
 
 def chart_detail(request, chart_id):
