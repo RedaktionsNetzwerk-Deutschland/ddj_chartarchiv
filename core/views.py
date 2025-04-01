@@ -11,6 +11,9 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+import datetime
+import io
+from django.contrib import messages
 
 # Create your views here.
 
@@ -415,10 +418,10 @@ def databuddies(request):
 
 @csrf_exempt
 def analyze_data(request):
-    """Analysiert hochgeladene Datendateien oder Chat-Nachrichten mit OpenAI"""
+    """Analysiert hochgeladene Datendateien oder Chat-Nachrichten"""
     try:
-        # Initialisiere OpenAI Client
-        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        # Prüfe, ob OpenAI verwendet werden soll
+        use_openai = os.getenv('OPENAI_API_KEY') is not None and os.getenv('USE_OPENAI', 'False').lower() == 'true'
         
         if request.content_type == 'application/json':
             # Chat-Nachricht verarbeiten
@@ -428,85 +431,159 @@ def analyze_data(request):
             if not user_message:
                 return JsonResponse({'error': 'Keine Nachricht gefunden'}, status=400)
             
-            # Sende Anfrage an OpenAI
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "user", "content": user_message}
-                ]
-            )
+            if use_openai:
+                # Wenn OpenAI verfügbar ist, verwende es
+                client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+                response = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "user", "content": user_message}
+                    ]
+                )
+                response_text = response.choices[0].message.content
+            else:
+                # Einfache Echo-Antwort, wenn OpenAI nicht verfügbar ist
+                response_text = f"Ich habe deine Nachricht erhalten: {user_message}"
             
             return JsonResponse({
                 'success': True,
-                'response': response.choices[0].message.content
+                'response': response_text
             })
             
-        elif 'file' in request.FILES:
+        elif 'file' in request.FILES or 'file' in request.POST:
             # Dateianalyse durchführen
-            file = request.FILES['file']
-            
-            # Lese den Dateiinhalt
-            content = file.read().decode('utf-8', errors='ignore')
+            if 'file' in request.FILES:
+                file = request.FILES['file']
+                file_name = file.name
+                file_type = file.name.split('.')[-1].lower() if '.' in file.name else 'unknown'
+                
+                # Prüfe, ob der Dateityp erlaubt ist
+                allowed_file_types = ['csv', 'xlsx']
+                if file_type not in allowed_file_types:
+                    return JsonResponse({
+                        'error': f'Dateityp nicht unterstützt. Bitte verwende CSV oder XLSX-Dateien.'
+                    }, status=400)
+                
+                # Datei je nach Typ verarbeiten
+                if file_type == 'csv':
+                    # CSV-Datei direkt als Text lesen
+                    content = file.read().decode('utf-8', errors='ignore')
+                elif file_type == 'xlsx':
+                    # Excel-Datei mit pandas lesen
+                    try:
+                        import pandas as pd
+                        import io
+                        
+                        # Excel-Datei in DataFrame einlesen
+                        excel_data = pd.read_excel(file)
+                        
+                        # DataFrame in CSV-String umwandeln
+                        csv_buffer = io.StringIO()
+                        excel_data.to_csv(csv_buffer, index=False)
+                        content = csv_buffer.getvalue()
+                    except Exception as e:
+                        return JsonResponse({
+                            'error': f'Fehler beim Verarbeiten der Excel-Datei: {str(e)}'
+                        }, status=400)
+            else:
+                # Wenn die Daten als Teil des POST-Requests gesendet wurden
+                content = request.POST.get('file', '')
+                file_name = 'pasted_data.csv'
+                file_type = 'csv'  # Annahme, dass eingefügte Daten CSV-Format haben
+                
             if not content.strip():
                 return JsonResponse({'error': 'Die Datei ist leer'}, status=400)
                 
-            # Begrenze den Inhalt auf die ersten 300 Zeilen
+            # Begrenze den Inhalt auf die ersten 300 Zeilen für die Analyse
             lines = content.split('\n')
             limited_content = '\n'.join(lines[:300])
             total_lines = len(lines)
             
-            # Sende Anfrage an OpenAI
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": """Du bist ein Datenanalyst. Bitte untersuche den Datensatz und gib eine kurze Einschätzung ab. 
-                    Verrate mir:
-                    1. Um was für Daten es sich handelt
-                    2. Wie sie aufgebaut sind
-                    3. Was man damit für Grafiken machen könnte
-                    
-                    Gib deine Antwort in folgendem Format:
-                    METADATEN: [Liste der gefundenen Metadaten am Anfang]
-                    DATENANALYSE: [Beschreibung der Daten und ihrer Struktur]
-                    VISUALISIERUNGSVORSCHLÄGE: [Vorschläge für mögliche Grafiken]
-                    FUSSNOTEN: [Liste der gefundenen Fußnoten]
-                    """},
-                    {"role": "user", "content": f"Hier sind die ersten 300 Zeilen des Datensatzes (von insgesamt {total_lines} Zeilen):\n\n{limited_content}"}
+            # Führe eine einfache Analyse durch, wenn OpenAI nicht verfügbar ist
+            if not use_openai:
+                # Bestimme den Datensatztyp basierend auf den ersten Zeilen
+                has_header = True
+                delimiter = ',' if ',' in lines[0] else ('\t' if '\t' in lines[0] else ';')
+                columns = []
+                
+                if lines and delimiter in lines[0]:
+                    columns = lines[0].split(delimiter)
+                
+                # Einfache Analyse erstellen
+                metadata = ["Keine detaillierten Metadaten verfügbar."]
+                
+                data_analysis = [
+                    "Diese Daten scheinen in einem tabellarischen Format vorzuliegen.",
+                    f"Die Datei enthält {total_lines} Zeilen."
                 ]
-            )
-            
-            analysis = response.choices[0].message.content
-            
-            # Extrahiere die verschiedenen Teile aus der Analyse
-            parts = analysis.split('\n')
-            metadata = []
-            data_analysis = []
-            visualization_suggestions = []
-            footnotes = []
-            
-            current_section = None
-            for part in parts:
-                if part.startswith('METADATEN:'):
-                    current_section = 'metadata'
-                    continue
-                elif part.startswith('DATENANALYSE:'):
-                    current_section = 'analysis'
-                    continue
-                elif part.startswith('VISUALISIERUNGSVORSCHLÄGE:'):
-                    current_section = 'visualization'
-                    continue
-                elif part.startswith('FUSSNOTEN:'):
-                    current_section = 'footnotes'
-                    continue
-                    
-                if part.strip() and current_section == 'metadata':
-                    metadata.append(part.strip())
-                elif part.strip() and current_section == 'analysis':
-                    data_analysis.append(part.strip())
-                elif part.strip() and current_section == 'visualization':
-                    visualization_suggestions.append(part.strip())
-                elif part.strip() and current_section == 'footnotes':
-                    footnotes.append(part.strip())
+                
+                if columns:
+                    data_analysis.append(f"Es wurden {len(columns)} Spalten erkannt: {', '.join(columns)}.")
+                
+                visualization_suggestions = [
+                    "Abhängig von den Daten könntest du folgende Visualisierungen erstellen:",
+                    "- Balkendiagramm für kategorische Vergleiche",
+                    "- Liniendiagramm für zeitliche Verläufe",
+                    "- Kreisdiagramm für prozentuale Anteile",
+                    "- Streudiagramm für Korrelationen zwischen zwei Variablen"
+                ]
+                
+                footnotes = ["Hinweis: Diese Analyse wurde automatisch ohne KI-Unterstützung generiert."]
+                
+            else:
+                # OpenAI verwenden, wenn verfügbar
+                client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+                response = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": """Du bist ein Datenanalyst. Bitte untersuche den Datensatz und gib eine kurze Einschätzung ab. 
+                        Verrate mir:
+                        1. Um was für Daten es sich handelt
+                        2. Wie sie aufgebaut sind
+                        3. Was man damit für Grafiken machen könnte
+                        
+                        Gib deine Antwort in folgendem Format:
+                        METADATEN: [Liste der gefundenen Metadaten am Anfang]
+                        DATENANALYSE: [Beschreibung der Daten und ihrer Struktur]
+                        VISUALISIERUNGSVORSCHLÄGE: [Vorschläge für mögliche Grafiken]
+                        FUSSNOTEN: [Liste der gefundenen Fußnoten]
+                        """},
+                        {"role": "user", "content": f"Hier sind die ersten 300 Zeilen des Datensatzes (von insgesamt {total_lines} Zeilen):\n\n{limited_content}"}
+                    ]
+                )
+                
+                analysis = response.choices[0].message.content
+                
+                # Extrahiere die verschiedenen Teile aus der Analyse
+                parts = analysis.split('\n')
+                metadata = []
+                data_analysis = []
+                visualization_suggestions = []
+                footnotes = []
+                
+                current_section = None
+                for part in parts:
+                    if part.startswith('METADATEN:'):
+                        current_section = 'metadata'
+                        continue
+                    elif part.startswith('DATENANALYSE:'):
+                        current_section = 'analysis'
+                        continue
+                    elif part.startswith('VISUALISIERUNGSVORSCHLÄGE:'):
+                        current_section = 'visualization'
+                        continue
+                    elif part.startswith('FUSSNOTEN:'):
+                        current_section = 'footnotes'
+                        continue
+                        
+                    if part.strip() and current_section == 'metadata':
+                        metadata.append(part.strip())
+                    elif part.strip() and current_section == 'analysis':
+                        data_analysis.append(part.strip())
+                    elif part.strip() and current_section == 'visualization':
+                        visualization_suggestions.append(part.strip())
+                    elif part.strip() and current_section == 'footnotes':
+                        footnotes.append(part.strip())
             
             # Erstelle Warnungen basierend auf der Dateigröße
             warnings = []
@@ -526,9 +603,43 @@ def analyze_data(request):
             if visualization_suggestions:
                 complete_analysis += '\n\nVisualisierungsvorschläge:\n' + '\n'.join(visualization_suggestions)
             
+            # Speichere die Daten in der Datenbank
+            from core.models import ChartData
+            
+            # Bestimme den Titel aus der Analyse oder dem Dateinamen
+            data_title = file_name
+            if data_analysis and len(data_analysis) > 0:
+                # Versuche, einen aussagekräftigeren Titel aus der Analyse zu extrahieren
+                first_sentence = data_analysis[0].strip()
+                if len(first_sentence) > 10 and len(first_sentence) < 255:
+                    data_title = first_sentence
+            
+            # Falls OpenAI verwendet wurde, speichere die vollständige Analyse
+            analysis_text = ""
+            if use_openai:
+                analysis_text = analysis
+            else:
+                # Erstelle einen einfachen Analysetext
+                analysis_text = "METADATEN:\n" + "\n".join(metadata) + "\n\nDATENANALYSE:\n" + "\n".join(data_analysis) + "\n\nVISUALISIERUNGSVORSCHLÄGE:\n" + "\n".join(visualization_suggestions) + "\n\nFUSSNOTEN:\n" + "\n".join(footnotes)
+            
+            # Speichere die Daten
+            chart_data = ChartData.objects.create(
+                title=data_title[:255],  # Beschränke auf max 255 Zeichen
+                raw_data=content,
+                analysis=analysis_text,
+                header_metadata='\n'.join(metadata),
+                footer_metadata='\n'.join(footnotes),
+                file_type=file_type,
+                created_by=request.user if request.user.is_authenticated else None
+            )
+            
+            # Speichere die Datensatz-ID für die spätere Verwendung
+            request.session['last_chartdata_id'] = chart_data.id
+            
             return JsonResponse({
                 'success': True,
                 'analysis': complete_analysis,
+                'chartdata_id': chart_data.id,
                 'metadata': {
                     'header': metadata,
                     'footer': footnotes

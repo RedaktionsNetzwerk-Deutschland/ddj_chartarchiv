@@ -130,7 +130,7 @@
           
           <div style="text-align: center;">
             <form id="upload-form" enctype="multipart/form-data">
-              <input type="file" id="file-upload" name="file" accept=".csv,.xls,.xlsx" style="display: none;">
+              <input type="file" id="file-upload" name="file" accept=".csv,.xlsx" style="display: none;">
               <label for="file-upload" style="
                 display: inline-block;
                 padding: 12px 24px;
@@ -143,9 +143,53 @@
               ">
                 Datei auswählen
               </label>
-              <p style="margin-top: 15px; color: #666; font-size: 0.9em;">
-                Unterstützte Formate: CSV, Excel
-              </p>
+              <div style="margin-top: 15px; color: #666; font-size: 0.9em;">
+                <p style="margin-bottom: 8px; font-weight: 500;">
+                  Nur CSV- und Excel-Dateien (.xlsx)
+                </p>
+                <p style="margin-top: 0; color: #888; font-size: 0.85em;">
+                  Bitte stelle sicher, dass deine Daten in einem strukturierten Format vorliegen
+                </p>
+                <div style="
+                  display: flex;
+                  justify-content: center;
+                  gap: 15px;
+                  margin-top: 10px;
+                  font-size: 0.85em;
+                ">
+                  <span style="
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 3px 10px;
+                    background-color: #f0f2f5;
+                    border-radius: 20px;
+                  ">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    CSV
+                  </span>
+                  <span style="
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 3px 10px;
+                    background-color: #e9f7ef;
+                    border-radius: 20px;
+                    color: #27ae60;
+                  ">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <rect x="8" y="12" width="8" height="6"></rect>
+                    </svg>
+                    XLSX
+                  </span>
+                </div>
+              </div>
             </form>
           </div>
         </div>
@@ -161,7 +205,7 @@
         display: none;
       ">
         <h3 style="font-family: 'DINNextLTPro', sans-serif; font-size: 1.4em; color: #333; margin-bottom: 20px;">
-          Datenanalyse
+          Datenverarbeitung
         </h3>
 
         <!-- Chat-Container -->
@@ -171,11 +215,129 @@
           gap: 20px;
           margin-bottom: 30px;
         ">
-          <!-- Erste Analyse von ChatGPT -->
+          <!-- Erfolgsmeldung -->
           <div class="message-container" style="
             display: flex;
             justify-content: flex-start;
             width: 100%;
+          ">
+            <div class="message gpt-message" style="
+              width: 60%;
+              background: #f5f5f5;
+              padding: 20px;
+              border-radius: 8px;
+              font-family: 'Source Serif Pro', serif;
+              line-height: 1.6;
+              color: #333;
+            ">
+              <div id="success-message" style="
+                display: flex;
+                align-items: center;
+                gap: 12px;
+              ">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <span>Daten erfolgreich hochgeladen!</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- App Nachricht mit Buttons -->
+          <div class="message-container" style="
+            display: flex;
+            justify-content: flex-start;
+            width: 100%;
+            margin-top: 15px;
+          ">
+            <div class="message gpt-message" style="
+              width: 60%;
+              background: #f5f5f5;
+              padding: 20px;
+              border-radius: 8px;
+              font-family: 'Source Serif Pro', serif;
+              line-height: 1.6;
+              color: #333;
+            ">
+              <p>Was möchtest du mit diesen Daten tun?</p>
+            </div>
+          </div>
+
+          <!-- Auswahlbuttons (rechts positioniert wie Nutzereingabe) -->
+          <div class="message-container" style="
+            display: flex;
+            justify-content: flex-end;
+            width: 100%;
+            margin-top: 10px;
+          ">
+            <div style="
+              width: 60%;
+              background: #e3f2fd;
+              padding: 20px;
+              border-radius: 8px;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            ">
+              <div style="
+                display: flex;
+                gap: 10px;
+                align-items: center;
+              ">
+                <button onclick="handleUserChoice('analyze')" style="
+                  flex: 1;
+                  padding: 12px 18px;
+                  background-color: #f0f2f5;
+                  color: #333;
+                  border: none;
+                  border-radius: 20px;
+                  font-family: 'DINNextLTPro', sans-serif;
+                  font-weight: 500;
+                  cursor: pointer;
+                  transition: all 0.2s ease;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 8px;
+                ">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+                  Analysiere
+                </button>
+                <button onclick="handleUserChoice('create')" style="
+                  flex: 1;
+                  padding: 12px 18px;
+                  background-color: #4f80ff;
+                  color: white;
+                  border: none;
+                  border-radius: 20px;
+                  font-family: 'DINNextLTPro', sans-serif;
+                  font-weight: 500;
+                  cursor: pointer;
+                  transition: all 0.2s ease;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 8px;
+                ">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Baue Grafik
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Analyse-Ergebnis -->
+          <div id="analysis-result-container" class="message-container" style="
+            display: none;
+            justify-content: flex-start;
+            width: 100%;
+            margin-top: 20px;
           ">
             <div class="message gpt-message" style="
               width: 60%;
@@ -194,11 +356,11 @@
 
         <!-- Eingabefeld für Nutzerantwort -->
         <div class="user-input-container" style="
-          display: flex;
+          display: none;
           justify-content: flex-end;
           width: 100%;
           margin-top: 20px;
-        ">
+        " id="free-text-container">
           <div style="width: 60%;">
             <textarea id="user-input" style="
               width: 100%;
@@ -225,93 +387,97 @@
           </div>
         </div>
 
-        <!-- Warnungen -->
-        <div id="warnings-container" style="margin-top: 30px;">
-          <!-- Info-Warnungen -->
-          <div id="info-warnings" style="
-            margin-bottom: 10px;
-            padding: 10px 15px;
-            background: #e3f2fd;
-            border-radius: 4px;
-            border-left: 4px solid #2196f3;
-            display: none;
-          ">
-            <div id="info-warnings-content" style="
-              color: #1565c0;
-              font-family: 'DINNextLTPro', sans-serif;
-              font-size: 0.9em;
-            "></div>
+        <!-- Analyse-Bereich (versteckt bis "Analysieren" ausgewählt wird) -->
+        <div id="analysis-details-container" style="display: none;">
+          <!-- Warnungen -->
+          <div id="warnings-container" style="margin-top: 30px;">
+            <!-- Info-Warnungen -->
+            <div id="info-warnings" style="
+              margin-bottom: 10px;
+              padding: 10px 15px;
+              background: #e3f2fd;
+              border-radius: 4px;
+              border-left: 4px solid #2196f3;
+              display: none;
+            ">
+              <div id="info-warnings-content" style="
+                color: #1565c0;
+                font-family: 'DINNextLTPro', sans-serif;
+                font-size: 0.9em;
+              "></div>
+            </div>
+
+            <!-- Wichtige Warnungen -->
+            <div id="important-warnings" style="
+              margin-bottom: 10px;
+              padding: 10px 15px;
+              background: #fff3e0;
+              border-radius: 4px;
+              border-left: 4px solid #ff9800;
+              display: none;
+            ">
+              <div id="important-warnings-content" style="
+                color: #e65100;
+                font-family: 'DINNextLTPro', sans-serif;
+                font-size: 0.9em;
+              "></div>
+            </div>
           </div>
 
-          <!-- Wichtige Warnungen -->
-          <div id="important-warnings" style="
-            margin-bottom: 10px;
-            padding: 10px 15px;
-            background: #fff3e0;
-            border-radius: 4px;
-            border-left: 4px solid #ff9800;
-            display: none;
-          ">
-            <div id="important-warnings-content" style="
-              color: #e65100;
-              font-family: 'DINNextLTPro', sans-serif;
-              font-size: 0.9em;
-            "></div>
-          </div>
-        </div>
+          <!-- Metadaten-Bereich -->
+          <div id="metadata-container" style="margin-top: 30px;">
+            <!-- Header Metadaten -->
+            <div id="header-metadata" style="
+              margin-bottom: 20px;
+              padding: 15px;
+              background: #f8f9fa;
+              border-radius: 4px;
+              display: none;
+            ">
+              <h4 style="font-family: 'DINNextLTPro', sans-serif; font-size: 1.1em; color: #666; margin-bottom: 10px;">
+                Gefundene Metadaten am Dateianfang:
+              </h4>
+              <div id="header-metadata-content" style="
+                font-family: monospace;
+                font-size: 0.9em;
+                color: #666;
+                white-space: pre-wrap;
+              "></div>
+            </div>
 
-        <!-- Metadaten-Bereich -->
-        <div id="metadata-container" style="margin-top: 30px;">
-          <!-- Header Metadaten -->
-          <div id="header-metadata" style="
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            display: none;
-          ">
-            <h4 style="font-family: 'DINNextLTPro', sans-serif; font-size: 1.1em; color: #666; margin-bottom: 10px;">
-              Gefundene Metadaten am Dateianfang:
+            <!-- Footer Metadaten -->
+            <div id="footer-metadata" style="
+              margin-bottom: 20px;
+              padding: 15px;
+              background: #f8f9fa;
+              border-radius: 4px;
+              display: none;
+            ">
+              <h4 style="font-family: 'DINNextLTPro', sans-serif; font-size: 1.1em; color: #666; margin-bottom: 10px;">
+                Gefundene Fußnoten:
+              </h4>
+              <div id="footer-metadata-content" style="
+                font-family: monospace;
+                font-size: 0.9em;
+                color: #666;
+                white-space: pre-wrap;
+              "></div>
+            </div>
+          </div>
+
+          <!-- Vorschau-Bereich -->
+          <div id="preview-container" style="margin-top: 30px;">
+            <h4 style="font-family: 'DINNextLTPro', sans-serif; font-size: 1.2em; color: #333; margin-bottom: 15px;">
+              Vorschau der Daten
             </h4>
-            <div id="header-metadata-content" style="
+            <div id="preview-content" style="
+              overflow-x: auto;
               font-family: monospace;
-              font-size: 0.9em;
-              color: #666;
-              white-space: pre-wrap;
-            "></div>
-          </div>
-
-          <!-- Footer Metadaten -->
-          <div id="footer-metadata" style="
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            display: none;
-          ">
-            <h4 style="font-family: 'DINNextLTPro', sans-serif; font-size: 1.1em; color: #666; margin-bottom: 10px;">
-              Gefundene Fußnoten:
-            </h4>
-            <div id="footer-metadata-content" style="
-              font-family: monospace;
-              font-size: 0.9em;
-              color: #666;
-              white-space: pre-wrap;
+              font-size: 14px;
             "></div>
           </div>
         </div>
 
-        <!-- Vorschau-Bereich -->
-        <div id="preview-container" style="margin-top: 30px;">
-          <h4 style="font-family: 'DINNextLTPro', sans-serif; font-size: 1.2em; color: #333; margin-bottom: 15px;">
-            Vorschau der Daten
-          </h4>
-          <div id="preview-content" style="
-            overflow-x: auto;
-            font-family: monospace;
-            font-size: 14px;
-          "></div>
-        </div>
       </div>
 
     </div>
@@ -373,6 +539,20 @@
         }
     });
 
+    // Funktion zum Scrollen zum Analyse-Container
+    function scrollToAnalysisContainer() {
+      // Hole den Analyse-Container
+      const analysisContainer = document.getElementById('analysis-container');
+      
+      // Scrolle mit Animation zum Container
+      setTimeout(() => {
+        analysisContainer.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100);
+    }
+
     // Funktion zum Hinzufügen einer neuen Nachricht zum Chat
     function addMessageToChat(content, isGPT = true) {
       const chatContainer = document.getElementById('chat-container');
@@ -401,6 +581,246 @@
       messageContent.textContent = content;
       messageDiv.appendChild(messageContent);
       chatContainer.appendChild(messageDiv);
+      
+      // Intelligentes Scrollen zu neuen Nachrichten
+      // Nur scrollen, wenn der Nutzer nicht aktiv nach oben gescrollt hat
+      if (shouldAutoScroll()) {
+        setTimeout(() => {
+          messageDiv.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'end' 
+          });
+        }, 100);
+      }
+    }
+
+    // Variablen für intelligentes Scroll-Tracking
+    let userHasScrolled = false;
+    let lastScrollTop = 0;
+    
+    // Event-Listener für Scroll-Erkennung
+    window.addEventListener('scroll', function() {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      
+      // Prüfe, ob der Nutzer manuell nach oben scrollt
+      if (scrollTop < lastScrollTop) {
+        userHasScrolled = true;
+      }
+      
+      // Wenn der Nutzer bis fast zum Ende der Seite gescrollt hat, aktiviere Auto-Scroll wieder
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = document.documentElement.clientHeight;
+      
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        userHasScrolled = false;
+      }
+      
+      lastScrollTop = scrollTop;
+    }, false);
+    
+    // Funktion, die entscheidet, ob auto-gescrollt werden soll
+    function shouldAutoScroll() {
+      return !userHasScrolled;
+    }
+
+    // Hinzufügen der neuen Funktion zum Behandeln der Benutzerauswahl
+    function handleUserChoice(choice) {
+      if (choice === 'analyze') {
+        // Zeige die Analyse erst jetzt an
+        const analysisResultContainer = document.getElementById('analysis-result-container');
+        analysisResultContainer.style.display = 'flex';
+        
+        // Zeige auch den Analysedetails-Container an
+        document.getElementById('analysis-details-container').style.display = 'block';
+        
+        if (window.analysisData && window.analysisData.analysis) {
+          // Nur grundsätzliche Daten anzeigen, ohne Visualisierungsvorschläge
+          let analysisText = window.analysisData.analysis;
+          
+          // Entferne Visualisierungsvorschläge
+          const visualizationIndex = analysisText.indexOf("\n\nVisualisierungsvorschläge:");
+          if (visualizationIndex !== -1) {
+            analysisText = analysisText.substring(0, visualizationIndex);
+          }
+          
+          // Füge Frage zur Tiefenanalyse hinzu
+          analysisText += "\n\nMöchtest du in die Tiefenanalyse einsteigen?";
+          
+          document.getElementById('analysis-content').textContent = analysisText;
+        }
+        
+        // Zeige die drei Auswahlbuttons nach der Analyse an
+        setTimeout(() => {
+          addAnalysisOptions();
+        }, 200);
+      } else {
+        // Für Grafik-Erstellung
+        setTimeout(() => {
+          const message = 'Super! Lass uns eine Datawrapper-Grafik erstellen. Welche Art von Grafik schwebt dir vor?';
+          addMessageToChat(message, true);
+          
+          // Zeige das freie Texteingabefeld an
+          document.getElementById('free-text-container').style.display = 'flex';
+          
+          // Scroll zum Eingabefeld
+          scrollToInputField();
+        }, 700);
+      }
+      
+      // Speichere die Auswahl für spätere Verwendung
+      if (!document.getElementById('user-choice')) {
+        const hiddenField = document.createElement('input');
+        hiddenField.type = 'hidden';
+        hiddenField.id = 'user-choice';
+        document.body.appendChild(hiddenField);
+      }
+      document.getElementById('user-choice').value = choice;
+    }
+    
+    // Funktion zum Hinzufügen der drei Auswahlbuttons nach der Analyse
+    function addAnalysisOptions() {
+      const chatContainer = document.getElementById('chat-container');
+      
+      // Erstelle Container für die Optionen
+      const optionsContainer = document.createElement('div');
+      optionsContainer.className = 'message-container';
+      optionsContainer.style.display = 'flex';
+      optionsContainer.style.justifyContent = 'flex-end';
+      optionsContainer.style.width = '100%';
+      optionsContainer.style.marginTop = '20px';
+      
+      // Erstelle Button-Container
+      const buttonsContainer = document.createElement('div');
+      buttonsContainer.style.width = '60%';
+      buttonsContainer.style.background = '#e3f2fd';
+      buttonsContainer.style.padding = '20px';
+      buttonsContainer.style.borderRadius = '8px';
+      buttonsContainer.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+      
+      // Erstelle Buttons
+      const buttonStyles = {
+        base: `
+          padding: 12px 18px;
+          border: none;
+          border-radius: 20px;
+          font-family: 'DINNextLTPro', sans-serif;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-bottom: 10px;
+          width: 100%;
+        `,
+        primary: `
+          background-color: #4f80ff;
+          color: white;
+        `,
+        secondary: `
+          background-color: #f0f2f5;
+          color: #333;
+        `,
+        warning: `
+          background-color: #f5f5f5;
+          color: #666;
+        `
+      };
+      
+      // Button 1: Weiter analysieren
+      const analyzeButton = document.createElement('button');
+      analyzeButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="12" x2="2" y2="12"></line>
+          <polyline points="15 5 22 12 15 19"></polyline>
+        </svg>
+        Ja, weiter analysieren
+      `;
+      analyzeButton.style.cssText = buttonStyles.base + buttonStyles.primary;
+      analyzeButton.onclick = () => deepAnalyzeData();
+      
+      // Button 2: Grafik bauen
+      const chartButton = document.createElement('button');
+      chartButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="3" y1="9" x2="21" y2="9"></line>
+          <line x1="9" y1="21" x2="9" y2="9"></line>
+        </svg>
+        Grafik bauen
+      `;
+      chartButton.style.cssText = buttonStyles.base + buttonStyles.secondary;
+      chartButton.onclick = () => handleUserChoice('create');
+      
+      // Button 3: Neuen Datensatz hochladen
+      const resetButton = document.createElement('button');
+      resetButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 2v6h6"></path>
+          <path d="M3 13a9 9 0 1 0 3-7.7L3 8"></path>
+        </svg>
+        Neuen Datensatz hochladen
+      `;
+      resetButton.style.cssText = buttonStyles.base + buttonStyles.warning;
+      resetButton.onclick = () => window.location.reload();
+      
+      // Füge Buttons zum Container hinzu
+      buttonsContainer.appendChild(analyzeButton);
+      buttonsContainer.appendChild(chartButton);
+      buttonsContainer.appendChild(resetButton);
+      
+      // Füge Button-Container zum Options-Container hinzu
+      optionsContainer.appendChild(buttonsContainer);
+      
+      // Füge Options-Container zum Chat-Container hinzu
+      chatContainer.appendChild(optionsContainer);
+      
+      // Scrolle zu den Optionen
+      setTimeout(() => {
+        optionsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+    
+    // Funktion zum Starten der Tiefenanalyse
+    async function deepAnalyzeData() {
+      try {
+        // Zeige Spinner
+        document.getElementById('spinner').style.display = 'flex';
+        
+        // Zeige das freie Texteingabefeld an
+        document.getElementById('free-text-container').style.display = 'flex';
+        
+        // Sende Anfrage an ChatGPT
+        const response = await fetch('/analyze-data/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            message: "Bitte schau dir diesen Datensatz an und erstelle mir eine erste Detailanalyse.",
+            chartdata_id: document.getElementById('chartdata-id')?.value
+          })
+        });
+
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Füge die ChatGPT-Antwort zum Chat hinzu
+        addMessageToChat(data.response, true);
+        
+        // Scroll zum Eingabefeld nach der Antwort
+        scrollToInputField();
+
+      } catch (error) {
+        alert('Fehler bei der Kommunikation mit ChatGPT: ' + error.message);
+      } finally {
+        // Verstecke Spinner
+        document.getElementById('spinner').style.display = 'none';
+      }
     }
 
     // Funktion zum Senden einer Nachricht an ChatGPT
@@ -438,12 +858,36 @@
 
         // Füge die ChatGPT-Antwort zum Chat hinzu
         addMessageToChat(data.response, true);
+        
+        // Scroll zum Eingabefeld nach der Antwort
+        scrollToInputField();
 
       } catch (error) {
         alert('Fehler bei der Kommunikation mit ChatGPT: ' + error.message);
       } finally {
         // Verstecke Spinner
         document.getElementById('spinner').style.display = 'none';
+      }
+    }
+
+    // Funktion zum Scrollen zum Eingabefeld
+    function scrollToInputField() {
+      // Stellt sicher, dass das Eingabefeld und sein Container sichtbar sind
+      const inputContainer = document.getElementById('free-text-container');
+      const userInput = document.getElementById('user-input');
+      
+      if (inputContainer.style.display === 'flex') {
+        // Verzögerung, um sicherzustellen, dass das DOM aktualisiert wurde
+        setTimeout(() => {
+          // Scroll zum Eingabefeld
+          userInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Fokus auf das Eingabefeld setzen für sofortige Texteingabe
+          userInput.focus();
+          
+          // Setze userHasScrolled zurück, damit auto-scrolling weiterhin funktioniert
+          userHasScrolled = false;
+        }, 200);
       }
     }
 
@@ -474,11 +918,33 @@
         const analysisContainer = document.getElementById('analysis-container');
         analysisContainer.style.display = 'block';
         
-        // Füge die erste Analyse als GPT-Nachricht hinzu
-        document.getElementById('analysis-content').textContent = data.analysis;
+        // Speichere die Analyse-Daten global für späteren Zugriff
+        window.analysisData = data;
+        
+        // Verarbeite Warnungen
+        processWarnings(data.warnings);
+        
+        // Verarbeite Metadaten
+        processMetadata(data.metadata);
+        
+        // Zeige Datenvorschau
+        showDataPreview(textContent);
 
-        // Verarbeite Warnungen und Metadaten wie bisher
-        // ... Rest des Codes bleibt unverändert ...
+        // Speichere die chartdata_id für spätere Verwendung
+        if (data.chartdata_id) {
+          // Speichere die ID in einem versteckten Feld
+          if (!document.getElementById('chartdata-id')) {
+            const hiddenField = document.createElement('input');
+            hiddenField.type = 'hidden';
+            hiddenField.id = 'chartdata-id';
+            document.body.appendChild(hiddenField);
+          }
+          document.getElementById('chartdata-id').value = data.chartdata_id;
+          console.log('ChartData ID gespeichert:', data.chartdata_id);
+        }
+
+        // Scrolle zum Analyse-Container mit Animation
+        scrollToAnalysisContainer();
 
       } catch (error) {
         alert('Fehler beim Analysieren der Daten: ' + error.message);
@@ -511,18 +977,108 @@
         const analysisContainer = document.getElementById('analysis-container');
         analysisContainer.style.display = 'block';
         
-        // Füge die erste Analyse als GPT-Nachricht hinzu
-        document.getElementById('analysis-content').textContent = data.analysis;
+        // Speichere die Analyse-Daten global für späteren Zugriff
+        window.analysisData = data;
+        
+        // Verarbeite Warnungen
+        processWarnings(data.warnings);
+        
+        // Verarbeite Metadaten
+        processMetadata(data.metadata);
+        
+        // Lese die Datei für die Vorschau
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          showDataPreview(e.target.result);
+        };
+        reader.readAsText(file);
+        
+        // Speichere die chartdata_id für spätere Verwendung
+        if (data.chartdata_id) {
+          // Speichere die ID in einem versteckten Feld
+          if (!document.getElementById('chartdata-id')) {
+            const hiddenField = document.createElement('input');
+            hiddenField.type = 'hidden';
+            hiddenField.id = 'chartdata-id';
+            document.body.appendChild(hiddenField);
+          }
+          document.getElementById('chartdata-id').value = data.chartdata_id;
+          console.log('ChartData ID gespeichert:', data.chartdata_id);
+        }
 
-        // Verarbeite Warnungen und Metadaten wie bisher
-        // ... Rest des Codes bleibt unverändert ...
+        // Scrolle zum Analyse-Container mit Animation
+        scrollToAnalysisContainer();
 
       } catch (error) {
         alert('Fehler beim Analysieren der Datei: ' + error.message);
       } finally {
-        // Verstecke Spinner
         document.getElementById('spinner').style.display = 'none';
       }
+    }
+
+    // Hilfsfunktion zum Verarbeiten der Warnungen
+    function processWarnings(warnings = []) {
+      const infoWarningsContainer = document.getElementById('info-warnings');
+      const importantWarningsContainer = document.getElementById('important-warnings');
+      const infoContent = document.getElementById('info-warnings-content');
+      const importantContent = document.getElementById('important-warnings-content');
+      
+      infoContent.innerHTML = '';
+      importantContent.innerHTML = '';
+      infoWarningsContainer.style.display = 'none';
+      importantWarningsContainer.style.display = 'none';
+      
+      warnings.forEach(warning => {
+        if (warning.type === 'info') {
+          infoContent.innerHTML += `<p>${warning.message}</p>`;
+          infoWarningsContainer.style.display = 'block';
+        } else if (warning.type === 'warning') {
+          importantContent.innerHTML += `<p>${warning.message}</p>`;
+          importantWarningsContainer.style.display = 'block';
+        }
+      });
+    }
+
+    // Hilfsfunktion zum Verarbeiten der Metadaten
+    function processMetadata(metadata = {}) {
+      const headerMetadataContainer = document.getElementById('header-metadata');
+      const footerMetadataContainer = document.getElementById('footer-metadata');
+      const headerContent = document.getElementById('header-metadata-content');
+      const footerContent = document.getElementById('footer-metadata-content');
+      
+      if (metadata.header && metadata.header.length > 0) {
+        headerContent.textContent = metadata.header.join('\n');
+        headerMetadataContainer.style.display = 'block';
+      } else {
+        headerMetadataContainer.style.display = 'none';
+      }
+      
+      if (metadata.footer && metadata.footer.length > 0) {
+        footerContent.textContent = metadata.footer.join('\n');
+        footerMetadataContainer.style.display = 'block';
+      } else {
+        footerMetadataContainer.style.display = 'none';
+      }
+    }
+
+    // Hilfsfunktion zum Anzeigen der Datenvorschau
+    function showDataPreview(content) {
+      const previewContainer = document.getElementById('preview-content');
+      
+      // Beschränke die Vorschau auf 15 Zeilen
+      const lines = content.split('\n');
+      let preview = '';
+      
+      const previewLines = Math.min(15, lines.length);
+      for (let i = 0; i < previewLines; i++) {
+        preview += `<div style="padding: 3px 0;">${lines[i]}</div>`;
+      }
+      
+      if (lines.length > 15) {
+        preview += `<div style="padding: 5px 0; color: #888;">... und ${lines.length - 15} weitere Zeilen</div>`;
+      }
+      
+      previewContainer.innerHTML = preview;
     }
   </script>
 {% endblock %} 
