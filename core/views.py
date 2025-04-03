@@ -38,6 +38,8 @@ def chart_search(request):
     page = int(request.GET.get('page', 0))
     items_per_page = 100  # Anzahl der Items pro Seite
     
+    print(f"Debug: Suche nach '{q}' auf Seite {page}")
+    
     if q:
         # Erweiterte Suche über alle relevanten Textfelder
         query = Q(chart_id__icontains=q) | \
@@ -48,12 +50,16 @@ def chart_search(request):
                 Q(embed_js__icontains=q)
         
         total_count = Chart.objects.filter(query).count()
+        print(f"Debug: Gefundene Ergebnisse bei Suche: {total_count}")
         # Paginierte Ergebnisse
         charts = Chart.objects.filter(query).order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
     else:
         total_count = Chart.objects.count()
+        print(f"Debug: Gesamtanzahl aller Charts: {total_count}")
         # Paginierte Ergebnisse
         charts = Chart.objects.all().order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
+    
+    print(f"Debug: Anzahl der Charts in dieser Seite: {len(charts)}")
     
     results = []
     for chart in charts:
@@ -83,6 +89,7 @@ def chart_search(request):
         'total_count': total_count,
         'has_more': (page + 1) * items_per_page < total_count
     }
+    print(f"Debug: Sende {len(results)} Ergebnisse zurück")
     return JsonResponse(data)
 
 def chart_detail(request, chart_id):
@@ -110,10 +117,16 @@ def chart_print(request, chart_id):
         response.raise_for_status()
         chart_data = response.json()
         
+        # Debug-Ausgabe für die Grafik-Metadaten
+        print(f"DEBUG CHART {chart_id} TYPE: {chart_data.get('type', 'unknown')}")
+        
         # Extrahiere die Farbcodes aus den Metadaten
         colors = []
         metadata = chart_data.get('metadata', {})
         visualize = metadata.get('visualize', {})
+        
+        # Debug-Ausgabe für die visualize-Sektion
+        print(f"DEBUG VISUALIZE STRUCTURE: {json.dumps(visualize, indent=2)}")
         
         # 1. Prüfe auf Pie-Chart spezifische Farben
         if visualize.get('type') == 'pie-chart':
@@ -150,6 +163,13 @@ def chart_print(request, chart_id):
                 if isinstance(col_data, dict) and 'color' in col_data:
                     colors.append((col_name, col_data['color']))
         
+        # 6. Für Liniengrafiken: Prüfe auf Linienfarben in series
+        series = visualize.get('series', {})
+        if series:
+            for series_name, series_data in series.items():
+                if isinstance(series_data, dict) and 'color' in series_data:
+                    colors.append((series_name, series_data['color']))
+        
         # Hole die Dimensionen der Grafik
         dimensions = metadata.get('publish', {}).get('chart-dimensions', {})
         pixels_per_mm = 96 / 25.4  # 96 DPI zu mm Umrechnung
@@ -157,6 +177,9 @@ def chart_print(request, chart_id):
         height_px = dimensions.get('height', 400)
         width_mm = round(width_px / pixels_per_mm)
         height_mm = round(height_px / pixels_per_mm)
+        
+        # Debug-Ausgabe für die gefundenen Farben
+        print(f"DEBUG FOUND COLORS: {colors}")
             
     except Exception as e:
         # Fehlermeldung beibehalten
@@ -314,19 +337,28 @@ def duplicate_and_export_chart(request, chart_id):
                 properties_to_update['metadata']['publish'] = {}
                 
             # Konvertiere mm in Pixel für die Grafik-Dimensionen
-            width_px = round(float(width_mm) * pixels_per_mm) if width_mm else 600
-            
-            # Behandle "auto" für die Höhe
-            if height_mm == 'auto':
-                height_px = 'auto'
-            else:
-                height_px = round(float(height_mm) * pixels_per_mm) if height_mm else 400
-            
-            properties_to_update['metadata']['publish']['chart-dimensions'] = {
-                'width': width_px,
-                'height': height_px
-            }
-            
+            try:
+                width_px = round(float(width_mm) * pixels_per_mm) if width_mm else 600
+                
+                # Behandle "auto" für die Höhe
+                if height_mm == 'auto':
+                    height_px = 'auto'
+                else:
+                    height_px = round(float(height_mm) * pixels_per_mm) if height_mm else 400
+                
+                properties_to_update['metadata']['publish']['chart-dimensions'] = {
+                    'width': width_px,
+                    'height': height_px
+                }
+            except (ValueError, TypeError) as e:
+                print(f"Fehler bei der Konvertierung der Dimensionen: {e}")
+                print(f"width_mm: {width_mm}, height_mm: {height_mm}")
+                # Verwende Standardwerte bei Fehlern
+                properties_to_update['metadata']['publish']['chart-dimensions'] = {
+                    'width': 600,
+                    'height': 400
+                }
+        
         # Farben aktualisieren
         if data.get('colors'):
             try:
@@ -377,15 +409,21 @@ def duplicate_and_export_chart(request, chart_id):
         }
         
         # Füge Dimensionen in mm hinzu
-        if width_mm:
-            export_params['width'] = width_mm
-        if height_mm:
-            if height_mm == 'auto':
-                export_params['height'] = 'auto'  # Als String übergeben
+        try:
+            if width_mm:
+                export_params['width'] = width_mm
+            if height_mm:
+                if height_mm == 'auto':
+                    export_params['height'] = 'auto'  # Als String übergeben
+                else:
+                    export_params['height'] = height_mm
             else:
-                export_params['height'] = height_mm
-        else:
-            export_params['height'] = 'auto'  # Standardmäßig auf "auto" setzen
+                export_params['height'] = 'auto'  # Standardmäßig auf "auto" setzen
+        except Exception as e:
+            print(f"Fehler beim Setzen der Export-Parameter: {e}")
+            # Standardwerte für den Export verwenden
+            export_params['width'] = '210'  # A4 Breite
+            export_params['height'] = 'auto'
             
         export_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}/export/pdf"
         
@@ -427,23 +465,73 @@ def analyze_data(request):
             # Chat-Nachricht verarbeiten
             data = json.loads(request.body)
             user_message = data.get('message')
+            chartdata_id = data.get('chartdata_id')
+            include_data = data.get('include_data', False)
             
             if not user_message:
                 return JsonResponse({'error': 'Keine Nachricht gefunden'}, status=400)
             
-            if use_openai:
-                # Wenn OpenAI verfügbar ist, verwende es
-                client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-                response = client.chat.completions.create(
-                    model="gpt-4",
-                    messages=[
-                        {"role": "user", "content": user_message}
-                    ]
-                )
-                response_text = response.choices[0].message.content
+            # Wenn Datensatz-ID und include_data gesetzt sind, lade den Datensatz
+            if use_openai and chartdata_id and include_data:
+                try:
+                    from core.models import ChartData
+                    
+                    # Lade den Datensatz aus der Datenbank
+                    chart_data = ChartData.objects.get(id=chartdata_id)
+                    
+                    # Extrahiere die rohen Daten
+                    raw_data = chart_data.raw_data
+                    
+                    # Begrenze auf die ersten 300 Zeilen für die Analyse
+                    lines = raw_data.split('\n')
+                    limited_content = '\n'.join(lines[:300])
+                    total_lines = len(lines)
+                    
+                    # Ergänze den Prompt mit den Daten für ChatGPT
+                    enhanced_message = f"{user_message}\n\nHier sind die ersten 300 Zeilen des Datensatzes (von insgesamt {total_lines} Zeilen):\n\n{limited_content}"
+                    
+                    # Erstelle den client und sende die Anfrage
+                    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+                    response = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[
+                            {"role": "user", "content": enhanced_message}
+                        ]
+                    )
+                    response_text = response.choices[0].message.content
+                    
+                    # Debug-Ausgabe
+                    print(f"Datensatz gefunden und an ChatGPT gesendet (ID: {chartdata_id}, {total_lines} Zeilen)")
+                    
+                except ChartData.DoesNotExist:
+                    return JsonResponse({'error': f'Datensatz mit ID {chartdata_id} nicht gefunden'}, status=404)
+                except Exception as e:
+                    print(f"Fehler beim Verarbeiten des Datensatzes: {str(e)}")
+                    # Fallback zur normalen Verarbeitung
+                    if use_openai:
+                        client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+                        response = client.chat.completions.create(
+                            model="gpt-4o",
+                            messages=[
+                                {"role": "user", "content": user_message}
+                            ]
+                        )
+                        response_text = response.choices[0].message.content
+                    else:
+                        response_text = f"Ich habe deine Nachricht erhalten: {user_message}"
             else:
-                # Einfache Echo-Antwort, wenn OpenAI nicht verfügbar ist
-                response_text = f"Ich habe deine Nachricht erhalten: {user_message}"
+                # Standard-Verarbeitung ohne Datensatz
+                if use_openai:
+                    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+                    response = client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[
+                            {"role": "user", "content": user_message}
+                        ]
+                    )
+                    response_text = response.choices[0].message.content
+                else:
+                    response_text = f"Ich habe deine Nachricht erhalten: {user_message}"
             
             return JsonResponse({
                 'success': True,
@@ -499,92 +587,38 @@ def analyze_data(request):
             limited_content = '\n'.join(lines[:300])
             total_lines = len(lines)
             
-            # Führe eine einfache Analyse durch, wenn OpenAI nicht verfügbar ist
-            if not use_openai:
-                # Bestimme den Datensatztyp basierend auf den ersten Zeilen
-                has_header = True
-                delimiter = ',' if ',' in lines[0] else ('\t' if '\t' in lines[0] else ';')
-                columns = []
-                
-                if lines and delimiter in lines[0]:
-                    columns = lines[0].split(delimiter)
-                
-                # Einfache Analyse erstellen
-                metadata = ["Keine detaillierten Metadaten verfügbar."]
-                
-                data_analysis = [
-                    "Diese Daten scheinen in einem tabellarischen Format vorzuliegen.",
-                    f"Die Datei enthält {total_lines} Zeilen."
-                ]
-                
-                if columns:
-                    data_analysis.append(f"Es wurden {len(columns)} Spalten erkannt: {', '.join(columns)}.")
-                
-                visualization_suggestions = [
-                    "Abhängig von den Daten könntest du folgende Visualisierungen erstellen:",
-                    "- Balkendiagramm für kategorische Vergleiche",
-                    "- Liniendiagramm für zeitliche Verläufe",
-                    "- Kreisdiagramm für prozentuale Anteile",
-                    "- Streudiagramm für Korrelationen zwischen zwei Variablen"
-                ]
-                
-                footnotes = ["Hinweis: Diese Analyse wurde automatisch ohne KI-Unterstützung generiert."]
-                
-            else:
-                # OpenAI verwenden, wenn verfügbar
-                client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-                response = client.chat.completions.create(
-                    model="gpt-4",
-                    messages=[
-                        {"role": "system", "content": """Du bist ein Datenanalyst. Bitte untersuche den Datensatz und gib eine kurze Einschätzung ab. 
-                        Verrate mir:
-                        1. Um was für Daten es sich handelt
-                        2. Wie sie aufgebaut sind
-                        3. Was man damit für Grafiken machen könnte
-                        
-                        Gib deine Antwort in folgendem Format:
-                        METADATEN: [Liste der gefundenen Metadaten am Anfang]
-                        DATENANALYSE: [Beschreibung der Daten und ihrer Struktur]
-                        VISUALISIERUNGSVORSCHLÄGE: [Vorschläge für mögliche Grafiken]
-                        FUSSNOTEN: [Liste der gefundenen Fußnoten]
-                        """},
-                        {"role": "user", "content": f"Hier sind die ersten 300 Zeilen des Datensatzes (von insgesamt {total_lines} Zeilen):\n\n{limited_content}"}
-                    ]
-                )
-                
-                analysis = response.choices[0].message.content
-                
-                # Extrahiere die verschiedenen Teile aus der Analyse
-                parts = analysis.split('\n')
-                metadata = []
-                data_analysis = []
-                visualization_suggestions = []
-                footnotes = []
-                
-                current_section = None
-                for part in parts:
-                    if part.startswith('METADATEN:'):
-                        current_section = 'metadata'
-                        continue
-                    elif part.startswith('DATENANALYSE:'):
-                        current_section = 'analysis'
-                        continue
-                    elif part.startswith('VISUALISIERUNGSVORSCHLÄGE:'):
-                        current_section = 'visualization'
-                        continue
-                    elif part.startswith('FUSSNOTEN:'):
-                        current_section = 'footnotes'
-                        continue
-                        
-                    if part.strip() and current_section == 'metadata':
-                        metadata.append(part.strip())
-                    elif part.strip() and current_section == 'analysis':
-                        data_analysis.append(part.strip())
-                    elif part.strip() and current_section == 'visualization':
-                        visualization_suggestions.append(part.strip())
-                    elif part.strip() and current_section == 'footnotes':
-                        footnotes.append(part.strip())
+            # WICHTIG: Beim ersten Hochladen immer die einfache Analyse verwenden,
+            # OpenAI erst bei explizitem Aufruf von deepAnalyzeData verwenden
             
+            # Bestimme den Datensatztyp basierend auf den ersten Zeilen
+            has_header = True
+            delimiter = ',' if ',' in lines[0] else ('\t' if '\t' in lines[0] else ';')
+            columns = []
+            
+            if lines and delimiter in lines[0]:
+                columns = lines[0].split(delimiter)
+            
+            # Einfache Analyse erstellen
+            metadata = ["Keine detaillierten Metadaten verfügbar."]
+            
+            data_analysis = [
+                "Diese Daten scheinen in einem tabellarischen Format vorzuliegen.",
+                f"Die Datei enthält {total_lines} Zeilen."
+            ]
+            
+            if columns:
+                data_analysis.append(f"Es wurden {len(columns)} Spalten erkannt: {', '.join(columns)}.")
+            
+            visualization_suggestions = [
+                "Abhängig von den Daten könntest du folgende Visualisierungen erstellen:",
+                "- Balkendiagramm für kategorische Vergleiche",
+                "- Liniendiagramm für zeitliche Verläufe",
+                "- Kreisdiagramm für prozentuale Anteile",
+                "- Streudiagramm für Korrelationen zwischen zwei Variablen"
+            ]
+            
+            footnotes = ["Hinweis: Diese Analyse wurde automatisch ohne KI-Unterstützung generiert."]
+                
             # Erstelle Warnungen basierend auf der Dateigröße
             warnings = []
             if total_lines > 300:
@@ -614,13 +648,8 @@ def analyze_data(request):
                 if len(first_sentence) > 10 and len(first_sentence) < 255:
                     data_title = first_sentence
             
-            # Falls OpenAI verwendet wurde, speichere die vollständige Analyse
-            analysis_text = ""
-            if use_openai:
-                analysis_text = analysis
-            else:
-                # Erstelle einen einfachen Analysetext
-                analysis_text = "METADATEN:\n" + "\n".join(metadata) + "\n\nDATENANALYSE:\n" + "\n".join(data_analysis) + "\n\nVISUALISIERUNGSVORSCHLÄGE:\n" + "\n".join(visualization_suggestions) + "\n\nFUSSNOTEN:\n" + "\n".join(footnotes)
+            # Erstelle einen einfachen Analysetext
+            analysis_text = "METADATEN:\n" + "\n".join(metadata) + "\n\nDATENANALYSE:\n" + "\n".join(data_analysis) + "\n\nVISUALISIERUNGSVORSCHLÄGE:\n" + "\n".join(visualization_suggestions) + "\n\nFUSSNOTEN:\n" + "\n".join(footnotes)
             
             # Speichere die Daten
             chart_data = ChartData.objects.create(
@@ -651,3 +680,131 @@ def analyze_data(request):
             
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+def create_datawrapper_chart(request):
+    """Erstellt eine neue Datawrapper-Grafik mit den gegebenen Parametern und Daten"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST-Anfragen werden unterstützt'}, status=405)
+    
+    try:
+        # Daten aus dem Request auslesen
+        data = json.loads(request.body)
+        
+        # Pflichtfelder prüfen
+        required_fields = ['chart_type', 'chartdata_id']
+        for field in required_fields:
+            if field not in data:
+                return JsonResponse({'error': f'Fehlendes Pflichtfeld: {field}'}, status=400)
+        
+        # Hole den Datawrapper API-Key
+        api_key = os.getenv('DATAWRAPPER_API_KEY')
+        if not api_key:
+            return JsonResponse({'error': 'Datawrapper API-Key nicht gefunden'}, status=500)
+        
+        # Hole die ChartData aus der Datenbank
+        from core.models import ChartData
+        try:
+            chart_data = ChartData.objects.get(id=data['chartdata_id'])
+            raw_data = chart_data.raw_data
+        except ChartData.DoesNotExist:
+            return JsonResponse({'error': f'Datensatz mit ID {data["chartdata_id"]} nicht gefunden'}, status=404)
+        
+        # Erstelle die Header für die API-Anfragen
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # 1. Schritt: Erstelle eine neue Grafik
+        create_chart_url = 'https://api.datawrapper.de/v3/charts'
+        chart_params = {
+            'type': data['chart_type'],
+            'title': data.get('title', 'Neue Grafik'),  # Standard-Titel falls keiner angegeben
+            'theme': 'datawrapper',  # Standard-Theme
+            'language': 'de-DE',  # Deutsche Sprache
+            'folderId': '309331'  # chartmaker-Unterordner im RND-Team
+        }
+        
+        create_response = requests.post(
+            create_chart_url,
+            headers=headers,
+            json=chart_params
+        )
+        create_response.raise_for_status()
+        chart_info = create_response.json()
+        chart_id = chart_info['id']
+        
+        print(f"Neue Grafik erstellt mit ID: {chart_id}")
+        
+        # 2. Schritt: Aktualisiere die Metadaten
+        metadata = {
+            'metadata': {
+                'describe': {
+                    'intro': data.get('subtitle', ''),
+                    'byline': data.get('byline', ''),
+                    'source-name': data.get('source_name', ''),
+                    'source-url': data.get('source_url', '')
+                }
+            }
+        }
+        
+        if data.get('tags'):
+            metadata['metadata']['data'] = {
+                'custom-metadata': {
+                    'tags': data.get('tags', '')
+                }
+            }
+        
+        update_url = f'https://api.datawrapper.de/v3/charts/{chart_id}'
+        update_response = requests.patch(
+            update_url,
+            headers=headers,
+            json=metadata
+        )
+        update_response.raise_for_status()
+        
+        print(f"Metadaten aktualisiert für Grafik: {chart_id}")
+        
+        # 3. Schritt: Lade die Daten hoch
+        data_url = f'https://api.datawrapper.de/v3/charts/{chart_id}/data'
+        data_response = requests.put(
+            data_url,
+            headers={'Authorization': f'Bearer {api_key}'},
+            data=raw_data
+        )
+        data_response.raise_for_status()
+        
+        print(f"Daten hochgeladen für Grafik: {chart_id}")
+        
+        # 4. Schritt: Veröffentliche die Grafik
+        publish_url = f'https://api.datawrapper.de/v3/charts/{chart_id}/publish'
+        publish_response = requests.post(publish_url, headers=headers)
+        publish_response.raise_for_status()
+        
+        print(f"Grafik veröffentlicht: {chart_id}")
+        
+        # Erstelle eine Erfolgsmeldung mit allen relevanten Informationen
+        result = {
+            'success': True,
+            'chart_id': chart_id,
+            'title': chart_info['title'],
+            'url': f'https://app.datawrapper.de/chart/{chart_id}/visualize'
+        }
+        
+        return JsonResponse(result)
+        
+    except requests.exceptions.RequestException as e:
+        print(f"API-Fehler: {str(e)}")
+        error_message = str(e)
+        if hasattr(e, 'response') and e.response is not None:
+            try:
+                error_data = e.response.json()
+                error_message = error_data.get('message', str(e))
+            except:
+                error_message = e.response.text or str(e)
+        
+        return JsonResponse({'error': f'Datawrapper API-Fehler: {error_message}'}, status=500)
+    except Exception as e:
+        print(f"Unerwarteter Fehler: {str(e)}")
+        return JsonResponse({'error': f'Unerwarteter Fehler: {str(e)}'}, status=500)

@@ -459,9 +459,21 @@
       var itemsPerPage = 24;
       var loadingMore = false;
       var totalResults = 0;
+      var chartsTableBody = document.getElementById("charts-table-body");
+      var loadingSpinner = document.getElementById("loading-spinner");
+      var currentTablePage = 0;
+      var isLoadingTable = false;
+      var hasMoreCharts = true;
 
       // Stelle sicher, dass die Kacheln mit der Fade-In-Animation angezeigt werden
       defaultTiles.classList.add('fade-in');
+      
+      // Zeige die Tabelle standardmäßig an
+      const chartsTable = document.querySelector('.charts-table-container');
+      chartsTable.style.display = "block";
+      
+      // Lade die initialen Daten
+      loadChartData();
       
       // Variable, um den Timeout zu speichern
       let fadeOutTimeout;
@@ -589,7 +601,7 @@
             loadChartData();
             
             // Wir holen die Gesamtanzahl der Grafiken separat, um sie sofort anzuzeigen
-            fetch("/chart_search/")
+            fetch("/chart-search/")
               .then(response => response.json())
               .then(data => {
                 if (data.total_count) {
@@ -615,7 +627,7 @@
       }
 
       function fetchResults(query) {
-        fetch("/chart_search/?q=" + encodeURIComponent(query))
+        fetch("/chart-search/?q=" + encodeURIComponent(query))
           .then(response => response.json())
           .then(data => {
             currentSearchResults = data.results;
@@ -674,13 +686,6 @@
           });
       }
 
-      // Neue Variablen für die Tabelle
-      var chartsTableBody = document.getElementById("charts-table-body");
-      var loadingSpinner = document.getElementById("loading-spinner");
-      var currentTablePage = 0;
-      var isLoadingTable = false;
-      var hasMoreCharts = true;
-
       // Funktion zum Formatieren des Datums
       function formatDate(dateString) {
         if (!dateString) return '';
@@ -700,7 +705,7 @@
         loadingSpinner.style.display = 'block';
         
         try {
-          const response = await fetch(`/chart_search/?page=${currentTablePage}`);
+          const response = await fetch(`/chart-search/?page=${currentTablePage}`);
           const data = await response.json();
           
           // Aktualisiere die Überschrift mit der Gesamtanzahl der Grafiken
@@ -765,9 +770,6 @@
 
       // Beobachte den Loading Spinner
       tableObserver.observe(loadingSpinner);
-
-      // Initiales Laden der Daten
-      loadChartData();
     });
   </script>
 {% endblock %} 

@@ -111,6 +111,7 @@
         <button class="action-button" onclick="handleJS()">JS</button>
         <button class="action-button" onclick="handleIframe()">iframe</button>
         <button class="action-button" onclick="handlePrint()">print</button>
+        <button class="action-button" onclick="handleSocial()">Social</button>
       </div>
 
       <!-- Neue Hinweisbox -->
@@ -143,6 +144,12 @@
 
     function handlePrint() {
       window.location.href = "{% url 'chart_print' chart.chart_id %}";
+    }
+
+    function handleSocial() {
+      // Wird später implementiert
+      console.log('Social Button clicked');
+      alert('Social-Media Export wird vorbereitet...');
     }
   </script>
 {% endblock %} 

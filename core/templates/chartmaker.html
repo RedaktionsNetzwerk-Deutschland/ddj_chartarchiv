@@ -239,7 +239,7 @@
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                   <polyline points="22 4 12 14.01 9 11.01"></polyline>
                 </svg>
-                <span>Daten erfolgreich hochgeladen!</span>
+                <span>Daten erfolgreich hochgeladen! Hier eine Vorschau (max. 10 Zeilen).</span>
               </div>
             </div>
           </div>
@@ -304,7 +304,7 @@
                     <line x1="12" y1="16" x2="12" y2="12"></line>
                     <line x1="12" y1="8" x2="12.01" y2="8"></line>
                   </svg>
-                  Analysiere
+                  Analysiere / Bearbeite
                 </button>
                 <button onclick="handleUserChoice('create')" style="
                   flex: 1;
@@ -464,18 +464,6 @@
               "></div>
             </div>
           </div>
-
-          <!-- Vorschau-Bereich -->
-          <div id="preview-container" style="margin-top: 30px;">
-            <h4 style="font-family: 'DINNextLTPro', sans-serif; font-size: 1.2em; color: #333; margin-bottom: 15px;">
-              Vorschau der Daten
-            </h4>
-            <div id="preview-content" style="
-              overflow-x: auto;
-              font-family: monospace;
-              font-size: 14px;
-            "></div>
-          </div>
         </div>
 
       </div>
@@ -529,6 +517,20 @@
       }
     });
 
+    // Event-Listener für die Enter-Taste im Eingabefeld
+    document.addEventListener('DOMContentLoaded', function() {
+      const userInput = document.getElementById('user-input');
+      if (userInput) {
+        userInput.addEventListener('keydown', function(event) {
+          // Wenn Enter gedrückt wurde und nicht gleichzeitig Shift (für Zeilenumbrüche)
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault(); // Verhindere den Standard-Zeilenumbruch
+            sendToChatGPT(); // Sende die Nachricht
+          }
+        });
+      }
+    });
+
     // Neue Funktionen für die Textfeld-Verarbeitung
     document.getElementById('data-input').addEventListener('input', function() {
         const submitButton = document.getElementById('submit-button');
@@ -556,12 +558,20 @@
     // Funktion zum Hinzufügen einer neuen Nachricht zum Chat
     function addMessageToChat(content, isGPT = true) {
       const chatContainer = document.getElementById('chat-container');
+      if (!chatContainer) {
+        console.error("Chat-Container nicht gefunden!");
+        return;
+      }
+      
+      // Erstelle das Nachrichten-Element
       const messageDiv = document.createElement('div');
       messageDiv.className = 'message-container';
       messageDiv.style.display = 'flex';
       messageDiv.style.justifyContent = isGPT ? 'flex-start' : 'flex-end';
       messageDiv.style.width = '100%';
+      messageDiv.style.marginTop = '15px';
       
+      // Erstelle den Inhalt der Nachricht
       const messageContent = document.createElement('div');
       messageContent.className = isGPT ? 'message gpt-message' : 'message user-message';
       messageContent.style.width = '60%';
@@ -578,9 +588,18 @@
         messageContent.style.background = '#e3f2fd';
       }
       
+      // Füge den Text hinzu
       messageContent.textContent = content;
+      
+      // Füge alles zusammen und zum Chat hinzu
       messageDiv.appendChild(messageContent);
       chatContainer.appendChild(messageDiv);
+      
+      console.log("Nachricht zum Chat hinzugefügt:", { 
+        isGPT: isGPT, 
+        contentLength: content.length,
+        messageElement: messageDiv 
+      });
       
       // Intelligentes Scrollen zu neuen Nachrichten
       // Nur scrollen, wenn der Nutzer nicht aktiv nach oben gescrollt hat
@@ -626,33 +645,24 @@
     // Hinzufügen der neuen Funktion zum Behandeln der Benutzerauswahl
     function handleUserChoice(choice) {
       if (choice === 'analyze') {
-        // Zeige die Analyse erst jetzt an
-        const analysisResultContainer = document.getElementById('analysis-result-container');
-        analysisResultContainer.style.display = 'flex';
+        console.log("Analysieren ausgewählt, starte Prozess...");
         
-        // Zeige auch den Analysedetails-Container an
-        document.getElementById('analysis-details-container').style.display = 'block';
+        // Der Analyse-Ergebnis-Container wird nicht mehr angezeigt, 
+        // wir verwenden jetzt nur noch den Chat-Container
         
-        if (window.analysisData && window.analysisData.analysis) {
-          // Nur grundsätzliche Daten anzeigen, ohne Visualisierungsvorschläge
-          let analysisText = window.analysisData.analysis;
-          
-          // Entferne Visualisierungsvorschläge
-          const visualizationIndex = analysisText.indexOf("\n\nVisualisierungsvorschläge:");
-          if (visualizationIndex !== -1) {
-            analysisText = analysisText.substring(0, visualizationIndex);
-          }
-          
-          // Füge Frage zur Tiefenanalyse hinzu
-          analysisText += "\n\nMöchtest du in die Tiefenanalyse einsteigen?";
-          
-          document.getElementById('analysis-content').textContent = analysisText;
+        // Zeige den Analysedetails-Container an
+        const detailsContainer = document.getElementById('analysis-details-container');
+        if (detailsContainer) {
+          detailsContainer.style.display = 'block';
         }
         
-        // Zeige die drei Auswahlbuttons nach der Analyse an
+        // ChatGPT-Analyse direkt starten
         setTimeout(() => {
-          addAnalysisOptions();
-        }, 200);
+          deepAnalyzeData();
+        }, 100);
+        
+        // Buttons werden jetzt in der deepAnalyzeData-Funktion hinzugefügt,
+        // nachdem die ChatGPT-Antwort angezeigt wurde
       } else {
         // Für Grafik-Erstellung
         setTimeout(() => {
@@ -661,6 +671,54 @@
           
           // Zeige das freie Texteingabefeld an
           document.getElementById('free-text-container').style.display = 'flex';
+          
+          // Füge die Grafiktyp-Buttons hinzu
+          const buttonContainer = document.createElement('div');
+          buttonContainer.style.width = '60%';
+          buttonContainer.style.marginTop = '20px';
+          buttonContainer.style.display = 'grid';
+          buttonContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
+          buttonContainer.style.gap = '10px';
+          
+          const buttonStyles = `
+            padding: 12px 18px;
+            background-color: #f0f2f5;
+            color: #333;
+            border: none;
+            border-radius: 20px;
+            font-family: 'DINNextLTPro', sans-serif;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+          `;
+          
+          const buttonTypes = [
+            { name: 'Locator', icon: 'map-pin' },
+            { name: 'Balken', icon: 'bar-chart-2' },
+            { name: 'Säulen', icon: 'bar-chart' },
+            { name: 'Torte', icon: 'pie-chart' }
+          ];
+          
+          buttonTypes.forEach(type => {
+            const button = document.createElement('button');
+            button.innerHTML = `
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                ${getIconPath(type.icon)}
+              </svg>
+              ${type.name}
+            `;
+            button.style.cssText = buttonStyles;
+            button.onclick = () => handleChartTypeSelection(type.name);
+            buttonContainer.appendChild(button);
+          });
+          
+          // Füge den Button-Container nach dem Texteingabefeld ein
+          const textInputContainer = document.getElementById('free-text-container');
+          textInputContainer.parentNode.insertBefore(buttonContainer, textInputContainer.nextSibling);
           
           // Scroll zum Eingabefeld
           scrollToInputField();
@@ -676,31 +734,73 @@
       }
       document.getElementById('user-choice').value = choice;
     }
-    
-    // Funktion zum Hinzufügen der drei Auswahlbuttons nach der Analyse
-    function addAnalysisOptions() {
-      const chatContainer = document.getElementById('chat-container');
-      
-      // Erstelle Container für die Optionen
-      const optionsContainer = document.createElement('div');
-      optionsContainer.className = 'message-container';
-      optionsContainer.style.display = 'flex';
-      optionsContainer.style.justifyContent = 'flex-end';
-      optionsContainer.style.width = '100%';
-      optionsContainer.style.marginTop = '20px';
-      
-      // Erstelle Button-Container
-      const buttonsContainer = document.createElement('div');
-      buttonsContainer.style.width = '60%';
-      buttonsContainer.style.background = '#e3f2fd';
-      buttonsContainer.style.padding = '20px';
-      buttonsContainer.style.borderRadius = '8px';
-      buttonsContainer.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-      
-      // Erstelle Buttons
-      const buttonStyles = {
-        base: `
+
+    // Funktion zum Starten der Tiefenanalyse
+    async function deepAnalyzeData() {
+      try {
+        // Zeige Spinner
+        document.getElementById('spinner').style.display = 'flex';
+        
+        // Der Prompt für ChatGPT (nicht sichtbar für den Nutzer)
+        const prompt = "Du bist ein Senior Datenanalyst und Datenjournalist. Du möchtest aus dem vorliegenden Datensatz einen journalistischen Artikel machen. Dafür benötige ich zunächst von dir eine aussagekräftige Analyse des Datensatzes.";
+        
+        // Hole die chartdata_id aus dem versteckten Feld
+        const chartDataId = document.getElementById('chartdata-id')?.value;
+        
+        if (!chartDataId) {
+          throw new Error("Keine Datensatz-ID gefunden. Bitte lade den Datensatz erneut hoch.");
+        }
+        
+        console.log("Sende Anfrage an ChatGPT API mit dem Prompt und der Datensatz-ID:", {
+          prompt: prompt,
+          chartDataId: chartDataId
+        });
+        
+        // Sende Anfrage an ChatGPT
+        const response = await fetch('/analyze-data/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            message: prompt,
+            chartdata_id: chartDataId,
+            include_data: true  // Explizit anfordern, dass der Datensatz mitgeschickt wird
+          })
+        });
+
+        const data = await response.json();
+        
+        console.log("Antwort von der ChatGPT API:", data);
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        // Vermeide die doppelte Anzeige, indem wir den alten Container ausblenden
+        const analysisResultContainer = document.getElementById('analysis-result-container');
+        if (analysisResultContainer) {
+          analysisResultContainer.style.display = 'none';
+        }
+        
+        // Füge die ChatGPT-Antwort zum Chat hinzu
+        addMessageToChat(data.response, true);
+        
+        // Zeige das freie Texteingabefeld an
+        document.getElementById('free-text-container').style.display = 'flex';
+        
+        // Füge die Grafiktyp-Buttons hinzu
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.width = '60%';
+        buttonContainer.style.marginTop = '20px';
+        buttonContainer.style.display = 'grid';
+        buttonContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
+        buttonContainer.style.gap = '10px';
+        
+        const buttonStyles = `
           padding: 12px 18px;
+          background-color: #f0f2f5;
+          color: #333;
           border: none;
           border-radius: 20px;
           font-family: 'DINNextLTPro', sans-serif;
@@ -711,111 +811,37 @@
           align-items: center;
           justify-content: center;
           gap: 8px;
-          margin-bottom: 10px;
-          width: 100%;
-        `,
-        primary: `
-          background-color: #4f80ff;
-          color: white;
-        `,
-        secondary: `
-          background-color: #f0f2f5;
-          color: #333;
-        `,
-        warning: `
-          background-color: #f5f5f5;
-          color: #666;
-        `
-      };
-      
-      // Button 1: Weiter analysieren
-      const analyzeButton = document.createElement('button');
-      analyzeButton.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="12" x2="2" y2="12"></line>
-          <polyline points="15 5 22 12 15 19"></polyline>
-        </svg>
-        Ja, weiter analysieren
-      `;
-      analyzeButton.style.cssText = buttonStyles.base + buttonStyles.primary;
-      analyzeButton.onclick = () => deepAnalyzeData();
-      
-      // Button 2: Grafik bauen
-      const chartButton = document.createElement('button');
-      chartButton.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="3" y1="9" x2="21" y2="9"></line>
-          <line x1="9" y1="21" x2="9" y2="9"></line>
-        </svg>
-        Grafik bauen
-      `;
-      chartButton.style.cssText = buttonStyles.base + buttonStyles.secondary;
-      chartButton.onclick = () => handleUserChoice('create');
-      
-      // Button 3: Neuen Datensatz hochladen
-      const resetButton = document.createElement('button');
-      resetButton.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 2v6h6"></path>
-          <path d="M3 13a9 9 0 1 0 3-7.7L3 8"></path>
-        </svg>
-        Neuen Datensatz hochladen
-      `;
-      resetButton.style.cssText = buttonStyles.base + buttonStyles.warning;
-      resetButton.onclick = () => window.location.reload();
-      
-      // Füge Buttons zum Container hinzu
-      buttonsContainer.appendChild(analyzeButton);
-      buttonsContainer.appendChild(chartButton);
-      buttonsContainer.appendChild(resetButton);
-      
-      // Füge Button-Container zum Options-Container hinzu
-      optionsContainer.appendChild(buttonsContainer);
-      
-      // Füge Options-Container zum Chat-Container hinzu
-      chatContainer.appendChild(optionsContainer);
-      
-      // Scrolle zu den Optionen
-      setTimeout(() => {
-        optionsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
-    }
-    
-    // Funktion zum Starten der Tiefenanalyse
-    async function deepAnalyzeData() {
-      try {
-        // Zeige Spinner
-        document.getElementById('spinner').style.display = 'flex';
+        `;
         
-        // Zeige das freie Texteingabefeld an
-        document.getElementById('free-text-container').style.display = 'flex';
+        const buttonTypes = [
+          { name: 'Locator', icon: 'map-pin' },
+          { name: 'Balken', icon: 'bar-chart-2' },
+          { name: 'Säulen', icon: 'bar-chart' },
+          { name: 'Torte', icon: 'pie-chart' }
+        ];
         
-        // Sende Anfrage an ChatGPT
-        const response = await fetch('/analyze-data/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            message: "Bitte schau dir diesen Datensatz an und erstelle mir eine erste Detailanalyse.",
-            chartdata_id: document.getElementById('chartdata-id')?.value
-          })
+        buttonTypes.forEach(type => {
+          const button = document.createElement('button');
+          button.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              ${getIconPath(type.icon)}
+            </svg>
+            ${type.name}
+          `;
+          button.style.cssText = buttonStyles;
+          button.onclick = () => handleChartTypeSelection(type.name);
+          buttonContainer.appendChild(button);
         });
-
-        const data = await response.json();
         
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        // Füge die ChatGPT-Antwort zum Chat hinzu
-        addMessageToChat(data.response, true);
+        // Füge den Button-Container nach dem Texteingabefeld ein
+        const textInputContainer = document.getElementById('free-text-container');
+        textInputContainer.parentNode.insertBefore(buttonContainer, textInputContainer.nextSibling);
         
-        // Scroll zum Eingabefeld nach der Antwort
+        // Scroll zum Eingabefeld
         scrollToInputField();
 
       } catch (error) {
+        console.error("Fehler bei der API-Anfrage:", error);
         alert('Fehler bei der Kommunikation mit ChatGPT: ' + error.message);
       } finally {
         // Verstecke Spinner
@@ -903,12 +929,16 @@
         const blob = new Blob([textContent], { type: 'text/plain' });
         formData.append('file', blob, 'pasted_data.csv');
         
+        console.log("Starte Datenverarbeitung ohne OpenAI API...");
+        
         const response = await fetch('/analyze-data/', {
           method: 'POST',
           body: formData
         });
 
         const data = await response.json();
+        
+        console.log("Datenverarbeitung abgeschlossen:", data);
         
         if (data.error) {
           throw new Error(data.error);
@@ -927,7 +957,7 @@
         // Verarbeite Metadaten
         processMetadata(data.metadata);
         
-        // Zeige Datenvorschau
+        // Zeige Datenvorschau - Dies verwendet nur den lokalen JavaScript-Code
         showDataPreview(textContent);
 
         // Speichere die chartdata_id für spätere Verwendung
@@ -947,6 +977,7 @@
         scrollToAnalysisContainer();
 
       } catch (error) {
+        console.error("Fehler bei der ersten Datenverarbeitung:", error);
         alert('Fehler beim Analysieren der Daten: ' + error.message);
       } finally {
         document.getElementById('spinner').style.display = 'none';
@@ -962,12 +993,16 @@
         // Zeige Spinner
         document.getElementById('spinner').style.display = 'flex';
         
+        console.log("Starte Dateiverarbeitung ohne OpenAI API...");
+        
         const response = await fetch('/analyze-data/', {
           method: 'POST',
           body: formData
         });
 
         const data = await response.json();
+        
+        console.log("Dateiverarbeitung abgeschlossen:", data);
         
         if (data.error) {
           throw new Error(data.error);
@@ -986,7 +1021,7 @@
         // Verarbeite Metadaten
         processMetadata(data.metadata);
         
-        // Lese die Datei für die Vorschau
+        // Lese die Datei für die Vorschau - Dies passiert lokal im Browser
         const reader = new FileReader();
         reader.onload = function(e) {
           showDataPreview(e.target.result);
@@ -1010,6 +1045,7 @@
         scrollToAnalysisContainer();
 
       } catch (error) {
+        console.error("Fehler bei der Dateiverarbeitung:", error);
         alert('Fehler beim Analysieren der Datei: ' + error.message);
       } finally {
         document.getElementById('spinner').style.display = 'none';
@@ -1063,22 +1099,623 @@
 
     // Hilfsfunktion zum Anzeigen der Datenvorschau
     function showDataPreview(content) {
-      const previewContainer = document.getElementById('preview-content');
+      // Erstelle den Container, falls er nicht existiert
+      let previewContainer = document.getElementById('preview-content');
+      if (!previewContainer) {
+        previewContainer = document.createElement('div');
+        previewContainer.id = 'preview-content';
+        previewContainer.style.marginTop = '20px';
+        previewContainer.style.overflowX = 'auto';
+        previewContainer.style.fontFamily = 'monospace';
+        previewContainer.style.fontSize = '14px';
+        
+        // Füge den Container nach der Erfolgsmeldung ein
+        const successMessage = document.getElementById('success-message');
+        if (successMessage && successMessage.parentElement) {
+          successMessage.parentElement.appendChild(previewContainer);
+        }
+      }
       
-      // Beschränke die Vorschau auf 15 Zeilen
+      // Beschränke die Vorschau auf 10 Zeilen
       const lines = content.split('\n');
       let preview = '';
       
-      const previewLines = Math.min(15, lines.length);
-      for (let i = 0; i < previewLines; i++) {
-        preview += `<div style="padding: 3px 0;">${lines[i]}</div>`;
+      // Erkenne das Trennzeichen
+      let delimiter = ',';
+      if (lines.length > 0) {
+        const firstLine = lines[0];
+        // Prüfe verschiedene Trennzeichen
+        if (firstLine.includes('\t')) {
+          delimiter = '\t';
+        } else if (firstLine.includes(';')) {
+          delimiter = ';';
+        }
       }
       
-      if (lines.length > 15) {
-        preview += `<div style="padding: 5px 0; color: #888;">... und ${lines.length - 15} weitere Zeilen</div>`;
+      // Erstelle eine Tabelle
+      preview += '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
+      
+      // Verarbeite die ersten 10 Zeilen
+      const previewLines = Math.min(10, lines.length);
+      let maxColumns = 0;
+      
+      // Erste Durchlauf: Finde die maximale Anzahl von Spalten
+      for (let i = 0; i < previewLines; i++) {
+        const cells = lines[i].split(delimiter).map(cell => cell.trim());
+        maxColumns = Math.max(maxColumns, cells.length);
+      }
+      
+      // Zweiter Durchlauf: Erstelle die Tabelle
+      for (let i = 0; i < previewLines; i++) {
+        const cells = lines[i].split(delimiter).map(cell => cell.trim());
+        preview += '<tr>';
+        
+        // Fülle die Zeile mit Zellen
+        for (let j = 0; j < maxColumns; j++) {
+          const cellContent = cells[j] || ''; // Leere Zelle wenn keine Daten
+          preview += `<td style="padding: 8px; border: 1px solid #ddd; font-family: monospace; font-size: 14px;">${cellContent}</td>`;
+        }
+        
+        preview += '</tr>';
+      }
+      
+      preview += '</table>';
+      
+      // Füge Information über weitere Zeilen hinzu
+      if (lines.length > 10) {
+        preview += `<div style="padding: 5px 0; color: #888; margin-top: 10px;">... und ${lines.length - 10} weitere Zeilen</div>`;
       }
       
       previewContainer.innerHTML = preview;
+    }
+
+    // Füge diese Hilfsfunktion am Ende des Scripts hinzu
+    function getIconPath(icon) {
+      const icons = {
+        'map-pin': '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle>',
+        'bar-chart-2': '<line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line>',
+        'bar-chart': '<line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line>',
+        'pie-chart': '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 1 1 12 2"></path><path d="M22 12h-10"></path><path d="M22 12a10 10 0 0 1-10 10"></path>'
+      };
+      return icons[icon] || '';
+    }
+
+    function handleChartTypeSelection(type) {
+      console.log('Ausgewählter Grafiktyp:', type);
+      
+      // Erstelle die Abfragemaske für die Grafik
+      if (type === 'Balken' || type === 'Säulen' || type === 'Torte') {
+        // Verstecke Textfeld und Buttons
+        document.getElementById('free-text-container').style.display = 'none';
+        
+        // Entferne vorhandene Abfragemasken, falls vorhanden
+        const existingForm = document.getElementById('chart-form-container');
+        if (existingForm) {
+          existingForm.remove();
+        }
+        
+        // Erstelle den Container für das Formular
+        const formContainer = document.createElement('div');
+        formContainer.id = 'chart-form-container';
+        formContainer.style.width = '60%';
+        formContainer.style.background = '#f5f5f5';
+        formContainer.style.padding = '25px';
+        formContainer.style.borderRadius = '8px';
+        formContainer.style.marginTop = '20px';
+        formContainer.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        
+        // Füge Header hinzu
+        const formHeader = document.createElement('h3');
+        formHeader.textContent = `${type}-Grafik erstellen`;
+        formHeader.style.fontFamily = "'DINNextLTPro', sans-serif";
+        formHeader.style.fontSize = '1.3em';
+        formHeader.style.color = '#333';
+        formHeader.style.marginBottom = '20px';
+        formContainer.appendChild(formHeader);
+        
+        // Felder für das Formular
+        const fields = [
+          { id: 'title', label: 'Überschrift', type: 'text', placeholder: 'Hauptüberschrift der Grafik' },
+          { id: 'subtitle', label: 'Unterzeile', type: 'text', placeholder: 'Erklärende Unterzeile' },
+          { id: 'source', label: 'Datenquelle', type: 'text', placeholder: 'Quelle der Daten' },
+          { id: 'source_url', label: 'Link zur Datenquelle', type: 'url', placeholder: 'https://...' },
+          { id: 'author', label: 'Autor', type: 'text', placeholder: 'Dein Name' },
+          { id: 'tags', label: 'Schlagworte', type: 'text', placeholder: 'Komma-getrennte Schlagworte' }
+        ];
+        
+        // Erstelle die Formularfelder
+        fields.forEach(field => {
+          const fieldGroup = document.createElement('div');
+          fieldGroup.style.marginBottom = '15px';
+          
+          const label = document.createElement('label');
+          label.setAttribute('for', field.id);
+          label.textContent = field.label;
+          label.style.display = 'block';
+          label.style.marginBottom = '5px';
+          label.style.fontFamily = "'DINNextLTPro', sans-serif";
+          label.style.fontSize = '0.9em';
+          label.style.color = '#555';
+          
+          const input = document.createElement('input');
+          input.type = field.type;
+          input.id = field.id;
+          input.name = field.id;
+          input.placeholder = field.placeholder;
+          input.style.width = '100%';
+          input.style.padding = '10px';
+          input.style.border = '1px solid #ddd';
+          input.style.borderRadius = '4px';
+          input.style.fontSize = '1em';
+          input.style.boxSizing = 'border-box';
+          
+          fieldGroup.appendChild(label);
+          fieldGroup.appendChild(input);
+          formContainer.appendChild(fieldGroup);
+        });
+        
+        // Erstelle die Buttons für das Formular
+        const buttonsGroup = document.createElement('div');
+        buttonsGroup.style.display = 'flex';
+        buttonsGroup.style.justifyContent = 'space-between';
+        buttonsGroup.style.marginTop = '25px';
+        
+        // Zurück-Button
+        const backButton = document.createElement('button');
+        backButton.textContent = 'Zurück';
+        backButton.style.padding = '10px 20px';
+        backButton.style.backgroundColor = '#f0f2f5';
+        backButton.style.color = '#333';
+        backButton.style.border = 'none';
+        backButton.style.borderRadius = '4px';
+        backButton.style.fontFamily = "'DINNextLTPro', sans-serif";
+        backButton.style.cursor = 'pointer';
+        backButton.onclick = () => {
+          formContainer.remove();
+          document.getElementById('free-text-container').style.display = 'flex';
+        };
+        
+        // Weiter-Button
+        const submitButton = document.createElement('button');
+        submitButton.textContent = 'Grafik erstellen';
+        submitButton.style.padding = '10px 20px';
+        submitButton.style.backgroundColor = '#4f80ff';
+        submitButton.style.color = 'white';
+        submitButton.style.border = 'none';
+        submitButton.style.borderRadius = '4px';
+        submitButton.style.fontFamily = "'DINNextLTPro', sans-serif";
+        submitButton.style.cursor = 'pointer';
+        submitButton.onclick = () => createChart(type);
+        
+        buttonsGroup.appendChild(backButton);
+        buttonsGroup.appendChild(submitButton);
+        formContainer.appendChild(buttonsGroup);
+        
+        // Füge das Formular nach dem Chat-Container ein
+        const chatContainer = document.getElementById('chat-container');
+        chatContainer.parentNode.insertBefore(formContainer, chatContainer.nextSibling);
+        
+        // Scrolle zum Formular
+        setTimeout(() => {
+          formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      } else if (type === 'Locator') {
+        // Hier später die spezielle Logik für Locator-Maps einfügen
+        alert('Locator-Karten werden in einem zukünftigen Update unterstützt!');
+      }
+    }
+    
+    // Funktion zum Erstellen der Grafik basierend auf den Formulardaten
+    function createChart(type) {
+      // Sammle die Daten aus dem Formular
+      const chartData = {
+        title: document.getElementById('title').value,
+        subtitle: document.getElementById('subtitle').value,
+        source: document.getElementById('source').value,
+        source_url: document.getElementById('source_url').value,
+        author: document.getElementById('author').value,
+        tags: document.getElementById('tags').value,
+        type: type,
+        chartdata_id: document.getElementById('chartdata-id')?.value
+      };
+      
+      console.log('Grafik wird erstellt mit den Daten:', chartData);
+      
+      // Zeige Spinner während der API-Anfrage
+      document.getElementById('spinner').style.display = 'flex';
+      
+      // Verstecke das Formular
+      const formContainer = document.getElementById('chart-form-container');
+      if (formContainer) {
+        formContainer.style.display = 'none';
+      }
+      
+      // Füge eine Nachricht zum Chat hinzu
+      addMessageToChat(`Grafik vom Typ "${type}" wird erstellt...`, true);
+      
+      // Hole die ChartData-ID, um die Rohdaten zu erhalten
+      const chartDataId = document.getElementById('chartdata-id')?.value;
+      
+      if (!chartDataId) {
+        addMessageToChat("Fehler: Keine Datensatz-ID gefunden. Bitte lade den Datensatz erneut hoch.", true);
+        document.getElementById('spinner').style.display = 'none';
+        return;
+      }
+      
+      // Bestimme den Datawrapper-Grafiktyp basierend auf unserer Auswahl
+      let dwChartType = '';
+      switch (type) {
+        case 'Balken':
+          dwChartType = 'd3-bars';
+          break;
+        case 'Säulen':
+          dwChartType = 'd3-columns';
+          break;
+        case 'Torte':
+          dwChartType = 'd3-pie';
+          break;
+        default:
+          dwChartType = 'd3-bars';
+      }
+      
+      // Sende Anfrage an den Server, um die Grafik über die Datawrapper-API zu erstellen
+      fetch('/create-datawrapper-chart/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chart_type: dwChartType,
+          title: chartData.title,
+          subtitle: chartData.subtitle,
+          source_name: chartData.source,
+          source_url: chartData.source_url,
+          byline: chartData.author,
+          chartdata_id: chartDataId,
+          tags: chartData.tags
+        })
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Netzwerkantwort war nicht in Ordnung');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Erfolgreich Grafik erstellt:', data);
+        document.getElementById('spinner').style.display = 'none';
+        
+        // Zeige Erfolgsmeldung mit Link zur Grafik
+        const successMessage = `
+          Grafik "${chartData.title}" wurde erfolgreich erstellt!
+          
+          Grafik-ID: ${data.chart_id}
+          
+          Du kannst die Grafik hier anzeigen und bearbeiten:
+          https://app.datawrapper.de/chart/${data.chart_id}/visualize
+        `;
+        
+        addMessageToChat(successMessage, true);
+        
+        // Zeige die Grafik direkt mit dem Einbindungscode an
+        showEmbeddedChart(data.chart_id, chartData.title);
+        
+        // Füge Buttons für weitere Aktionen hinzu
+        addChartActionButtons(data.chart_id);
+      })
+      .catch(error => {
+        console.error('Fehler beim Erstellen der Grafik:', error);
+        document.getElementById('spinner').style.display = 'none';
+        addMessageToChat(`Fehler beim Erstellen der Grafik: ${error.message}`, true);
+      });
+    }
+    
+    // Funktion zum Anzeigen der eingebetteten Grafik
+    function showEmbeddedChart(chartId, title) {
+      // Erstelle den Container für die Grafik
+      const chartContainer = document.createElement('div');
+      chartContainer.className = 'message-container';
+      chartContainer.style.display = 'flex';
+      chartContainer.style.justifyContent = 'flex-start';
+      chartContainer.style.width = '100%';
+      chartContainer.style.marginTop = '30px';
+      
+      // Erstelle den Inhalt des Containers
+      const chartContent = document.createElement('div');
+      chartContent.className = 'message gpt-message';
+      chartContent.style.width = '100%';
+      chartContent.style.padding = '20px';
+      chartContent.style.borderRadius = '8px';
+      chartContent.style.backgroundColor = 'white';
+      chartContent.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+      
+      // Erstelle eine Überschrift für die Grafik
+      const chartTitle = document.createElement('h3');
+      chartTitle.textContent = title || 'Deine erstellte Grafik';
+      chartTitle.style.fontFamily = "'DINNextLTPro', sans-serif";
+      chartTitle.style.fontSize = '1.2em';
+      chartTitle.style.color = '#333';
+      chartTitle.style.marginBottom = '15px';
+      
+      // Füge die Überschrift zum Container hinzu
+      chartContent.appendChild(chartTitle);
+      
+      // Erstelle ein Div für die Grafik
+      const chartDiv = document.createElement('div');
+      chartDiv.id = 'chart-' + chartId;
+      chartDiv.style.width = '600px';
+      chartDiv.style.height = '400px';
+      chartDiv.style.border = '1px solid #eee';
+      chartDiv.style.borderRadius = '4px';
+      chartDiv.style.overflow = 'hidden';
+      chartDiv.style.maxWidth = '100%';
+      chartDiv.style.margin = '0 auto';
+      
+      // Erstelle das Script-Element
+      const scriptElem = document.createElement('script');
+      scriptElem.src = 'https://static.rndtech.de/share/rnd/datenrecherche/script/dw_chart_min.js';
+      scriptElem.defer = true;
+      
+      // Erstelle das dw-chart Custom Element
+      const dwChart = document.createElement('dw-chart');
+      dwChart.setAttribute('chart-id', chartId);
+      
+      // Füge die Elemente zum Div hinzu
+      chartDiv.appendChild(scriptElem);
+      chartDiv.appendChild(dwChart);
+      
+      // Füge das Div zum Container hinzu
+      chartContent.appendChild(chartDiv);
+      
+      // Füge alles zum Haupt-Container hinzu
+      chartContainer.appendChild(chartContent);
+      
+      // Füge den Container zum Chat-Container hinzu
+      const chatContainer = document.getElementById('chat-container');
+      chatContainer.appendChild(chartContainer);
+      
+      // Stelle sicher, dass das Script global geladen ist
+      ensureDwChartScriptLoaded();
+      
+      // Scrolle zur Grafik nach kurzer Verzögerung
+      setTimeout(() => {
+        chartContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 200);
+    }
+    
+    // Funktion, um sicherzustellen, dass das Script für dw-chart geladen ist
+    function ensureDwChartScriptLoaded() {
+      if (!document.querySelector('script[src="https://static.rndtech.de/share/rnd/datenrecherche/script/dw_chart_min.js"]')) {
+        const script = document.createElement('script');
+        script.src = 'https://static.rndtech.de/share/rnd/datenrecherche/script/dw_chart_min.js';
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    }
+
+    // Funktion zum Hinzufügen von Aktionsbuttons für die erstellte Grafik
+    function addChartActionButtons(chartId) {
+      // Erstelle Container für die Optionen
+      const optionsContainer = document.createElement('div');
+      optionsContainer.className = 'message-container';
+      optionsContainer.style.display = 'flex';
+      optionsContainer.style.justifyContent = 'flex-end';
+      optionsContainer.style.width = '100%';
+      optionsContainer.style.marginTop = '20px';
+      
+      // Erstelle Button-Container
+      const buttonsContainer = document.createElement('div');
+      buttonsContainer.style.width = '60%';
+      buttonsContainer.style.background = '#e3f2fd';
+      buttonsContainer.style.padding = '20px';
+      buttonsContainer.style.borderRadius = '8px';
+      buttonsContainer.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+      
+      // Erstelle Buttons
+      const buttonStyles = {
+        base: `
+          padding: 12px 18px;
+          border: none;
+          border-radius: 20px;
+          font-family: 'DINNextLTPro', sans-serif;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-bottom: 10px;
+          width: 100%;
+        `,
+        primary: `
+          background-color: #4f80ff;
+          color: white;
+        `,
+        secondary: `
+          background-color: #f0f2f5;
+          color: #333;
+        `
+      };
+      
+      // Button 1: Grafik bearbeiten
+      const editButton = document.createElement('button');
+      editButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+        </svg>
+        Grafik in Datawrapper bearbeiten
+      `;
+      editButton.style.cssText = buttonStyles.base + buttonStyles.primary;
+      editButton.onclick = () => {
+        window.open(`https://app.datawrapper.de/chart/${chartId}/visualize`, '_blank');
+      };
+      
+      // Button 2: Grafik mit KI bearbeiten
+      const aiEditButton = document.createElement('button');
+      aiEditButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a10 10 0 0 0-5 18.66a1 1 0 0 0 1.72 0A10 10 0 0 0 12 2z"></path>
+          <path d="M12 6a6 6 0 0 0-6 6c0 3.31 2.69 6 6 6s6-2.69 6-6a6 6 0 0 0-6-6z"></path>
+        </svg>
+        Grafik mit KI bearbeiten
+      `;
+      aiEditButton.style.cssText = buttonStyles.base + buttonStyles.primary;
+      aiEditButton.onclick = () => showAIEditForm(chartId);
+      
+      // Button 3: Neu starten
+      const newChartButton = document.createElement('button');
+      newChartButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 2v6h6"></path>
+          <path d="M3 13a9 9 0 1 0 3-7.7L3 8"></path>
+        </svg>
+        Neuen Datensatz hochladen
+      `;
+      newChartButton.style.cssText = buttonStyles.base + buttonStyles.secondary;
+      newChartButton.onclick = () => window.location.reload();
+      
+      // Füge Buttons zum Container hinzu
+      buttonsContainer.appendChild(editButton);
+      buttonsContainer.appendChild(aiEditButton);
+      buttonsContainer.appendChild(newChartButton);
+      
+      // Füge Button-Container zum Options-Container hinzu
+      optionsContainer.appendChild(buttonsContainer);
+      
+      // Füge Options-Container zum Chat-Container hinzu
+      const chatContainer = document.getElementById('chat-container');
+      chatContainer.appendChild(optionsContainer);
+      
+      // Scrolle zu den Optionen
+      setTimeout(() => {
+        optionsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+    
+    // Funktion zum Anzeigen des KI-Bearbeitungsformulars
+    function showAIEditForm(chartId) {
+      // Erstelle Container für das Formular
+      const formContainer = document.createElement('div');
+      formContainer.style.width = '60%';
+      formContainer.style.background = '#f5f5f5';
+      formContainer.style.padding = '25px';
+      formContainer.style.borderRadius = '8px';
+      formContainer.style.marginTop = '20px';
+      formContainer.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+      
+      // Füge Header hinzu
+      const formHeader = document.createElement('h3');
+      formHeader.textContent = 'Grafik mit KI bearbeiten';
+      formHeader.style.fontFamily = "'DINNextLTPro', sans-serif";
+      formHeader.style.fontSize = '1.3em';
+      formHeader.style.color = '#333';
+      formHeader.style.marginBottom = '20px';
+      formContainer.appendChild(formHeader);
+      
+      // Erstelle Textarea für Anweisungen
+      const textarea = document.createElement('textarea');
+      textarea.id = 'ai-edit-instructions';
+      textarea.placeholder = 'Beschreibe hier, wie die Grafik angepasst werden soll...';
+      textarea.style.width = '100%';
+      textarea.style.minHeight = '150px';
+      textarea.style.padding = '15px';
+      textarea.style.border = '1px solid #ddd';
+      textarea.style.borderRadius = '4px';
+      textarea.style.fontSize = '1em';
+      textarea.style.marginBottom = '20px';
+      textarea.style.boxSizing = 'border-box';
+      formContainer.appendChild(textarea);
+      
+      // Erstelle Button-Container
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.display = 'flex';
+      buttonContainer.style.justifyContent = 'space-between';
+      buttonContainer.style.gap = '10px';
+      
+      // Abbrechen-Button
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = 'Abbrechen';
+      cancelButton.style.padding = '10px 20px';
+      cancelButton.style.backgroundColor = '#f0f2f5';
+      cancelButton.style.color = '#333';
+      cancelButton.style.border = 'none';
+      cancelButton.style.borderRadius = '4px';
+      cancelButton.style.fontFamily = "'DINNextLTPro', sans-serif";
+      cancelButton.style.cursor = 'pointer';
+      cancelButton.onclick = () => formContainer.remove();
+      
+      // Senden-Button
+      const submitButton = document.createElement('button');
+      submitButton.textContent = 'An KI senden';
+      submitButton.style.padding = '10px 20px';
+      submitButton.style.backgroundColor = '#4f80ff';
+      submitButton.style.color = 'white';
+      submitButton.style.border = 'none';
+      submitButton.style.borderRadius = '4px';
+      submitButton.style.fontFamily = "'DINNextLTPro', sans-serif";
+      submitButton.style.cursor = 'pointer';
+      submitButton.onclick = () => sendToAI(chartId, textarea.value);
+      
+      buttonContainer.appendChild(cancelButton);
+      buttonContainer.appendChild(submitButton);
+      formContainer.appendChild(buttonContainer);
+      
+      // Füge das Formular nach den Aktionsbuttons ein
+      const optionsContainer = document.querySelector('.message-container:last-child');
+      optionsContainer.parentNode.insertBefore(formContainer, optionsContainer.nextSibling);
+      
+      // Scrolle zum Formular
+      setTimeout(() => {
+        formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+    
+    // Funktion zum Senden der Anweisungen an die KI
+    async function sendToAI(chartId, instructions) {
+      if (!instructions.trim()) {
+        alert('Bitte gib Anweisungen für die KI ein.');
+        return;
+      }
+      
+      try {
+        document.getElementById('spinner').style.display = 'flex';
+        
+        // Erstelle den Prompt für die KI
+        const prompt = `Ich habe eine Datawrapper-Grafik mit der ID ${chartId}. Bitte analysiere die Grafik und gib mir Anweisungen, wie ich sie gemäß folgender Vorgaben anpassen kann:\n\n${instructions}`;
+        
+        // Sende Anfrage an ChatGPT
+        const response = await fetch('/analyze-data/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            message: prompt,
+            chart_id: chartId
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
+        // Zeige die KI-Antwort im Chat
+        addMessageToChat(data.response, true);
+        
+        // Entferne das Formular
+        const formContainer = document.getElementById('ai-edit-instructions').closest('div');
+        formContainer.remove();
+        
+      } catch (error) {
+        console.error('Fehler bei der KI-Anfrage:', error);
+        alert('Fehler bei der Kommunikation mit der KI: ' + error.message);
+      } finally {
+        document.getElementById('spinner').style.display = 'none';
+      }
     }
   </script>
 {% endblock %} 

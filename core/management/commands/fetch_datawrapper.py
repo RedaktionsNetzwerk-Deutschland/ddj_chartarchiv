@@ -48,55 +48,102 @@ class Command(BaseCommand):
         return deleted_count
 
     def get_all_folders(self, headers):
-        """Holt alle Ordner von Datawrapper und erstellt ein DataFrame"""
+        """Holt alle Ordner von Datawrapper und erstellt ein DataFrame mit allen Ordnern und ihren Beziehungen"""
         try:
             url = "https://api.datawrapper.de/v3/folders"
             response = requests.get(url, headers=headers)
             response.raise_for_status()
             folders_data = response.json()
             
-            all_folders = []
+            # Speichere die Ordnerdaten in eine Datei
+            import json
+            import os
+            import pandas as pd
+            from datetime import datetime
             
-            def process_folder(folder):
-                folder_info = {
-                    'id': folder.get('id'),
-                    'name': folder.get('name'),
-                    'charts': folder.get('charts', []),
-                    'children': folder.get('children', [])
-                }
-                # Nur Ordner mit gültiger ID und Namen hinzufügen
-                if folder_info['id'] and folder_info['name']:
-                    all_folders.append(folder_info)
-                
-                # Rekursiv durch Unterordner gehen
-                for child in folder.get('children', []):
-                    process_folder(child)
+            # Erstelle Verzeichnis, falls es nicht existiert
+            data_dir = os.path.join(settings.BASE_DIR, 'datawrapper_data')
+            os.makedirs(data_dir, exist_ok=True)
             
-            # Verarbeite jeden Root-Ordner
-            for folder in folders_data.get('list', []):
-                process_folder(folder)
+            # Erstelle Dateinamen mit Zeitstempel
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = os.path.join(data_dir, f'datawrapper_folders_{timestamp}.json')
+            
+            # Speichere die Daten als JSON
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(folders_data.get('list', []), f, indent=4, ensure_ascii=False)
                 
-            return all_folders
+            self.stdout.write(f"Ordnerdaten gespeichert in: {filename}")
+            
+            # Erstelle ein leeres DataFrame für alle Ordner mit den benötigten Spalten
+            folder_records = []
+            
+            # Rekursive Funktion zum Durchsuchen der Ordnerstruktur
+            def process_folder(folder, parent=None, parent_id=None):
+                folder_id = folder.get('id')
+                folder_name = folder.get('name')
+                
+                if folder_id and folder_name:
+                    # Auf Subfolders prüfen
+                    subfolders = []
+                    subfolder_ids = []
+                    
+                    if 'folders' in folder:
+                        for subfolder in folder.get('folders', []):
+                            if subfolder.get('id') and subfolder.get('name'):
+                                subfolders.append(subfolder.get('name'))
+                                # Umwandlung in String, um join() zu ermöglichen
+                                subfolder_ids.append(str(subfolder.get('id')))
+                    
+                    # Füge den Ordner zum DataFrame hinzu
+                    folder_record = {
+                        'folder_id': folder_id,
+                        'name': folder_name,
+                        'parent': parent,
+                        'parent_id': parent_id,
+                        'subfolder': ', '.join(subfolders) if subfolders else None,
+                        'subfolder_id': ', '.join(subfolder_ids) if subfolder_ids else None
+                    }
+                    folder_records.append(folder_record)
+                    
+                    # Rekursiv durch alle Unterordner gehen
+                    if 'folders' in folder:
+                        for subfolder in folder.get('folders', []):
+                            process_folder(subfolder, folder_name, folder_id)
+            
+            # Starte mit den Hauptordnern in der Liste
+            for item in folders_data.get('list', []):
+                # Ignoriere Einträge vom Typ "user", verarbeite nur "team"
+                if item.get('type') == 'team':
+                    process_folder(item)
+                    
+                    # Verarbeite auch die Unterordner im "folders"-Key des Team-Ordners
+                    for subfolder in item.get('folders', []):
+                        process_folder(subfolder, item.get('name'), item.get('id'))
+            
+            # Erstelle das DataFrame aus den gesammelten Daten
+            folders_df = pd.DataFrame(folder_records)
+            
+            # Ausgabe zur Info
+            self.stdout.write(f"DataFrame mit {len(folders_df)} Ordnern erstellt")
+            
+           
+            return folders_df
         except Exception as e:
             self.stderr.write(f'Fehler beim Abrufen der Ordner: {e}')
-            return []
+            return pd.DataFrame(), []
 
     def filter_folders(self, folders, exclude_names=['printexport']):
         """Filtert Ordner basierend auf ausgeschlossenen Namen"""
-        filtered_folders = []
-        exclude_names_lower = [name.lower() for name in exclude_names]
+        subfolders = folders[folders["name"].isin(exclude_names)]
+        subfolder_names = subfolders["name"].unique()
+        exclude_names = exclude_names + list(subfolder_names)
+        folders = folders[~folders['name'].isin(exclude_names)]
         
-        for folder in folders:
-            folder_name = folder.get('name')
-            if folder_name is None:
-                continue
-            
-            if folder_name.lower() not in exclude_names_lower:
-                filtered_folders.append(folder)
-            
-        return filtered_folders
+        return folders
 
     def get_all_chart_ids(self, folders, start_date):
+   
         """
         Extrahiert alle Chart-IDs aus den gefilterten Ordnern, die nach start_date erstellt wurden
         
@@ -149,15 +196,12 @@ class Command(BaseCommand):
             self.stderr.write(f'Fehler beim Abrufen des RND-Ordners: {e}')
 
         # Füge Charts aus allen anderen gefilterten Ordnern hinzu
-        for folder in folders:
-            if 'charts' in folder:
-                for chart in folder['charts']:
+        for chart_id in folders["folder_id"].unique():
+            
+            
+            
                     try:
-                        # Hole das Erstellungsdatum
-                        if isinstance(chart, dict):
-                            created_at = chart.get('createdAt')
-                            chart_id = chart.get('id')
-                        else:
+                         
                             # Wenn chart ein String ist, müssen wir die Details separat abrufen
                             chart_id = chart
                             chart_response = requests.get(
@@ -218,7 +262,7 @@ class Command(BaseCommand):
         self.headers = {"Authorization": f"Bearer {api_key}"}
         
         # Setze das Startdatum für die Filterung als offset-aware Datum (UTC)
-        start_date = datetime(2024, 6, 1, tzinfo=timezone.utc)  # Geändert auf 1. Juni 2024
+        start_date = datetime(2025, 4, 2, tzinfo=timezone.utc)  # Geändert auf 1. Juni 2024
 
         while True:
             self.stdout.write('Fetching charts from Datawrapper API...')
@@ -230,11 +274,14 @@ class Command(BaseCommand):
             
             # Hole alle Ordner
             all_folders = self.get_all_folders(self.headers)
-            self.stdout.write(f'Gefundene Ordner: {len(all_folders)}')
            
+            self.stdout.write(f'Gefundene Ordner: {len(all_folders)}')
+            
             # Filtere unerwünschte Ordner
+            exclude_names = ['printexport']
             filtered_folders = self.filter_folders(all_folders, exclude_names=['printexport'])
             self.stdout.write(f'Gefilterte Ordner: {len(filtered_folders)}')
+            print(filtered_folders)
             
 
             # Hole alle Chart-IDs mit Datumsfilter
