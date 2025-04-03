@@ -48,7 +48,10 @@ class Command(BaseCommand):
         return deleted_count
 
     def get_all_folders(self, headers):
-        """Holt alle Ordner von Datawrapper und erstellt ein DataFrame mit allen Ordnern und ihren Beziehungen"""
+        """Holt alle Ordner von Datawrapper und erstellt zwei DataFrames:
+        1. Ein DataFrame mit allen Ordnern und ihren Beziehungen
+        2. Ein DataFrame mit allen Charts und deren Zuordnung zu Ordnern
+        """
         try:
             url = "https://api.datawrapper.de/v3/folders"
             response = requests.get(url, headers=headers)
@@ -75,8 +78,9 @@ class Command(BaseCommand):
                 
             self.stdout.write(f"Ordnerdaten gespeichert in: {filename}")
             
-            # Erstelle ein leeres DataFrame für alle Ordner mit den benötigten Spalten
+            # Erstelle leere Listen für die DataFrames
             folder_records = []
+            chart_records = []
             
             # Rekursive Funktion zum Durchsuchen der Ordnerstruktur
             def process_folder(folder, parent=None, parent_id=None):
@@ -106,6 +110,19 @@ class Command(BaseCommand):
                     }
                     folder_records.append(folder_record)
                     
+                    # Verarbeite Charts in diesem Ordner
+                    if 'charts' in folder and folder.get('charts'):
+                        for chart in folder.get('charts'):
+                            if isinstance(chart, dict) and 'id' in chart:
+                                chart_record = {
+                                    'chart_id': chart.get('id'),
+                                    'title': chart.get('title', ''),
+                                    'date': chart.get('createdAt'),
+                                    'folder_name': folder_name,
+                                    'folder_id': folder_id
+                                }
+                                chart_records.append(chart_record)
+                    
                     # Rekursiv durch alle Unterordner gehen
                     if 'folders' in folder:
                         for subfolder in folder.get('folders', []):
@@ -113,6 +130,19 @@ class Command(BaseCommand):
             
             # Starte mit den Hauptordnern in der Liste
             for item in folders_data.get('list', []):
+                # Verarbeite Charts direkt im Root-Ordner (falls vorhanden)
+                if 'charts' in item and item.get('charts') and item.get('name'):
+                    for chart in item.get('charts'):
+                        if isinstance(chart, dict) and 'id' in chart:
+                            chart_record = {
+                                'chart_id': chart.get('id'),
+                                'title': chart.get('title', ''),
+                                'date': chart.get('createdAt'),
+                                'folder_name': item.get('name'),
+                                'folder_id': item.get('id')
+                            }
+                            chart_records.append(chart_record)
+                
                 # Ignoriere Einträge vom Typ "user", verarbeite nur "team"
                 if item.get('type') == 'team':
                     process_folder(item)
@@ -121,17 +151,28 @@ class Command(BaseCommand):
                     for subfolder in item.get('folders', []):
                         process_folder(subfolder, item.get('name'), item.get('id'))
             
-            # Erstelle das DataFrame aus den gesammelten Daten
+            # Erstelle die DataFrames aus den gesammelten Daten
             folders_df = pd.DataFrame(folder_records)
+            charts_df = pd.DataFrame(chart_records)
+            
+            # doppelte Charts entfernen
+            charts_df = charts_df.drop_duplicates(subset=['chart_id'])
+            
+            # Konvertiere Datumsstrings zu Datetime-Objekten im charts_df
+            if not charts_df.empty and 'date' in charts_df.columns:
+                charts_df['date'] = pd.to_datetime(charts_df['date'])
             
             # Ausgabe zur Info
             self.stdout.write(f"DataFrame mit {len(folders_df)} Ordnern erstellt")
+            self.stdout.write(f"DataFrame mit {len(charts_df)} Charts erstellt")
             
-           
-            return folders_df
+            
+                    
+            return folders_df, charts_df
         except Exception as e:
             self.stderr.write(f'Fehler beim Abrufen der Ordner: {e}')
-            return pd.DataFrame(), []
+            return pd.DataFrame(), pd.DataFrame(), []
+
 
     def filter_folders(self, folders, exclude_names=['printexport']):
         """Filtert Ordner basierend auf ausgeschlossenen Namen"""
@@ -195,35 +236,35 @@ class Command(BaseCommand):
         except Exception as e:
             self.stderr.write(f'Fehler beim Abrufen des RND-Ordners: {e}')
 
-        # Füge Charts aus allen anderen gefilterten Ordnern hinzu
-        for chart_id in folders["folder_id"].unique():
+        # # Füge Charts aus allen anderen gefilterten Ordnern hinzu
+        # for chart_id in folders["folder_id"].unique():
             
             
             
-                    try:
-                         
-                            # Wenn chart ein String ist, müssen wir die Details separat abrufen
-                            chart_id = chart
-                            chart_response = requests.get(
-                                f"https://api.datawrapper.de/v3/charts/{chart_id}",
-                                headers=self.headers
-                            )
-                            if chart_response.status_code == 200:
-                                chart_data = chart_response.json()
-                                created_at = chart_data.get('createdAt')
-                            else:
-                                continue
+        #     	try:
+                    
+        #             # Wenn chart ein String ist, müssen wir die Details separat abrufen
+        #             chart_id = chart
+        #             chart_response = requests.get(
+        #                 f"https://api.datawrapper.de/v3/charts/{chart_id}",
+        #                 headers=self.headers
+        #             )
+        #             if chart_response.status_code == 200:
+        #                 chart_data = chart_response.json()
+        #                 created_at = chart_data.get('createdAt')
+        #             else:
+        #                 continue
 
-                        if created_at:
-                            # Konvertiere das Datum
-                            created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                            # Füge die ID nur hinzu, wenn das Datum nach start_date liegt
-                            if created_date > start_date:
-                                chart_ids.add(chart_id)
-                    except Exception as e:
-                        self.stderr.write(f'Fehler beim Verarbeiten der Chart {chart_id}: {e}')
-                        continue
-        
+        #         if created_at:
+        #             # Konvertiere das Datum
+        #             created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+        #             # Füge die ID nur hinzu, wenn das Datum nach start_date liegt
+        #             if created_date > start_date:
+        #                 chart_ids.add(chart_id)
+        #     except Exception as e:
+        #         self.stderr.write(f'Fehler beim Verarbeiten der Chart {chart_id}: {e}')
+        #         continue
+
         return list(chart_ids)
 
     def get_custom_fields(self, chart_details):
@@ -273,10 +314,11 @@ class Command(BaseCommand):
             #self.stdout.write(f'Gelöschte Grafiken entfernt: {deleted_count}')
             
             # Hole alle Ordner
-            all_folders = self.get_all_folders(self.headers)
+            all_folders, all_charts = self.get_all_folders(self.headers)
            
             self.stdout.write(f'Gefundene Ordner: {len(all_folders)}')
-            
+            all_charts.to_clipboard(index=False)
+            break
             # Filtere unerwünschte Ordner
             exclude_names = ['printexport']
             filtered_folders = self.filter_folders(all_folders, exclude_names=['printexport'])
