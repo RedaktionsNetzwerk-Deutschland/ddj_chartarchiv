@@ -174,67 +174,90 @@ class Command(BaseCommand):
             return pd.DataFrame(), pd.DataFrame(), []
 
 
-    def filter_folders(self, folders, exclude_names=['printexport']):
-        """Filtert Ordner basierend auf ausgeschlossenen Namen"""
-        subfolders = folders[folders["name"].isin(exclude_names)]
-        subfolder_names = subfolders["name"].unique()
-        exclude_names = exclude_names + list(subfolder_names)
-        folders = folders[~folders['name'].isin(exclude_names)]
-        
-        return folders
-
-    def get_all_chart_ids(self, folders, start_date):
-   
-        """
-        Extrahiert alle Chart-IDs aus den gefilterten Ordnern, die nach start_date erstellt wurden
-        
-        Args:
-            folders: Liste der gefilterten Ordner
-            start_date: datetime-Objekt für das Filterdatum
-        """
-        chart_ids = set()  # Verwende ein Set um Duplikate zu vermeiden
-        
-        # Füge die speziellen RND-Ordner-Charts hinzu
-        rnd_folder_id = "NcuSh8hB"  # Case-sensitive ID
+    def filter_folders(self, charts, folders, exclude_names=['printexport']):
+        """Filtert Charts basierend auf ausgeschlossenen Ordnernamen"""
         try:
-            response = requests.get(
-                f"https://api.datawrapper.de/v3/folders/{rnd_folder_id}?expand=true",  # expand=true für vollständige Chart-Details
-                headers=self.headers
-            )
-            if response.status_code == 200:
-                rnd_folder = response.json()
-                if 'charts' in rnd_folder:
-                    for chart in rnd_folder['charts']:
-                        try:
-                            # Hole das Erstellungsdatum
-                            if isinstance(chart, dict):
-                                created_at = chart.get('createdAt')
-                                chart_id = chart.get('id')
-                            else:
-                                # Wenn chart ein String ist, müssen wir die Details separat abrufen
-                                chart_id = chart
-                                chart_response = requests.get(
-                                    f"https://api.datawrapper.de/v3/charts/{chart_id}",
-                                    headers=self.headers
-                                )
-                                if chart_response.status_code == 200:
-                                    chart_data = chart_response.json()
-                                    created_at = chart_data.get('createdAt')
-                                else:
-                                    continue
-
-                            if created_at:
-                                # Konvertiere das Datum
-                                created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                                # Füge die ID nur hinzu, wenn das Datum nach start_date liegt
-                                if created_date > start_date:
-                                    chart_ids.add(chart_id)
-                        except Exception as e:
-                            self.stderr.write(f'Fehler beim Verarbeiten der Chart {chart_id}: {e}')
-                            continue
-
+            # Finde alle Ordner, deren Name in exclude_names vorkommt
+            subfolders = folders[folders["name"].isin(exclude_names)]
+            
+            # Starte mit einer Liste der auszuschließenden Ordnernamen
+            filterfolders_names = list(subfolders["name"].unique())
+            
+            # Füge auch die Unterordner zur Ausschlussliste hinzu, falls vorhanden
+            for subfolder_str in subfolders["subfolder"].dropna():
+                # Teile die Komma-separierten Unterordnernamen auf
+                subfolders_elements = [s.strip() for s in subfolder_str.split(",")]
+                # Füge jeden Unterordnernamen zur Ausschlussliste hinzu
+                filterfolders_names.extend(subfolders_elements)
+            
+            # Entferne Duplikate
+            filterfolders_names = list(set(filterfolders_names))
+            
+            self.stdout.write(f"Folgende Ordner werden ausgeschlossen: {filterfolders_names}")
+            
+            # Filtere die Charts basierend auf den Ordnernamen
+            charts_filtered = charts[~charts['folder_name'].isin(filterfolders_names)]
+            
+            return charts_filtered
         except Exception as e:
-            self.stderr.write(f'Fehler beim Abrufen des RND-Ordners: {e}')
+            self.stderr.write(f'Fehler beim Filtern der Ordner: {e}')
+            # Im Fehlerfall die ungefilterten Charts zurückgeben
+            return charts
+        
+        
+
+    # def get_all_chart_ids(self, folders, start_date):
+   
+    #     """
+    #     Extrahiert alle Chart-IDs aus den gefilterten Ordnern, die nach start_date erstellt wurden
+        
+    #     Args:
+    #         folders: Liste der gefilterten Ordner
+    #         start_date: datetime-Objekt für das Filterdatum
+    #     """
+    #     chart_ids = set()  # Verwende ein Set um Duplikate zu vermeiden
+        
+    #     # Füge die speziellen RND-Ordner-Charts hinzu
+    #     rnd_folder_id = "NcuSh8hB"  # Case-sensitive ID
+    #     try:
+    #         response = requests.get(
+    #             f"https://api.datawrapper.de/v3/folders/{rnd_folder_id}?expand=true",  # expand=true für vollständige Chart-Details
+    #             headers=self.headers
+    #         )
+    #         if response.status_code == 200:
+    #             rnd_folder = response.json()
+    #             if 'charts' in rnd_folder:
+    #                 for chart in rnd_folder['charts']:
+    #                     try:
+    #                         # Hole das Erstellungsdatum
+    #                         if isinstance(chart, dict):
+    #                             created_at = chart.get('createdAt')
+    #                             chart_id = chart.get('id')
+    #                         else:
+    #                             # Wenn chart ein String ist, müssen wir die Details separat abrufen
+    #                             chart_id = chart
+    #                             chart_response = requests.get(
+    #                                 f"https://api.datawrapper.de/v3/charts/{chart_id}",
+    #                                 headers=self.headers
+    #                             )
+    #                             if chart_response.status_code == 200:
+    #                                 chart_data = chart_response.json()
+    #                                 created_at = chart_data.get('createdAt')
+    #                             else:
+    #                                 continue
+
+    #                         if created_at:
+    #                             # Konvertiere das Datum
+    #                             created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+    #                             # Füge die ID nur hinzu, wenn das Datum nach start_date liegt
+    #                             if created_date > start_date:
+    #                                 chart_ids.add(chart_id)
+    #                     except Exception as e:
+    #                         self.stderr.write(f'Fehler beim Verarbeiten der Chart {chart_id}: {e}')
+    #                         continue
+
+    #     except Exception as e:
+    #         self.stderr.write(f'Fehler beim Abrufen des RND-Ordners: {e}')
 
         # # Füge Charts aus allen anderen gefilterten Ordnern hinzu
         # for chart_id in folders["folder_id"].unique():
@@ -317,27 +340,22 @@ class Command(BaseCommand):
             all_folders, all_charts = self.get_all_folders(self.headers)
            
             self.stdout.write(f'Gefundene Ordner: {len(all_folders)}')
-            all_charts.to_clipboard(index=False)
-            break
-            # Filtere unerwünschte Ordner
+            
+           
+            # Filtere Grafiken heraus, die in unerwünschten Ordnern sind
             exclude_names = ['printexport']
-            filtered_folders = self.filter_folders(all_folders, exclude_names=['printexport'])
-            self.stdout.write(f'Gefilterte Ordner: {len(filtered_folders)}')
-            print(filtered_folders)
-            
-
-            # Hole alle Chart-IDs mit Datumsfilter
-            all_chart_ids = self.get_all_chart_ids(filtered_folders, start_date)
-            self.stdout.write(f'Gefundene Chart-IDs nach {start_date}: {len(all_chart_ids)}')
-            
+            filtered_charts = self.filter_folders(all_charts, all_folders, exclude_names=exclude_names)
+            self.stdout.write(f'Gefilterte Charts: {len(filtered_charts)}')
             
             # Hole existierende Chart-IDs aus der Datenbank
             existing_chart_ids = set(Chart.objects.values_list('chart_id', flat=True))
-            
+            all_chart_ids = filtered_charts["chart_id"].unique()
+           
             # Filtere die bereits existierenden Charts aus
             new_chart_ids = [chart_id for chart_id in all_chart_ids if chart_id not in existing_chart_ids]
             self.stdout.write(f'Neue Chart-IDs zum Verarbeiten: {len(new_chart_ids)}')
-           
+            # für debug
+            new_chart_ids = ["k5iKB"]
             # Verarbeite nur die neuen Charts
             for chart_id in new_chart_ids:
                 try:
@@ -348,20 +366,8 @@ class Command(BaseCommand):
                         details_response = requests.get(chart_details_url, headers=self.headers)
                         details_response.raise_for_status()
                         chart_details = details_response.json()
+                        print(chart_details)
                         
-                        
-                        # Prüfe, ob die Grafik zum printexport Ordner gehört
-                        folder_id = chart_details.get('folderId')
-                        if folder_id:
-                            folder_response = requests.get(
-                                f"https://api.datawrapper.de/v3/folders/{folder_id}",
-                                headers=self.headers
-                            )
-                            if folder_response.status_code == 200:
-                                folder_data = folder_response.json()
-                                if folder_data.get('name', '').lower() == 'printexport':
-                                    self.stdout.write(f"Chart {chart_id} ist im printexport Ordner, überspringe...")
-                                    continue
                         # Prüfe, ob die Grafik veröffentlicht wurde
                         if chart_details.get('publishedAt') is None:
                             self.stdout.write(f"Chart {chart_id} ist nicht veröffentlicht, überspringe...")
@@ -369,30 +375,35 @@ class Command(BaseCommand):
                         title = chart_details.get('title', '')
                         description = chart_details.get('metadata', {}).get('describe', {}).get('intro', '')
                         notes = chart_details.get('metadata', {}).get('describe', {}).get('notes', '')
-                        
+                        published_at_str = chart_details.get('publishedAt')
+                        lastModified_at_str = chart_details.get('lastModifiedAt')
+                        # Stelle sicher, dass iframe_url einen Wert hat
+                        iframe_url = chart_details.get('publicUrl', '')  # Leerer String als Default
+                        # Stelle sicher, dass embed_js einen Wert hat
+                        embed_js = chart_details.get('metadata', {}).get('publish', {}).get('embed', '')
                         # Hole alle Custom Fields
                         custom_fields = self.get_custom_fields(chart_details)
                         
                         # Formatiere die Custom Fields für die Speicherung
-                        comments = []
-                        for field_key, field_value in custom_fields.items():
-                            comments.append(f"{field_key}: {field_value}")
+                        comments = custom_fields["kommentar"]
+                        tags = custom_fields["tags"]
+                        patch = custom_fields["patch"]
+                        evergreen = custom_fields["evergreen"]
                         
-                        # Verbinde alle Kommentare mit Zeilenumbrüchen
-                        comments_text = "\n".join(comments)
                         
-                        published_at_str = chart_details.get('publishedAt')
                         
-                        # Stelle sicher, dass iframe_url einen Wert hat
-                        iframe_url = chart_details.get('publicUrl', '')  # Leerer String als Default
                         
-                        # Stelle sicher, dass embed_js einen Wert hat
-                        embed_js = chart_details.get('metadata', {}).get('publish', {}).get('embed', '')
                         
                         published_date = None
+                        last_modified_date = None
                         if published_at_str:
                             try:
                                 published_date = datetime.fromisoformat(published_at_str.replace('Z', '+00:00'))
+                            except Exception:
+                                pass
+                        if lastModified_at_str:
+                            try:
+                                last_modified_date = datetime.fromisoformat(lastModified_at_str.replace('Z', '+00:00'))
                             except Exception:
                                 pass
 
@@ -403,7 +414,11 @@ class Command(BaseCommand):
                             title=title,
                             description=description,
                             notes=notes,
-                            comments=comments_text,
+                            comments=comments,
+                            tags=tags,
+                            patch=patch,
+                            evergreen=evergreen,
+                            last_modified_date=last_modified_date,
                             iframe_url=iframe_url or '',  # Stellt sicher, dass mindestens ein leerer String gesetzt wird
                             embed_js=embed_js,
                             evergreen=False  # Setze einen Default-Wert für evergreen
