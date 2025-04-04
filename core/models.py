@@ -7,15 +7,19 @@ User = get_user_model()
 
 class Chart(models.Model):
     published_date = models.DateTimeField(null=True, blank=True)
+    last_modified_date = models.DateTimeField(null=True, blank=True)
     chart_id = models.CharField(max_length=100, unique=True)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     notes = models.TextField(blank=True)
     comments = models.TextField(blank=True)
+    tags = models.TextField(blank=True)
+    patch = models.BooleanField(default=False)
     thumbnail = models.ImageField(upload_to='thumbnails/', blank=True, null=True)
     iframe_url = models.URLField(blank=True)
     embed_js = models.TextField(blank=True)
     evergreen = models.BooleanField(default=False)
+    regional = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title

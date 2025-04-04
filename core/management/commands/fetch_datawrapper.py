@@ -387,8 +387,15 @@ class Command(BaseCommand):
                         # Formatiere die Custom Fields für die Speicherung
                         comments = custom_fields["kommentar"]
                         tags = custom_fields["tags"]
+                        # der Name des Folders wird mit in die tags aufgenommen
+                        folder_name = filtered_charts[filtered_charts["chart_id"] == chart_id]["folder_name"].values[0]
+                        if tags.strip():
+                            tags = tags.strip().rstrip(',') + ", " + folder_name.strip()
+                        else:
+                            tags = folder_name.strip()
                         patch = custom_fields["patch"]
                         evergreen = custom_fields["evergreen"]
+                        regional = custom_fields["regional"]
                         
                         
                         
@@ -416,12 +423,13 @@ class Command(BaseCommand):
                             notes=notes,
                             comments=comments,
                             tags=tags,
-                            patch=patch,
-                            evergreen=evergreen,
+                            patch=True if patch.lower() == 'true' else False,
+                            evergreen=True if evergreen.lower() == 'true' else False,
+                            regional=True if regional.lower() == 'true' else False,
                             last_modified_date=last_modified_date,
                             iframe_url=iframe_url or '',  # Stellt sicher, dass mindestens ein leerer String gesetzt wird
                             embed_js=embed_js,
-                            evergreen=False  # Setze einen Default-Wert für evergreen
+                            
                         )
 
                         # Thumbnail erstellen nur wenn eine URL vorhanden ist
