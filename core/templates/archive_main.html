@@ -224,12 +224,15 @@
       justify-content: flex-start;
     }
     .chart-tile .flags {
+      position: absolute;
+      top: 10px;
+      right: 10px;
       display: flex;
+      flex-direction: column;
       gap: 8px;
-      margin-bottom: 15px;
+      z-index: 3;
     }
     .chart-tile .flag {
-      background-color: #ff4444;
       color: white;
       padding: 4px 12px;
       border-radius: 15px;
@@ -237,6 +240,16 @@
       font-weight: 500;
       text-transform: uppercase;
       border: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .chart-tile .flag.regional {
+      background-color: #ff4444;
+    }
+    .chart-tile .flag.evergreen {
+      background-color: #44bb55;
+    }
+    .chart-tile .flag.patch {
+      background-color: #a044ff;
     }
     .chart-tile h3 {
       margin: 0 0 10px 0;
@@ -271,19 +284,19 @@
       text-align: left;
     }
     th {
-      background-color: transparent;
+      background-color: #f5f8ff;
       color: #333 !important;
       font-weight: bold !important;
       font-size: 0.9em;
       text-transform: uppercase;
       padding: 15px 8px;
-      border-bottom: 1px solid #eee;
+      border-bottom: 2px solid #4f80ff;
       position: sticky;
       top: 0;
       z-index: 10;
     }
     th:hover {
-      background-color: #f0f0f0;
+      background-color: #e8efff;
     }
     tr:hover {
       background-color: #f5f8ff;
@@ -404,6 +417,111 @@
         transform: translateY(0);
       }
     }
+
+    /* Für die Thumbnail-Darstellung in der Tabelle */
+    table td .thumbnail-container {
+      position: relative;
+      width: 80px;
+      height: 50px;
+      overflow: hidden;
+    }
+    table td .thumbnail-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    table td .thumbnail-flags {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 2;
+    }
+    table td .thumbnail-flag {
+      color: white;
+      padding: 1px 4px;
+      border-radius: 8px;
+      font-size: 0.55em;
+      font-weight: 500;
+      text-transform: uppercase;
+      border: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      opacity: 0.9;
+      text-align: center;
+      min-width: 30px;
+    }
+    table td .thumbnail-flag.regional {
+      background-color: #ff4444;
+    }
+    table td .thumbnail-flag.evergreen {
+      background-color: #44bb55;
+    }
+    table td .thumbnail-flag.patch {
+      background-color: #a044ff;
+    }
+    
+    /* Styling für Tags in der Tabelle */
+    .tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-width: 200px;
+    }
+    .tag {
+      display: inline-block;
+      background-color: #eaeaea;
+      color: #666;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.75em;
+      white-space: nowrap;
+      margin-bottom: 2px;
+    }
+    
+    /* Responsives Tabellenlayout */
+    @media screen and (max-width: 1200px) {
+      .charts-table {
+        font-size: 0.9em;
+      }
+      .tags-container {
+        max-width: 150px;
+      }
+    }
+
+    /* Styling für Flags in der eigenen Spalte */
+    .table-flags {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .table-flag {
+      display: inline-block;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75em;
+      font-weight: 500;
+      text-transform: uppercase;
+      text-align: center;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      margin-bottom: 3px;
+    }
+    
+    .table-flag.regional {
+      background-color: #ff4444;
+    }
+    
+    .table-flag.evergreen {
+      background-color: #44bb55;
+    }
+    
+    .table-flag.patch {
+      background-color: #a044ff;
+    }
   </style>
 {% endblock %}
 
@@ -435,9 +553,45 @@
 
   <div class="charts-table-container" style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
     <h2 style="font-family: 'DINNextLTPro', sans-serif; color: #333; margin-bottom: 20px;">Alle Grafiken</h2>
-    <table class="charts-table" style="width: 100%; border-collapse: collapse;">
-      <tbody id="charts-table-body">
+    <table style="width: 100%; border-collapse: collapse; border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; font-family: 'DINNextLTPro', sans-serif;">
+      <thead>
+        <tr style="background: linear-gradient(135deg, #4f80ff 0%, #3a6cd9 100%);">
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Erstellung</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Thumb</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Titel</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">ChartId</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Unterzeile</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Tags</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none; border-radius: 0 8px 0 0;">Infos</th>
+        </tr>
+      </thead>
+      <tbody id="charts-table-body" style="background-color: white;">
         <!-- Wird durch JavaScript gefüllt -->
+        <tr style="cursor: pointer; transition: background-color 0.2s ease;">
+          <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0;">01.01.2025</td>
+          <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0;">
+            <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <img src="/static/img/placeholder.png" alt="Test Grafik" width="80" style="object-fit: cover; width: 100%; height: 100%;">
+            </div>
+          </td>
+          <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500;">Test Grafik Titel</td>
+          <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">test-chart-001</td>
+          <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666;">Dies ist eine Testgrafik zur Überprüfung der Tabellendarstellung</td>
+          <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0;">
+            <div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 200px;">
+              <span style="display: inline-block; background-color: #f0f0f0; color: #666; padding: 3px 8px; border-radius: 4px; font-size: 0.75em; white-space: nowrap; margin-bottom: 2px;">test</span>
+              <span style="display: inline-block; background-color: #f0f0f0; color: #666; padding: 3px 8px; border-radius: 4px; font-size: 0.75em; white-space: nowrap; margin-bottom: 2px;">beispiel</span>
+              <span style="display: inline-block; background-color: #f0f0f0; color: #666; padding: 3px 8px; border-radius: 4px; font-size: 0.75em; white-space: nowrap; margin-bottom: 2px;">anzeige</span>
+            </div>
+          </td>
+          <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <span style="display: inline-block; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7em; font-weight: 500; text-transform: uppercase; text-align: center; background-color: #ff4444;">regional</span>
+              <span style="display: inline-block; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7em; font-weight: 500; text-transform: uppercase; text-align: center; background-color: #44bb55;">evergreen</span>
+              <span style="display: inline-block; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.7em; font-weight: 500; text-transform: uppercase; text-align: center; background-color: #a044ff;">patch</span>
+            </div>
+          </td>
+        </tr>
       </tbody>
     </table>
     <div id="loading-spinner" style="display: none; text-align: center; padding: 20px;">
@@ -507,13 +661,25 @@
           const chartElement = document.createElement('div');
           chartElement.className = 'chart-tile';
           chartElement.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
+          
+          // Generiere die Flags basierend auf den Eigenschaften
+          let flagsHTML = '';
+          if (chart.regional) {
+            flagsHTML += `<button class="flag regional">regional</button>`;
+          }
+          if (chart.evergreen) {
+            flagsHTML += `<button class="flag evergreen">evergreen</button>`;
+          }
+          if (chart.patch) {
+            flagsHTML += `<button class="flag patch">patch</button>`;
+          }
+          
           chartElement.innerHTML = `
             <img data-src="${chart.thumbnail}" alt="${chart.title}">
-            <div class="content">
               <div class="flags">
-                <button class="flag">auto</button>
-                <button class="flag">Landkreis</button>
+              ${flagsHTML}
               </div>
+            <div class="content">
               <h3>${chart.title}</h3>
               <p>${chart.description || ''}</p>
             </div>
@@ -545,6 +711,7 @@
           const chartsTable = document.querySelector('.charts-table-container');
           const defaultTiles = document.querySelector('.tiles');
           const searchResultsElement = document.getElementById('search-results');
+          const chartsTableBody = document.getElementById("charts-table-body");
           
           // Lösche vorherige Timeouts, um Konflikte zu vermeiden
           if (fadeOutTimeout) {
@@ -570,6 +737,12 @@
             chartsTable.style.display = "block";
             // Verstecke die Suchergebnisse
             searchResultsElement.classList.remove('active');
+            
+            // Setze die Tabellendaten zurück
+            chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Suche läuft...</td></tr>";
+            currentTablePage = 0;
+            hasMoreCharts = false; // Stoppe das kontinuierliche Laden
+
             // Führe die Suche durch
             fetchResults(query);
           } else {
@@ -627,6 +800,14 @@
       }
 
       function fetchResults(query) {
+        // Leere die Tabelle sofort, wenn eine Suche beginnt
+        const chartsTableBody = document.getElementById("charts-table-body");
+        chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Suche läuft...</td></tr>";
+        
+        // Deaktiviere das automatische Laden weiterer Daten während der Suche
+        hasMoreCharts = false;
+        currentTablePage = 0;
+        
         fetch("/chart-search/?q=" + encodeURIComponent(query))
           .then(response => response.json())
           .then(data => {
@@ -634,15 +815,14 @@
             totalResults = data.results.length; // Verwende die tatsächliche Anzahl der zurückgegebenen Ergebnisse
             
             // Aktualisiere die Tabelle direkt
-            const chartsTableBody = document.getElementById("charts-table-body");
-            chartsTableBody.innerHTML = ""; // Leere die Tabelle
+            chartsTableBody.innerHTML = ""; // Leere die Tabelle nochmal
             
             // Aktualisiere die Überschrift mit der Anzahl der gefundenen Grafiken
             const headerText = document.querySelector('.charts-table-container h2');
             
             if (totalResults === 0) {
               headerText.textContent = `Keine Grafiken für "${query}" gefunden`;
-              chartsTableBody.innerHTML = "<tr><td colspan='6' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
+              chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
               return;
             }
             
@@ -651,6 +831,21 @@
             // Funktion zum Hervorheben des Suchbegriffs
             function highlightText(text, searchTerm) {
               if (!text || typeof text !== 'string') return '';
+              
+              // Unterstütze auch die Hervorhebung mehrerer Suchbegriffe
+              if (searchTerm.includes(' ')) {
+                const terms = searchTerm.split(' ').filter(term => term.length > 2);
+                let highlightedText = text;
+                
+                terms.forEach(term => {
+                  const regex = new RegExp(term, 'gi');
+                  highlightedText = highlightedText.replace(regex, match => `<span class="highlight">${match}</span>`);
+                });
+                
+                return highlightedText;
+              }
+              
+              // Fallback für einzelnen Suchbegriff
               const regex = new RegExp(searchTerm, 'gi');
               return text.replace(regex, match => `<span class="highlight">${match}</span>`);
             }
@@ -661,15 +856,58 @@
               row.style.cursor = 'pointer';
               row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
               
+              // Generiere die Flags für die Tabelle
+              let flagsHTML = '';
+              if (chart.regional || chart.evergreen || chart.patch) {
+                flagsHTML = '<div class="table-flags">';
+                if (chart.regional) {
+                  flagsHTML += '<span class="table-flag regional">regional</span>';
+                }
+                if (chart.evergreen) {
+                  flagsHTML += '<span class="table-flag evergreen">evergreen</span>';
+                }
+                if (chart.patch) {
+                  flagsHTML += '<span class="table-flag patch">patch</span>';
+                }
+                flagsHTML += '</div>';
+              }
+              
+              // Generiere Tags-HTML für die formatierte Anzeige
+              let tagsHTML = '';
+              if (chart.tags && chart.tags.length > 0) {
+                const tagsList = chart.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+                if (tagsList.length > 0) {
+                  tagsHTML = `<div class="tags-container">` + 
+                    tagsList.map(tag => `<span class="tag">${highlightText(tag, query)}</span>`).join('') +
+                    `</div>`;
+                }
+              }
+              
               const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
               row.innerHTML = `
-                <td>${formattedDate}</td>
-                <td><img src="${chart.thumbnail}" alt="${chart.title}" width="50"></td>
-                <td>${highlightText(chart.title, query)}</td>
-                <td>${highlightText(chart.chart_id, query)}</td>
-                <td>${highlightText(chart.description || '', query)}</td>
-                <td>${highlightText(chart.tags || '', query)}</td>
+                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formattedDate}</td>
+                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
+                  <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
+                  </div>
+                </td>
+                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${highlightText(chart.title, query)}</td>
+                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${highlightText(chart.chart_id, query)}</td>
+                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${highlightText(chart.description || '', query)}</td>
+                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
+                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
               `;
+              
+              row.style.cursor = 'pointer';
+              row.style.transition = 'background-color 0.2s ease';
+              
+              row.addEventListener('mouseover', function() {
+                this.style.backgroundColor = '#f8f9ff';
+              });
+              
+              row.addEventListener('mouseout', function() {
+                this.style.backgroundColor = '';
+              });
               
               chartsTableBody.appendChild(row);
 
@@ -682,7 +920,7 @@
           .catch(error => {
             console.error('Error fetching search results:', error);
             const chartsTableBody = document.getElementById("charts-table-body");
-            chartsTableBody.innerHTML = "<tr><td colspan='6' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
+            chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
           });
       }
 
@@ -712,6 +950,10 @@
           if (currentTablePage === 0 && data.total_count) {
             const headerText = document.querySelector('.charts-table-container h2');
             headerText.textContent = `Alle Grafiken (${data.total_count})`;
+            
+            // Wenn wir am Anfang sind, entferne die Testdaten
+            const chartsTableBody = document.getElementById("charts-table-body");
+            chartsTableBody.innerHTML = "";
           }
           
           // Prüfe, ob es weitere Daten gibt
@@ -727,14 +969,57 @@
             row.style.cursor = 'pointer';
             row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
             
+            // Generiere die Flags für die Tabelle
+            let flagsHTML = '';
+            if (chart.regional || chart.evergreen || chart.patch) {
+              flagsHTML = '<div class="table-flags">';
+              if (chart.regional) {
+                flagsHTML += '<span class="table-flag regional">regional</span>';
+              }
+              if (chart.evergreen) {
+                flagsHTML += '<span class="table-flag evergreen">evergreen</span>';
+              }
+              if (chart.patch) {
+                flagsHTML += '<span class="table-flag patch">patch</span>';
+              }
+              flagsHTML += '</div>';
+            }
+            
+            // Generiere Tags-HTML für die formatierte Anzeige
+            let tagsHTML = '';
+            if (chart.tags && chart.tags.length > 0) {
+              const tagsList = chart.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+              if (tagsList.length > 0) {
+                tagsHTML = `<div class="tags-container">` + 
+                  tagsList.map(tag => `<span class="tag">${tag}</span>`).join('') +
+                  `</div>`;
+              }
+            }
+            
             row.innerHTML = `
-              <td>${formatDate(chart.published_date)}</td>
-              <td><img src="${chart.thumbnail}" alt="${chart.title}" loading="lazy"></td>
-              <td>${chart.title}</td>
-              <td>${chart.chart_id}</td>
-              <td>${chart.description || ''}</td>
-              <td>${chart.tags || ''}</td>
+              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formatDate(chart.published_date)}</td>
+              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
+                <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <img src="${chart.thumbnail}" alt="${chart.title}" loading="lazy" style="object-fit: cover; width: 100%; height: 100%;">
+                </div>
+              </td>
+              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${chart.title}</td>
+              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
+              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${chart.description || ''}</td>
+              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
+              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
             `;
+            
+            row.style.cursor = 'pointer';
+            row.style.transition = 'background-color 0.2s ease';
+            
+            row.addEventListener('mouseover', function() {
+              this.style.backgroundColor = '#f8f9ff';
+            });
+            
+            row.addEventListener('mouseout', function() {
+              this.style.backgroundColor = '';
+            });
             
             chartsTableBody.appendChild(row);
 

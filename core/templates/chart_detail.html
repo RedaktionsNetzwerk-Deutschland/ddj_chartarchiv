@@ -41,12 +41,63 @@
       padding: 20px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      position: relative;
     }
     .chart-image {
       width: 100%;
       height: auto;
       display: block;
       border-radius: 4px;
+    }
+    /* Styles für Flags auf dem Thumbnail */
+    .chart-flags {
+      position: absolute;
+      top: 30px;
+      right: 0;
+      width: 160px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10;
+      transform: translateX(25%);
+    }
+    .chart-flag {
+      display: inline-block;
+      color: white;
+      padding: 8px 24px;
+      border-radius: 6px;
+      font-size: 1.0em;
+      font-weight: 500;
+      text-transform: uppercase;
+      text-align: center;
+      font-family: 'DINNextLTPro', sans-serif;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .chart-flag.regional {
+      background-color: #ff4444;
+    }
+    .chart-flag.evergreen {
+      background-color: #44bb55;
+    }
+    .chart-flag.patch {
+      background-color: #a044ff;
+    }
+    /* Styles für Tags-Anzeige */
+    .chart-tags {
+      margin-top: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+    .chart-tag {
+      display: inline-block;
+      background-color: #f0f0f0;
+      color: #666;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      font-family: 'DINNextLTPro', sans-serif;
     }
     .chart-content {
       max-width: 800px;
@@ -101,10 +152,30 @@
     
     <div class="chart-image-container">
       <img src="{{ chart.thumbnail.url }}" alt="{{ chart.title }}" class="chart-image">
+      <div class="chart-flags">
+        {% if chart.regional %}
+        <span class="chart-flag regional">regional</span>
+        {% endif %}
+        {% if chart.evergreen %}
+        <span class="chart-flag evergreen">evergreen</span>
+        {% endif %}
+        {% if chart.patch %}
+        <span class="chart-flag patch">patch</span>
+        {% endif %}
+      </div>
     </div>
     
     <div class="chart-content">
       <h1 class="chart-title">{{ chart.title }}</h1>
+      
+      {% if chart.tags %}
+      <div class="chart-tags">
+        {% for tag in chart.tags.split %}
+          <span class="chart-tag">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
       <p class="chart-description">{{ chart.description }}</p>
       
       <div class="action-buttons">

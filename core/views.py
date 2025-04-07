@@ -41,13 +41,25 @@ def chart_search(request):
     print(f"Debug: Suche nach '{q}' auf Seite {page}")
     
     if q:
-        # Erweiterte Suche über alle relevanten Textfelder
-        query = Q(chart_id__icontains=q) | \
-                Q(title__icontains=q) | \
-                Q(description__icontains=q) | \
-                Q(notes__icontains=q) | \
-                Q(comments__icontains=q) | \
-                Q(embed_js__icontains=q)
+        # Teile die Suchanfrage in einzelne Wörter auf
+        search_terms = q.strip().split()
+        
+        # Baue die Abfrage auf
+        query = Q()
+        
+        # Suche nach dem vollständigen Begriff (wie bisher)
+        query |= Q(chart_id__icontains=q) | \
+                 Q(title__icontains=q) | \
+                 Q(description__icontains=q) | \
+                 Q(notes__icontains=q) | \
+                 Q(comments__icontains=q) | \
+                 Q(embed_js__icontains=q) | \
+                 Q(tags__icontains=q)
+        
+        # Füge separate Suche für jedes einzelne Wort hinzu, besonders wichtig für Tags
+        for term in search_terms:
+            if len(term) > 2:  # Ignoriere sehr kurze Wörter (z.B. 'a', 'in', usw.)
+                query |= Q(tags__icontains=term)
         
         total_count = Chart.objects.filter(query).count()
         print(f"Debug: Gefundene Ergebnisse bei Suche: {total_count}")
@@ -63,25 +75,18 @@ def chart_search(request):
     
     results = []
     for chart in charts:
-        # Extrahiere Tags aus den Custom Fields
-        tags = []
-        try:
-            comments_lines = chart.comments.split('\n')
-            for line in comments_lines:
-                if line.startswith('tags:'):
-                    tags = line.replace('tags:', '').strip()
-                    break
-        except:
-            tags = ''
-        
+        # Verwende direkt das tags-Feld aus dem Modell
         results.append({
             'chart_id': chart.chart_id,
             'title': chart.title,
             'description': chart.description,
             'notes': chart.notes,
-            'tags': tags,
+            'tags': chart.tags,  # Verwende direkt chart.tags
             'thumbnail': chart.thumbnail.url if chart.thumbnail else '',
-            'published_date': chart.published_date.isoformat() if chart.published_date else None
+            'published_date': chart.published_date.isoformat() if chart.published_date else None,
+            'evergreen': chart.evergreen,
+            'patch': chart.patch,
+            'regional': chart.regional
         })
     
     data = {
