@@ -522,6 +522,36 @@
     .table-flag.patch {
       background-color: #a044ff;
     }
+
+    .charts-table-container {
+      transition: opacity 0.3s ease;
+    }
+    
+    .charts-table-container.loading {
+      opacity: 0.6;
+    }
+
+    /* Animation für Tabellenzeilen */
+    .charts-table tbody tr {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s ease, transform 0.3s ease, background-color 0.2s ease;
+    }
+
+    .charts-table tbody tr.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Verbesserte Loading-Animation */
+    #loading-spinner {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    #loading-spinner.visible {
+      opacity: 1;
+    }
   </style>
 {% endblock %}
 
@@ -539,14 +569,19 @@
   <div id="selected-charts" class="selected-charts" style="display: none;"></div>
 
   <div id="default-tiles" class="tiles">
-    <div class="tile with-bg" style="background-image: url('{% static 'img/btw_2025.png' %}')"><span>Bundestagswahl</span></div>
-    <div class="tile with-bg" style="background-image: url('{% static 'img/wahlkompass.png' %}')"><span>Wahlkompass</span></div>
-    <div class="tile with-bg" style="background-image: url('{% static 'img/mobilität.png' %}')"><span>Mobilität</span></div>
-    <div class="tile with-bg" style="background-image: url('{% static 'img/bevölkerung.png' %}')"><span>Bevölkerung</span></div>
-    <div class="tile with-bg" style="background-image: url('{% static 'img/wirtschaft.png' %}')"><span>Wirtschaft</span></div>
-    <div class="tile with-bg" style="background-image: url('{% static 'img/gesundheit.png' %}')"><span>Gesundheit</span></div>
-    <div class="tile with-bg" style="background-image: url('{% static 'img/umwelt.png' %}')"><span>Umwelt + Klima</span></div>
-    <div class="tile with-bg" style="background-image: url('{% static 'img/sicherheit.png' %}')"><span>Sicherheit</span></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/btw_2025.png' %}')"><a href="{% url 'topic_view' 'bildung' %}" style="color: white; text-decoration: none;"><span>Bildung</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/wahlkompass.png' %}')"><a href="{% url 'topic_view' 'mobilitätskompass' %}" style="color: white; text-decoration: none;"><span>Mobilitätskompass</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/mobilität.png' %}')"><a href="{% url 'topic_view' 'verkehr-mobilität' %}" style="color: white; text-decoration: none;"><span>Verkehr + Mobilität</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/bevölkerung.png' %}')"><a href="{% url 'topic_view' 'bevölkerung' %}" style="color: white; text-decoration: none;"><span>Bevölkerung</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/wirtschaft.png' %}')"><a href="{% url 'topic_view' 'wirtschaft' %}" style="color: white; text-decoration: none;"><span>Wirtschaft</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/gesundheit.png' %}')"><a href="{% url 'topic_view' 'gesundheit' %}" style="color: white; text-decoration: none;"><span>Gesundheit</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/umwelt.png' %}')"><a href="{% url 'topic_view' 'umwelt-klima' %}" style="color: white; text-decoration: none;"><span>Umwelt + Klima</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/sicherheit.png' %}')"><a href="{% url 'topic_view' 'sicherheit-kriminalität' %}" style="color: white; text-decoration: none;"><span>Sicherheit + Kriminalität</span></a></div>
+    
+    <div class="tile with-bg" style="background-image: url('{% static 'img/placeholder.png' %}')"><a href="{% url 'topic_view' 'kachel-1' %}" style="color: white; text-decoration: none;"><span>Kachel 1</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/placeholder.png' %}')"><a href="{% url 'topic_view' 'kachel-2' %}" style="color: white; text-decoration: none;"><span>Kachel 2</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/placeholder.png' %}')"><a href="{% url 'topic_view' 'kachel-3' %}" style="color: white; text-decoration: none;"><span>Kachel 3</span></a></div>
+    <div class="tile with-bg" style="background-image: url('{% static 'img/placeholder.png' %}')"><a href="{% url 'topic_view' 'kachel-4' %}" style="color: white; text-decoration: none;"><span>Kachel 4</span></a></div>
   </div>
 
   <hr class="divider">
@@ -619,15 +654,136 @@
       var isLoadingTable = false;
       var hasMoreCharts = true;
 
+      // Debounce-Funktion
+      function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      }
+
+      // Modifizierte Event Listener für die Suche mit Debouncing
+      if (searchInput) {
+        const debouncedSearch = debounce(function(query) {
+          // Speichere den Suchbegriff im LocalStorage
+          if (query) {
+            localStorage.setItem('archiveSearchQuery', query);
+          } else {
+            localStorage.removeItem('archiveSearchQuery');
+          }
+          
+          // Hole die aktuelle Tabelle
+          const chartsTable = document.querySelector('.charts-table-container');
+          const defaultTiles = document.querySelector('.tiles');
+          const searchResultsElement = document.getElementById('search-results');
+          const chartsTableBody = document.getElementById("charts-table-body");
+          const loadingSpinner = document.getElementById("loading-spinner");
+          
+          // Lösche vorherige Timeouts, um Konflikte zu vermeiden
+          if (fadeOutTimeout) {
+            clearTimeout(fadeOutTimeout);
+            fadeOutTimeout = null;
+          }
+          
+          if (query.length > 0) {
+            // Animiere die Kacheln aus
+            defaultTiles.classList.add('fade-out');
+            defaultTiles.classList.remove('fade-in');
+            
+            // Nach der Animation verstecken
+            fadeOutTimeout = setTimeout(() => {
+              // Prüfe nochmals, ob die Suche noch aktiv ist
+              if (searchInput.value.trim().length > 0) {
+                defaultTiles.style.display = "none";
+              }
+              fadeOutTimeout = null;
+            }, 400);
+            
+            // Zeige die Tabelle und setze Loading-Status
+            chartsTable.style.display = "block";
+            chartsTable.classList.add('loading');
+            
+            // Verstecke die Suchergebnisse
+            searchResultsElement.classList.remove('active');
+            
+            // Setze die Tabellendaten zurück
+            chartsTableBody.innerHTML = "";
+            currentTablePage = 0;
+            hasMoreCharts = false;
+            
+            // Zeige den Spinner während der Suche
+            loadingSpinner.classList.add('visible');
+
+            // Führe die Suche durch
+            fetchResults(query);
+          } else {
+            // Zeige die Tabelle mit allen Grafiken
+            chartsTable.style.display = "block";
+            // Verstecke die Suchergebnisse
+            searchResultsElement.classList.remove('active');
+            
+            // Bereite die Kacheln für die Animation vor
+            // Entferne alte Animationsklassen
+            defaultTiles.classList.remove('fade-out');
+            
+            // Setze die Kacheln auf sichtbar
+            defaultTiles.style.display = "grid";
+            
+            // Füge die Einblend-Animation hinzu
+            // Verzögere leicht, um sicherzustellen, dass der Display-Wechsel verarbeitet wurde
+            setTimeout(() => {
+              // Prüfe nochmals, ob die Suche noch leer ist
+              if (searchInput.value.trim().length === 0) {
+                defaultTiles.classList.add('fade-in');
+              }
+            }, 50);
+            
+            // Lade alle Grafiken neu
+            currentTablePage = 0;
+            hasMoreCharts = true;
+            chartsTableBody.innerHTML = "";
+            loadingSpinner.classList.remove('visible');
+            loadChartData();
+            
+            // Wir holen die Gesamtanzahl der Grafiken separat, um sie sofort anzuzeigen
+            fetch("/chart-search/")
+              .then(response => response.json())
+              .then(data => {
+                if (data.total_count) {
+                  const headerText = document.querySelector('.charts-table-container h2');
+                  headerText.textContent = `Alle Grafiken (${data.total_count})`;
+                }
+              })
+              .catch(error => {
+                console.error('Fehler beim Laden der Gesamtanzahl:', error);
+              });
+          }
+        }, 300); // 300ms Verzögerung
+
+        searchInput.addEventListener("input", function() {
+          const query = this.value.trim();
+          debouncedSearch(query);
+        });
+      }
+
       // Stelle sicher, dass die Kacheln mit der Fade-In-Animation angezeigt werden
-      defaultTiles.classList.add('fade-in');
+      if (!searchInput.value) {
+        defaultTiles.classList.add('fade-in');
+      }
       
       // Zeige die Tabelle standardmäßig an
       const chartsTable = document.querySelector('.charts-table-container');
       chartsTable.style.display = "block";
       
       // Lade die initialen Daten
-      loadChartData();
+      if (!searchInput.value) {
+        loadChartData();
+      }
       
       // Variable, um den Timeout zu speichern
       let fadeOutTimeout;
@@ -702,96 +858,6 @@
         }
       }
 
-      // Ursprüngliche Event Listener...
-      if (searchInput) {
-        searchInput.addEventListener("input", function() {
-          var query = searchInput.value.trim();
-          
-          // Hole die aktuelle Tabelle
-          const chartsTable = document.querySelector('.charts-table-container');
-          const defaultTiles = document.querySelector('.tiles');
-          const searchResultsElement = document.getElementById('search-results');
-          const chartsTableBody = document.getElementById("charts-table-body");
-          
-          // Lösche vorherige Timeouts, um Konflikte zu vermeiden
-          if (fadeOutTimeout) {
-            clearTimeout(fadeOutTimeout);
-            fadeOutTimeout = null;
-          }
-          
-          if (query.length > 0) {
-            // Animiere die Kacheln aus
-            defaultTiles.classList.add('fade-out');
-            defaultTiles.classList.remove('fade-in');
-            
-            // Nach der Animation verstecken
-            fadeOutTimeout = setTimeout(() => {
-              // Prüfe nochmals, ob die Suche noch aktiv ist
-              if (searchInput.value.trim().length > 0) {
-                defaultTiles.style.display = "none";
-              }
-              fadeOutTimeout = null;
-            }, 400); // Entspricht der Animationsdauer
-            
-            // Zeige die Tabelle
-            chartsTable.style.display = "block";
-            // Verstecke die Suchergebnisse
-            searchResultsElement.classList.remove('active');
-            
-            // Setze die Tabellendaten zurück
-            chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Suche läuft...</td></tr>";
-            currentTablePage = 0;
-            hasMoreCharts = false; // Stoppe das kontinuierliche Laden
-
-            // Führe die Suche durch
-            fetchResults(query);
-          } else {
-            // Zeige die Tabelle mit allen Grafiken
-            chartsTable.style.display = "block";
-            // Verstecke die Suchergebnisse
-            searchResultsElement.classList.remove('active');
-            
-            // Bereite die Kacheln für die Animation vor
-            // Entferne alte Animationsklassen
-            defaultTiles.classList.remove('fade-out');
-            
-            // Setze die Kacheln auf sichtbar
-            defaultTiles.style.display = "grid";
-            
-            // Füge die Einblend-Animation hinzu
-            // Verzögere leicht, um sicherzustellen, dass der Display-Wechsel verarbeitet wurde
-            setTimeout(() => {
-              // Prüfe nochmals, ob die Suche noch leer ist
-              if (searchInput.value.trim().length === 0) {
-                defaultTiles.classList.add('fade-in');
-              }
-            }, 50);
-            
-            // Lade alle Grafiken neu
-            currentTablePage = 0;
-            hasMoreCharts = true;
-            chartsTableBody.innerHTML = "";
-            loadChartData();
-            
-            // Wir holen die Gesamtanzahl der Grafiken separat, um sie sofort anzuzeigen
-            fetch("/chart-search/")
-              .then(response => response.json())
-              .then(data => {
-                if (data.total_count) {
-                  const headerText = document.querySelector('.charts-table-container h2');
-                  headerText.textContent = `Alle Grafiken (${data.total_count})`;
-                }
-              })
-              .catch(error => {
-                console.error('Fehler beim Laden der Gesamtanzahl:', error);
-              });
-          }
-        });
-      }
-
-      // Beobachte den "Mehr laden" Indikator
-      loadMoreObserver.observe(loadMoreIndicator);
-
       function showTotalResults(count) {
         const resultsInfo = document.createElement('div');
         resultsInfo.className = 'results-info';
@@ -800,24 +866,21 @@
       }
 
       function fetchResults(query) {
-        // Leere die Tabelle sofort, wenn eine Suche beginnt
+        const chartsTable = document.querySelector('.charts-table-container');
         const chartsTableBody = document.getElementById("charts-table-body");
-        chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Suche läuft...</td></tr>";
+        const loadingSpinner = document.getElementById("loading-spinner");
         
-        // Deaktiviere das automatische Laden weiterer Daten während der Suche
-        hasMoreCharts = false;
-        currentTablePage = 0;
+        // Setze Loading-Status
+        chartsTable.classList.add('loading');
+        loadingSpinner.classList.add('visible');
         
         fetch("/chart-search/?q=" + encodeURIComponent(query))
           .then(response => response.json())
           .then(data => {
             currentSearchResults = data.results;
-            totalResults = data.results.length; // Verwende die tatsächliche Anzahl der zurückgegebenen Ergebnisse
+            totalResults = data.results.length;
             
-            // Aktualisiere die Tabelle direkt
-            chartsTableBody.innerHTML = ""; // Leere die Tabelle nochmal
-            
-            // Aktualisiere die Überschrift mit der Anzahl der gefundenen Grafiken
+            // Aktualisiere die Überschrift
             const headerText = document.querySelector('.charts-table-container h2');
             
             if (totalResults === 0) {
@@ -828,99 +891,88 @@
             
             headerText.textContent = `${totalResults} Grafiken für "${query}" gefunden`;
             
-            // Funktion zum Hervorheben des Suchbegriffs
-            function highlightText(text, searchTerm) {
-              if (!text || typeof text !== 'string') return '';
-              
-              // Unterstütze auch die Hervorhebung mehrerer Suchbegriffe
-              if (searchTerm.includes(' ')) {
-                const terms = searchTerm.split(' ').filter(term => term.length > 2);
-                let highlightedText = text;
+            // Leere die Tabelle
+            chartsTableBody.innerHTML = "";
+            
+            // Füge die Ergebnisse mit Verzögerung hinzu
+            data.results.forEach((chart, index) => {
+              setTimeout(() => {
+                const row = document.createElement('tr');
+                row.style.cursor = 'pointer';
+                row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
                 
-                terms.forEach(term => {
-                  const regex = new RegExp(term, 'gi');
-                  highlightedText = highlightedText.replace(regex, match => `<span class="highlight">${match}</span>`);
+                // Generiere die Flags für die Tabelle
+                let flagsHTML = '';
+                if (chart.regional || chart.evergreen || chart.patch) {
+                  flagsHTML = '<div class="table-flags">';
+                  if (chart.regional) {
+                    flagsHTML += '<span class="table-flag regional">regional</span>';
+                  }
+                  if (chart.evergreen) {
+                    flagsHTML += '<span class="table-flag evergreen">evergreen</span>';
+                  }
+                  if (chart.patch) {
+                    flagsHTML += '<span class="table-flag patch">patch</span>';
+                  }
+                  flagsHTML += '</div>';
+                }
+                
+                // Generiere Tags-HTML für die formatierte Anzeige
+                let tagsHTML = '';
+                if (chart.tags && chart.tags.length > 0) {
+                  const tagsList = chart.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+                  if (tagsList.length > 0) {
+                    tagsHTML = `<div class="tags-container">` + 
+                      tagsList.map(tag => `<span class="tag">${tag}</span>`).join('') +
+                      `</div>`;
+                  }
+                }
+                
+                const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
+                row.innerHTML = `
+                  <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formattedDate}</td>
+                  <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
+                    <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                      <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
+                    </div>
+                  </td>
+                  <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${chart.title}</td>
+                  <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
+                  <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${chart.description || ''}</td>
+                  <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
+                  <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
+                `;
+                
+                row.style.cursor = 'pointer';
+                row.style.transition = 'background-color 0.2s ease';
+                
+                row.addEventListener('mouseover', function() {
+                  this.style.backgroundColor = '#f8f9ff';
                 });
                 
-                return highlightedText;
-              }
-              
-              // Fallback für einzelnen Suchbegriff
-              const regex = new RegExp(searchTerm, 'gi');
-              return text.replace(regex, match => `<span class="highlight">${match}</span>`);
-            }
-            
-            // Füge die Ergebnisse zur Tabelle hinzu
-            data.results.forEach((chart, index) => {
-              const row = document.createElement('tr');
-              row.style.cursor = 'pointer';
-              row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
-              
-              // Generiere die Flags für die Tabelle
-              let flagsHTML = '';
-              if (chart.regional || chart.evergreen || chart.patch) {
-                flagsHTML = '<div class="table-flags">';
-                if (chart.regional) {
-                  flagsHTML += '<span class="table-flag regional">regional</span>';
-                }
-                if (chart.evergreen) {
-                  flagsHTML += '<span class="table-flag evergreen">evergreen</span>';
-                }
-                if (chart.patch) {
-                  flagsHTML += '<span class="table-flag patch">patch</span>';
-                }
-                flagsHTML += '</div>';
-              }
-              
-              // Generiere Tags-HTML für die formatierte Anzeige
-              let tagsHTML = '';
-              if (chart.tags && chart.tags.length > 0) {
-                const tagsList = chart.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-                if (tagsList.length > 0) {
-                  tagsHTML = `<div class="tags-container">` + 
-                    tagsList.map(tag => `<span class="tag">${highlightText(tag, query)}</span>`).join('') +
-                    `</div>`;
-                }
-              }
-              
-              const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
-              row.innerHTML = `
-                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formattedDate}</td>
-                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
-                  <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
-                  </div>
-                </td>
-                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${highlightText(chart.title, query)}</td>
-                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${highlightText(chart.chart_id, query)}</td>
-                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${highlightText(chart.description || '', query)}</td>
-                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
-                <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
-              `;
-              
-              row.style.cursor = 'pointer';
-              row.style.transition = 'background-color 0.2s ease';
-              
-              row.addEventListener('mouseover', function() {
-                this.style.backgroundColor = '#f8f9ff';
-              });
-              
-              row.addEventListener('mouseout', function() {
-                this.style.backgroundColor = '';
-              });
-              
-              chartsTableBody.appendChild(row);
+                row.addEventListener('mouseout', function() {
+                  this.style.backgroundColor = '';
+                });
+                
+                chartsTableBody.appendChild(row);
 
-              // Verzögertes Einblenden der Zeilen
-              setTimeout(() => {
-                row.classList.add('visible');
-              }, index * 50);
+                // Füge die Zeile hinzu und mache sie nach kurzer Verzögerung sichtbar
+                requestAnimationFrame(() => {
+                  row.classList.add('visible');
+                });
+              }, index * 30); // Gestaffelte Verzögerung für jede Zeile
             });
           })
           .catch(error => {
             console.error('Error fetching search results:', error);
-            const chartsTableBody = document.getElementById("charts-table-body");
             chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
+          })
+          .finally(() => {
+            // Entferne Loading-Status
+            setTimeout(() => {
+              chartsTable.classList.remove('loading');
+              loadingSpinner.classList.remove('visible');
+            }, 300);
           });
       }
 
@@ -940,7 +992,7 @@
         if (isLoadingTable || !hasMoreCharts) return;
         
         isLoadingTable = true;
-        loadingSpinner.style.display = 'block';
+        loadingSpinner.classList.add('visible');
         
         try {
           const response = await fetch(`/chart-search/?page=${currentTablePage}`);
@@ -960,7 +1012,7 @@
           hasMoreCharts = data.has_more;
           
           if (data.results.length === 0) {
-            loadingSpinner.style.display = 'none';
+            loadingSpinner.classList.remove('visible');
             return;
           }
 
@@ -1036,7 +1088,7 @@
           hasMoreCharts = false;
         } finally {
           isLoadingTable = false;
-          loadingSpinner.style.display = hasMoreCharts ? 'block' : 'none';
+          loadingSpinner.classList.remove('visible');
         }
       }
 

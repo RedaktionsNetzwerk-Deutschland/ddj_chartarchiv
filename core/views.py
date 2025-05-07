@@ -33,6 +33,23 @@ def register(request):
 def archive_main(request):
     return render(request, 'archive_main.html')
 
+def topic_view(request, topic):
+    """
+    Zeigt eine thematische Übersicht mit vorgefiltertem Inhalt.
+    Die Seite ist identisch zur Hauptarchivseite, aber mit einer vordefinierten Suche.
+    """
+    # Konvertiere den übergebenen Topic-Slug in einen lesbaren Text mit Grossbuchstaben am Anfang
+    topic_display = topic.replace('-', ' ').capitalize()
+    
+    # Kontext mit dem Suchbegriff
+    context = {
+        'topic': topic,
+        'topic_display': topic_display,
+        'initial_search': topic_display  # Das ist der anfängliche Suchbegriff
+    }
+    
+    return render(request, 'topic_view.html', context)
+
 def chart_search(request):
     q = request.GET.get('q', '')
     page = int(request.GET.get('page', 0))
@@ -44,27 +61,45 @@ def chart_search(request):
         # Teile die Suchanfrage in einzelne Wörter auf
         search_terms = q.strip().split()
         
-        # Baue die Abfrage auf
-        query = Q()
-        
-        # Suche nach dem vollständigen Begriff (wie bisher)
-        query |= Q(chart_id__icontains=q) | \
-                 Q(title__icontains=q) | \
-                 Q(description__icontains=q) | \
-                 Q(notes__icontains=q) | \
-                 Q(comments__icontains=q) | \
-                 Q(embed_js__icontains=q) | \
-                 Q(tags__icontains=q)
-        
-        # Füge separate Suche für jedes einzelne Wort hinzu, besonders wichtig für Tags
-        for term in search_terms:
-            if len(term) > 2:  # Ignoriere sehr kurze Wörter (z.B. 'a', 'in', usw.)
-                query |= Q(tags__icontains=term)
-        
-        total_count = Chart.objects.filter(query).count()
-        print(f"Debug: Gefundene Ergebnisse bei Suche: {total_count}")
-        # Paginierte Ergebnisse
-        charts = Chart.objects.filter(query).order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
+        if len(search_terms) > 1:
+            # Bei mehreren Suchbegriffen AND-Verknüpfung verwenden
+            # Beginne mit allen Objekten
+            query = Q()
+            
+            # Initialisiere einen leeren Filter
+            charts_queryset = Chart.objects.all()
+            
+            # Filtere nacheinander nach jedem Suchbegriff (AND-Verknüpfung)
+            for term in search_terms:
+                if len(term) > 2:  # Ignoriere sehr kurze Wörter
+                    term_query = Q(chart_id__icontains=term) | \
+                               Q(title__icontains=term) | \
+                               Q(description__icontains=term) | \
+                               Q(notes__icontains=term) | \
+                               Q(comments__icontains=term) | \
+                               Q(embed_js__icontains=term) | \
+                               Q(tags__icontains=term)
+                    # Filtere die Ergebnisse weiter (AND)
+                    charts_queryset = charts_queryset.filter(term_query)
+            
+            total_count = charts_queryset.count()
+            print(f"Debug: Gefundene Ergebnisse bei UND-Suche: {total_count}")
+            # Paginierte Ergebnisse
+            charts = charts_queryset.order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
+        else:
+            # Bei einem einzelnen Suchbegriff OR-Verknüpfung verwenden (wie bisher)
+            query = Q(chart_id__icontains=q) | \
+                    Q(title__icontains=q) | \
+                    Q(description__icontains=q) | \
+                    Q(notes__icontains=q) | \
+                    Q(comments__icontains=q) | \
+                    Q(embed_js__icontains=q) | \
+                    Q(tags__icontains=q)
+            
+            total_count = Chart.objects.filter(query).count()
+            print(f"Debug: Gefundene Ergebnisse bei ODER-Suche: {total_count}")
+            # Paginierte Ergebnisse
+            charts = Chart.objects.filter(query).order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
     else:
         total_count = Chart.objects.count()
         print(f"Debug: Gesamtanzahl aller Charts: {total_count}")
@@ -99,7 +134,16 @@ def chart_search(request):
 
 def chart_detail(request, chart_id):
     chart = get_object_or_404(Chart, chart_id=chart_id)
-    return render(request, 'chart_detail.html', {'chart': chart})
+    
+    # Tags als Liste verarbeiten, wenn vorhanden
+    if chart.tags:
+        # Split tags and remove any whitespace
+        tag_list = [tag.strip() for tag in chart.tags.split(',') if tag.strip()]
+        context = {'chart': chart, 'tag_list': tag_list}
+    else:
+        context = {'chart': chart, 'tag_list': []}
+    
+    return render(request, 'chart_detail.html', context)
 
 def chart_print(request, chart_id):
     chart = get_object_or_404(Chart, chart_id=chart_id)

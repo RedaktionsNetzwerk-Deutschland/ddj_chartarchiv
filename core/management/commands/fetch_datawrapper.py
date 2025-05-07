@@ -354,9 +354,6 @@ class Command(BaseCommand):
             new_chart_ids = [chart_id for chart_id in all_chart_ids if chart_id not in existing_chart_ids]
             self.stdout.write(f'Neue Charts zum Verarbeiten: {len(new_chart_ids)}')
             
-            # zum debuggen
-            new_chart_ids = ['C1sZb']
-            
             # Neue Charts verarbeiten
             for chart_id in new_chart_ids:
                 print(chart_id)
@@ -366,6 +363,7 @@ class Command(BaseCommand):
                     details_response = requests.get(chart_details_url, headers=self.headers)
                     details_response.raise_for_status()
                     chart_details = details_response.json()
+                    print(chart_details)
                     
                     # Prüfen, ob die Grafik veröffentlicht wurde
                     if chart_details.get('publishedAt') is None:
@@ -379,7 +377,12 @@ class Command(BaseCommand):
                     published_at_str = chart_details.get('publishedAt')
                     lastModified_at_str = chart_details.get('lastModifiedAt')
                     iframe_url = chart_details.get('publicUrl', '')
-                    embed_js = chart_details.get('metadata', {}).get('publish', {}).get('embed', '')
+                    
+                    # Embed-Code aus den Metadaten extrahieren
+                    embed_js = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {}).get('embed', '')
+                    # Fallback zur alten API-Struktur, falls der neue Pfad leer ist
+                    if not embed_js:
+                        embed_js = chart_details.get('metadata', {}).get('publish', {}).get('embed', '')
                     
                     # Custom Fields extrahieren
                     custom_fields = self.get_custom_fields(chart_details)

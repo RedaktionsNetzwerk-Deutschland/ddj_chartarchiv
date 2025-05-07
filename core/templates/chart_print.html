@@ -294,6 +294,32 @@
       width: 100%;
       margin-bottom: 15px;
     }
+    .back-button-container {
+      margin: 20px 0 40px;
+      text-align: left;
+    }
+    
+    .back-button {
+      display: inline-flex;
+      align-items: center;
+      background-color: #f5f5f5;
+      color: #333;
+      padding: 10px 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      text-decoration: none;
+      font-family: 'DINNextLTPro', sans-serif;
+      transition: all 0.3s ease;
+    }
+    
+    .back-button:hover {
+      background-color: #e0e0e0;
+      transform: translateY(-2px);
+    }
+    
+    .back-button i {
+      margin-right: 10px;
+    }
   </style>
 {% endblock %}
 
@@ -303,6 +329,12 @@
   {% include 'partials/header.html' %}
   
   <div class="print-container">
+    <div class="back-button-container">
+      <a href="{% url 'chart_detail' chart.chart_id %}" class="back-button">
+        <i class="fas fa-arrow-left"></i> Zurück zur Detailseite
+      </a>
+    </div>
+    
     <div class="print-header">
       <h1 class="print-title">Printexport</h1>
       <button class="export-button" onclick="handleExport()">Export</button>
