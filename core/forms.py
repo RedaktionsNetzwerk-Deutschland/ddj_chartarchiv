@@ -1,17 +1,165 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+import re
 
-class RegistrationForm(UserCreationForm):
-    email = forms.EmailField(required=True, label="E-Mail-Adresse")
-    
-    class Meta:
-        model = User
-        fields = ("username", "email", "password1", "password2")
+class RegistrationForm(forms.Form):
+    name = forms.CharField(
+        label="Name",
+        max_length=150,
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Vorname Name',
+            'autocomplete': 'name',
+        }),
+        error_messages={
+            'required': 'Bitte gib deinen Namen ein.'
+        }
+    )
+    email = forms.EmailField(
+        label="E-Mail",
+        widget=forms.EmailInput(attrs={
+            'placeholder': 'name@beispiel.de',
+            'autocomplete': 'email',
+        }),
+        error_messages={
+            'required': 'Bitte gib deine E-Mail-Adresse ein.',
+            'invalid': 'Bitte gib eine gültige E-Mail-Adresse ein.'
+        }
+    )
+    password1 = forms.CharField(
+        label="Passwort",
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Passwort eingeben',
+            'autocomplete': 'new-password',
+        }),
+        error_messages={
+            'required': 'Bitte gib ein Passwort ein.'
+        }
+    )
+    password2 = forms.CharField(
+        label="Passwort bestätigen",
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Passwort wiederholen',
+            'autocomplete': 'new-password',
+        }),
+        error_messages={
+            'required': 'Bitte bestätige dein Passwort.'
+        }
+    )
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
         
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.email = self.cleaned_data["email"]
-        if commit:
-            user.save()
-        return user 
+        # Vorhandene Regex-Validierung (oft von Django EmailField abgedeckt, aber hier beibehalten)
+        if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            raise ValidationError("Bitte gib eine gültige E-Mail-Adresse ein.")
+            
+        # Liste der erlaubten E-Mail-Domains (Beispiel)
+        # allowed_domains = ['rnd.de', 'madsack.de', 'haz.de', 'neuepresse.de']
+        # domain = email.split('@')[-1].lower()
+        # if domain not in allowed_domains:
+        #     raise ValidationError("Deine Organisation ist nicht gelistet. Bitte wende dich zur Freischaltung an christoph.knoop@rnd.de")
+
+        # NEUE PRÜFUNG: Existiert die E-Mail bereits in der User-Tabelle?
+        if User.objects.filter(email=email).exists():
+            password_reset_url = reverse('password_reset_request')
+            error_html = mark_safe(
+                f'Diese E-Mail ist bereits registriert, bitte andere E-Mail-Adresse auswählen. Oder <a href="{password_reset_url}" style="color: #007bff; text-decoration: underline;">Passwort vergessen?</a>'
+            )
+            raise ValidationError(error_html)
+            
+        return email
+        
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+        
+        if password1 and password2 and password1 != password2:
+            raise ValidationError("Die Passwörter stimmen nicht überein.")
+        
+        # Einfache Passwortvalidierung
+        if password2 and len(password2) < 8:
+            raise ValidationError("Das Passwort muss mindestens 8 Zeichen lang sein.")
+            
+        return password2 
+
+class LoginForm(forms.Form):
+    email = forms.EmailField(
+        label="E-Mail",
+        widget=forms.EmailInput(attrs={
+            'placeholder': 'E-Mail-Adresse eingeben',
+            'autocomplete': 'email',
+        }),
+        error_messages={
+            'required': 'Bitte gib deine E-Mail-Adresse ein.',
+            'invalid': 'Bitte gib eine gültige E-Mail-Adresse ein.'
+        }
+    )
+    password = forms.CharField(
+        label="Passwort",
+        widget=forms.PasswordInput(attrs={
+            'placeholder': 'Passwort eingeben',
+            'autocomplete': 'current-password',
+        }),
+        error_messages={
+            'required': 'Bitte gib dein Passwort ein.'
+        }
+    )
+    remember_me = forms.BooleanField(
+        label="Eingeloggt bleiben",
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput()
+    )
+
+class PasswordResetRequestForm(forms.Form):
+    email = forms.EmailField(
+        label="E-Mail-Adresse",
+        widget=forms.EmailInput(attrs={
+            'placeholder': 'name@beispiel.de',
+            'autocomplete': 'email'
+        }),
+        error_messages={
+            'required': 'Bitte gib deine E-Mail-Adresse ein.',
+            'invalid': 'Bitte gib eine gültige E-Mail-Adresse ein.'
+        }
+    )
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if not User.objects.filter(email=email).exists():
+            raise ValidationError("Es existiert kein Konto mit dieser E-Mail-Adresse.")
+        return email
+
+class CustomSetPasswordForm(forms.Form):
+    new_password1 = forms.CharField(
+        label="Neues Passwort",
+        widget=forms.PasswordInput(attrs={
+            'autocomplete': 'new-password',
+            'placeholder': 'Neues Passwort eingeben'
+        }),
+        error_messages={
+            'required': 'Bitte gib ein neues Passwort ein.'
+        }
+    )
+    new_password2 = forms.CharField(
+        label="Neues Passwort bestätigen",
+        widget=forms.PasswordInput(attrs={
+            'autocomplete': 'new-password',
+            'placeholder': 'Neues Passwort wiederholen'
+        }),
+        error_messages={
+            'required': 'Bitte bestätige dein neues Passwort.'
+        }
+    )
+
+    def clean_new_password2(self):
+        password1 = self.cleaned_data.get('new_password1')
+        password2 = self.cleaned_data.get('new_password2')
+        if password1 and password2 and password1 != password2:
+            raise ValidationError("Die Passwörter stimmen nicht überein.")
+        if password2 and len(password2) < 8:
+            raise ValidationError("Das Passwort muss mindestens 8 Zeichen lang sein.")
+        return password2 

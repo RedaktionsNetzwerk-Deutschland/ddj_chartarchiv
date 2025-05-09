@@ -4,6 +4,8 @@ from . import views
 urlpatterns = [
     path('', views.index, name='index'),
     path('register/', views.register, name='register'),
+    path('login/', views.login_modal, name='login_modal'),
+    path('confirm/<str:token>/', views.confirm_registration, name='confirm_registration'),
     path('archive/', views.archive_main, name='archive_main'),
     path('archive/topic/<str:topic>/', views.topic_view, name='topic_view'),
     path('chart-search/', views.chart_search, name='chart_search'),
@@ -15,4 +17,6 @@ urlpatterns = [
     path('databuddies/', views.databuddies, name='databuddies'),
     path('analyze-data/', views.analyze_data, name='analyze_data'),
     path('create-datawrapper-chart/', views.create_datawrapper_chart, name='create_datawrapper_chart'),
+    path('password-reset/', views.password_reset_request_view, name='password_reset_request'),
+    path('password-reset-confirm/<str:token>/', views.password_reset_confirm_view, name='password_reset_confirm'),
 ] 

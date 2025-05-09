@@ -127,6 +127,147 @@
             background-color: #3a6cd9;
             transform: translateY(-2px);
         }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+            animation: slideIn 0.3s;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.3s;
+            line-height: 1;
+            height: 24px;
+            width: 24px;
+            text-align: center;
+        }
+        .modal-close:hover {
+            color: #333;
+        }
+        .modal-title {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #333;
+            font-weight: bold;
+        }
+        .modal form {
+            width: 100%;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #444;
+        }
+        .form-group input[type="email"],
+        .form-group input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            border-color: #4f80ff;
+            outline: none;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .checkbox-group input {
+            margin-right: 8px;
+        }
+        .error-message {
+            color: #dc3545;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f8d7da;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        /* Message Styles */
+        .messages {
+            width: 90%;
+            max-width: 600px;
+            margin: 0 auto 30px auto;
+            z-index: 5;
+            position: relative;
+        }
+        .message {
+            padding: 12px 20px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            animation: slideDown 0.3s forwards;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        .message.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        .message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
     </style>
 </head>
 <body>
@@ -139,9 +280,69 @@
             <img src="{% static 'img/rnd_logo.png' %}" alt="Logo" class="logo">
             <h1 class="slogan">Willkommen zur rnd-Grafik-Bibliothek.</h1>
         </header>
+        
+        <!-- Django Messages -->
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="message {% if message.tags %}{{ message.tags }}{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
         <div class="buttons">
             <button onclick="window.location.href='{% url 'register' %}'" class="btn">Registrieren</button>
-            <button onclick="window.location.href='{% url 'archive_main' %}'" class="btn">Einloggen</button>
+            <button onclick="openLoginModal()" class="btn">Einloggen</button>
+        </div>
+    </div>
+    
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeLoginModal()">&times;</span>
+            <h2 class="modal-title">Anmelden</h2>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    {% if message.tags == 'error' %}
+                        <div class="error-message">
+                            {{ message }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+            
+            <form method="post" action="{% url 'login_modal' %}" autocomplete="on">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="id_email">E-Mail</label>
+                    {{ login_form.email }}
+                    {% if login_form.email.errors %}
+                        <div class="error-message">{{ login_form.email.errors.0 }}</div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group">
+                    <label for="id_password">Passwort</label>
+                    {{ login_form.password }}
+                    {% if login_form.password.errors %}
+                        <div class="error-message">{{ login_form.password.errors.0 }}</div>
+                    {% endif %}
+                    <div style="text-align: right; margin-top: 8px;">
+                        <a href="{% url 'password_reset_request' %}" style="font-size: 0.9em; color: #4f80ff; text-decoration: none;">Passwort vergessen?</a>
+                    </div>
+                </div>
+                
+                <div class="checkbox-group">
+                    {{ login_form.remember_me }}
+                    <label for="id_remember_me">Eingeloggt bleiben</label>
+                </div>
+                
+                <button type="submit" class="btn" style="width: 100%;">Absenden</button>
+            </form>
         </div>
     </div>
 
@@ -160,6 +361,40 @@
                     loading.classList.add('fade-out');
                 }, 300);
             };
+            
+            // Falls es Fehlermeldungen gibt, Modal automatisch öffnen
+            {% if messages %}
+                {% for message in messages %}
+                    {% if message.tags == 'error' %}
+                        openLoginModal();
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        });
+        
+        function openLoginModal() {
+            document.getElementById('loginModal').classList.add('active');
+            document.body.style.overflow = 'hidden'; // Verhindert Scrollen im Hintergrund
+        }
+        
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.remove('active');
+            document.body.style.overflow = ''; // Ermöglicht Scrollen wieder
+        }
+        
+        // Schließen des Modals bei Klick außerhalb
+        window.onclick = function(event) {
+            const modal = document.getElementById('loginModal');
+            if (event.target == modal) {
+                closeLoginModal();
+            }
+        };
+        
+        // Schließen mit Escape-Taste
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeLoginModal();
+            }
         });
     </script>
 </body>

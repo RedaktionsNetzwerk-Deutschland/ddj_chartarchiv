@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrierung erfolgreich{% endblock %}
+
+{% block extra_head %}
+  <style>
+    .success-container {
+      max-width: 500px;
+      margin: 80px auto;
+      background-color: #fff;
+      padding: 40px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .success-container h1 {
+      font-family: 'DINNextLTPro', sans-serif;
+      font-size: 2.5em;
+      margin-bottom: 20px;
+      color: #155724;
+    }
+    .success-icon {
+      font-size: 5em;
+      color: #28a745;
+      margin-bottom: 20px;
+    }
+    .success-message {
+      font-size: 1.2em;
+      line-height: 1.6;
+      margin-bottom: 30px;
+      color: #333;
+    }
+    .login-button {
+      display: inline-block;
+      padding: 12px 30px;
+      background-color: #4f80ff;
+      color: white;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+    .login-button:hover {
+      background-color: #3a6cd9;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="success-container">
+  <div class="success-icon">✓</div>
+  <h1>Registrierung erfolgreich!</h1>
+  <div class="success-message">
+    <p>Deine E-Mail-Adresse wurde erfolgreich bestätigt und dein Account wurde aktiviert.</p>
+    <p>Du kannst dich jetzt mit deiner E-Mail-Adresse und deinem gewählten Passwort anmelden.</p>
+  </div>
+  <a href="{% url 'index' %}" class="login-button">Zur Anmeldeseite</a>
+</div>
+{% endblock %} 

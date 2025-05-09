@@ -1,0 +1,18 @@
+Hallo {{ name }},
+
+vielen Dank für deine Registrierung bei der rnd-Grafik-Bibliothek!
+
+Bitte öffne den folgenden Link in deinem Browser, um deine Registrierung zu bestätigen:
+
+{{ confirmation_url }}
+
+Dieser Link ist 24 Stunden gültig.
+
+Bei Fragen kannst du dich jederzeit an uns wenden.
+
+Mit freundlichen Grüßen,
+Das Team der rnd-Grafik-Bibliothek
+
+---
+Diese E-Mail wurde automatisch generiert. Bitte antworte nicht direkt darauf.
+© {% now "Y" %} RedaktionsNetzwerk Deutschland GmbH 

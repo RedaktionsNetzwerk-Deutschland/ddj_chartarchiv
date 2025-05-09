@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -103,3 +104,34 @@ class ChartData(models.Model):
     
     def __str__(self):
         return f"Daten: {self.title} ({self.created_at.strftime('%d.%m.%Y')})"
+
+class RegistrationConfirmation(models.Model):
+    """
+    Speichert Informationen zu Registrierungsbestätigungen.
+    """
+    name = models.CharField(max_length=150, verbose_name="Name")
+    email = models.EmailField(unique=True, verbose_name="E-Mail-Adresse")
+    token = models.CharField(max_length=100, unique=True, verbose_name="Bestätigungstoken")
+    created_at = models.DateTimeField(default=timezone.now, verbose_name="Erstellt am")
+    confirmed = models.BooleanField(default=False, verbose_name="Bestätigt")
+    confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name="Bestätigt am")
+    
+    class Meta:
+        verbose_name = "Registrierungsbestätigung"
+        verbose_name_plural = "Registrierungsbestätigungen"
+    
+    def __str__(self):
+        return f"{self.email} ({self.confirmed})"
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    used = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Token for {self.user.email}"
+
+    class Meta:
+        verbose_name = "Passwort Reset Token"
+        verbose_name_plural = "Passwort Reset Tokens"

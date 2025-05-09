@@ -1,38 +1,156 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .forms import RegistrationForm
+from .forms import RegistrationForm, LoginForm, PasswordResetRequestForm, CustomSetPasswordForm
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
-from .models import Chart
+from .models import Chart, RegistrationConfirmation, PasswordResetToken
 import os
 import requests
 from openai import OpenAI
 import pandas as pd
 from django.views.decorators.csrf import csrf_exempt
 import json
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.conf import settings
 import datetime
+from django.utils import timezone
 import io
 from django.contrib import messages
+from django.contrib.auth.models import User
+from .utils import generate_token, send_confirmation_email, send_password_reset_email, custom_login_required
 
 # Create your views here.
 
 def index(request):
-    return render(request, 'index.html')
+    login_form = LoginForm()
+    return render(request, 'index.html', {'login_form': login_form})
 
 def register(request):
+    print("DEBUG: register VIEW - ANFANG")
     if request.method == "POST":
+        print("DEBUG: register VIEW - POST-Request erhalten")
         form = RegistrationForm(request.POST)
         if form.is_valid():
-            form.save()
+            print("DEBUG: register VIEW - Formular ist GÜLTIG")
+            # Extrahiere die Daten aus dem Formular
+            name = form.cleaned_data['name']
+            email = form.cleaned_data['email']
+            password = form.cleaned_data['password1']  # Gespeichertes Passwort
+            
+            print("DEBUG: register VIEW - Vor Aufruf von generate_token()")
+            # Erzeuge ein Token für die Bestätigung
+            token = generate_token()
+            
+            # Prüfen, ob es bereits eine unbestätigte Registrierung mit dieser E-Mail gibt
+            try:
+                # Wenn ja, dann aktualisiere den bestehenden Eintrag
+                registration = RegistrationConfirmation.objects.get(email=email, confirmed=False)
+                registration.name = name
+                registration.token = token
+                registration.created_at = timezone.now()  # Setze das Datum zurück
+                registration.save()
+            except RegistrationConfirmation.DoesNotExist:
+                # Wenn nein, erstelle einen neuen Eintrag
+                registration = RegistrationConfirmation.objects.create(
+                    name=name,
+                    email=email,
+                    token=token
+                )
+            
+            # Speichere das Passwort sicher in der Session (wird beim Bestätigen verwendet)
+            request.session['temp_password'] = password
+            request.session['registration_id'] = registration.id
+            
+            # Sende die Bestätigungsmail
+            print("DEBUG: register VIEW - Vor Aufruf von send_confirmation_email()")
+            email_sent = send_confirmation_email(name, email, token, request)
+            print(f"DEBUG: register VIEW - email_sent: {email_sent}")
+            
+            if email_sent:
+                # Bestätigungsmeldung hinzufügen
+                messages.success(request, "Wir haben dir einen Bestätigungslink geschickt. Bitte schau in dein Postfach.")
+            else:
+                # Fehlermeldung, wenn die E-Mail nicht gesendet werden konnte
+                messages.error(request, "Leider konnte die Bestätigungsmail nicht gesendet werden. Bitte versuche es später erneut.")
+            
             return redirect('index')
+        else:
+            print("DEBUG: register VIEW - Formular ist UNGÜLTIG")
+            print(f"DEBUG: register VIEW - Formularfehler: {form.errors.as_json()}")
     else:
+        print("DEBUG: register VIEW - KEIN POST-Request (GET oder anderes)")
         form = RegistrationForm()
     return render(request, 'register.html', {'form': form})
 
+def confirm_registration(request, token):
+    """
+    Bestätigt die Registrierung eines Nutzers anhand des Tokens.
+    """
+    # Suche nach der Registrierungsbestätigung mit dem Token
+    registration = get_object_or_404(RegistrationConfirmation, token=token, confirmed=False)
+    
+    # Prüfe, ob die Registrierung schon zu alt ist (24 Stunden)
+    if (timezone.now() - registration.created_at).days >= 1:
+        messages.error(request, "Der Bestätigungslink ist abgelaufen. Bitte registriere dich erneut.")
+        return redirect('register')
+    
+    # Erstelle einen neuen Nutzer
+    username = registration.email.split('@')[0]  # Einfacher Benutzername: Teil vor dem @
+    
+    # Falls der Benutzername schon existiert, füge eine Nummer hinzu
+    base_username = username
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{base_username}{counter}"
+        counter += 1
+    
+    # Wenn das temporäre Passwort noch in der Session ist, verwende es
+    # Falls nicht, generiere ein neues (fallback)
+    temp_password = None
+    if request.session.get('registration_id') == registration.id:
+        temp_password = request.session.get('temp_password')
+    
+    if not temp_password:
+        # Fallback: Generiere ein zufälliges Passwort
+        temp_password = generate_token()[:12]
+    
+    # Erstelle den Nutzer mit dem Passwort
+    user = User.objects.create_user(
+        username=username,
+        email=registration.email,
+        password=temp_password,
+        first_name=registration.name.split(' ')[0] if ' ' in registration.name else registration.name,
+        last_name=' '.join(registration.name.split(' ')[1:]) if ' ' in registration.name else ''
+    )
+    
+    # Markiere die Registrierung als bestätigt
+    registration.confirmed = True
+    registration.confirmed_at = timezone.now()
+    registration.save()
+    
+    # Lösche die temporären Session-Daten
+    if 'temp_password' in request.session:
+        del request.session['temp_password']
+    if 'registration_id' in request.session:
+        del request.session['registration_id']
+    
+    # Logge den Benutzer automatisch ein
+    user = authenticate(username=username, password=temp_password)
+    if user is not None:
+        login(request, user)
+        messages.success(request, "Deine Registrierung wurde erfolgreich bestätigt. Du bist jetzt eingeloggt.")
+        return redirect('archive_main')  # Direkt zum Hauptarchiv weiterleiten
+    else:
+        # Falls das automatische Login nicht funktioniert
+        messages.success(request, "Deine Registrierung wurde erfolgreich bestätigt. Du kannst dich jetzt anmelden.")
+        # Zeige die Bestätigungsseite an
+        return render(request, 'confirmation_success.html')
+
+@custom_login_required(login_url='index')
 def archive_main(request):
     return render(request, 'archive_main.html')
 
+@custom_login_required(login_url='index')
 def topic_view(request, topic):
     """
     Zeigt eine thematische Übersicht mit vorgefiltertem Inhalt.
@@ -50,6 +168,7 @@ def topic_view(request, topic):
     
     return render(request, 'topic_view.html', context)
 
+@custom_login_required(login_url='index')
 def chart_search(request):
     q = request.GET.get('q', '')
     page = int(request.GET.get('page', 0))
@@ -132,6 +251,7 @@ def chart_search(request):
     print(f"Debug: Sende {len(results)} Ergebnisse zurück")
     return JsonResponse(data)
 
+@custom_login_required(login_url='index')
 def chart_detail(request, chart_id):
     chart = get_object_or_404(Chart, chart_id=chart_id)
     
@@ -145,6 +265,7 @@ def chart_detail(request, chart_id):
     
     return render(request, 'chart_detail.html', context)
 
+@custom_login_required(login_url='index')
 def chart_print(request, chart_id):
     chart = get_object_or_404(Chart, chart_id=chart_id)
     
@@ -246,6 +367,7 @@ def chart_print(request, chart_id):
     
     return render(request, 'chart_print.html', context)
 
+@custom_login_required(login_url='index')
 def export_chart_pdf(request, chart_id):
     """Exportiert eine Grafik als PDF über die Datawrapper-API"""
     try:
@@ -268,6 +390,7 @@ def export_chart_pdf(request, chart_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@custom_login_required(login_url='index')
 def duplicate_and_export_chart(request, chart_id):
     """Dupliziert eine Grafik, aktualisiert sie und exportiert sie als PDF"""
     try:
@@ -495,17 +618,30 @@ def duplicate_and_export_chart(request, chart_id):
             print(f"API response: {e.response.text}")
         return JsonResponse({'error': str(e)}, status=500)
 
+# Hilfsfunktionen zur Berechtigungsprüfung
+def is_creator(user):
+    return user.groups.filter(name='creator').exists()
+
+def is_buddy(user):
+    return user.groups.filter(name='buddies').exists()
+
+@custom_login_required(login_url='index')
+@user_passes_test(is_creator, login_url='archive_main')
 def chartmaker(request):
-    """View für den Chartmaker"""
+    """View für den Chartmaker - nur für creator-Gruppe zugänglich"""
     return render(request, 'chartmaker.html')
 
+@custom_login_required(login_url='index')
+@user_passes_test(is_buddy, login_url='archive_main')
 def databuddies(request):
-    """View für die Databuddies-Seite"""
+    """View für die Databuddies-Seite - nur für buddies-Gruppe zugänglich"""
     return render(request, 'databuddies.html')
 
 @csrf_exempt
+@custom_login_required(login_url='index')
+@user_passes_test(is_buddy, login_url='archive_main')
 def analyze_data(request):
-    """Analysiert hochgeladene Datendateien oder Chat-Nachrichten"""
+    """Analysiert hochgeladene Datendateien oder Chat-Nachrichten - nur für buddies-Gruppe"""
     try:
         # Prüfe, ob OpenAI verwendet werden soll
         use_openai = os.getenv('OPENAI_API_KEY') is not None and os.getenv('USE_OPENAI', 'False').lower() == 'true'
@@ -731,8 +867,10 @@ def analyze_data(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
+@custom_login_required(login_url='index')
+@user_passes_test(is_creator, login_url='archive_main')
 def create_datawrapper_chart(request):
-    """Erstellt eine neue Datawrapper-Grafik mit den gegebenen Parametern und Daten"""
+    """Erstellt eine neue Datawrapper-Grafik - nur für creator-Gruppe"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Nur POST-Anfragen werden unterstützt'}, status=405)
     
@@ -857,3 +995,104 @@ def create_datawrapper_chart(request):
     except Exception as e:
         print(f"Unerwarteter Fehler: {str(e)}")
         return JsonResponse({'error': f'Unerwarteter Fehler: {str(e)}'}, status=500)
+
+def login_modal(request):
+    if request.method == 'POST':
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            password = form.cleaned_data['password']
+            remember_me = form.cleaned_data['remember_me']
+            
+            # Da das Django-Standard-Login mit username statt email arbeitet,
+            # müssen wir erst den Nutzer anhand der E-Mail suchen
+            try:
+                user = User.objects.get(email=email)
+                # Dann mit dem gefundenen Benutzernamen authentifizieren
+                user = authenticate(request, username=user.username, password=password)
+                if user is not None:
+                    login(request, user)
+                    
+                    # Session-Ablaufzeit setzen (2 Wochen, wenn remember_me aktiviert ist)
+                    if remember_me:
+                        request.session.set_expiry(1209600)  # 2 Wochen in Sekunden
+                    else:
+                        request.session.set_expiry(0)  # Beim Schließen des Browsers löschen
+                    
+                    # Auf die Hauptseite des Archivs weiterleiten
+                    return redirect('archive_main')
+                else:
+                    # Authentifizierung fehlgeschlagen
+                    messages.error(request, "E-Mail-Adresse oder Passwort ist falsch.")
+            except User.DoesNotExist:
+                messages.error(request, "Kein Benutzer mit dieser E-Mail-Adresse gefunden.")
+            
+            return redirect('index')
+    else:
+        form = LoginForm()
+    
+    return redirect('index')
+
+def password_reset_request_view(request):
+    if request.method == 'POST':
+        form = PasswordResetRequestForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            user = User.objects.get(email=email)
+            
+            # Alten, unbenutzten Token für diesen User ggf. als benutzt markieren oder löschen
+            PasswordResetToken.objects.filter(user=user, used=False).update(used=True) 
+
+            token_value = generate_token() # Wiederverwendung der bestehenden Token-Generierung
+            PasswordResetToken.objects.create(user=user, token=token_value)
+            
+            email_sent = send_password_reset_email(email, token_value, request)
+            if email_sent:
+                messages.success(request, 'Wir haben dir eine E-Mail mit Anweisungen zum Zurücksetzen deines Passworts gesendet. Bitte überprüfe dein Postfach.')
+            else:
+                messages.error(request, 'Die E-Mail zum Zurücksetzen des Passworts konnte nicht gesendet werden. Bitte versuche es später erneut.')
+            return redirect('index') # Oder eine spezielle 'Passwort-Reset-E-Mail gesendet'-Seite
+    else:
+        form = PasswordResetRequestForm()
+    return render(request, 'password_reset_request.html', {'form': form})
+
+def password_reset_confirm_view(request, token):
+    try:
+        password_reset_token = PasswordResetToken.objects.get(token=token, used=False)
+        # Token-Gültigkeitsdauer prüfen (z.B. 1 Stunde)
+        if (timezone.now() - password_reset_token.created_at).total_seconds() > 3600:
+            messages.error(request, 'Der Link zum Zurücksetzen des Passworts ist abgelaufen. Bitte fordere einen neuen an.')
+            password_reset_token.used = True # Als verbraucht markieren
+            password_reset_token.save()
+            return redirect('password_reset_request')
+    except PasswordResetToken.DoesNotExist:
+        messages.error(request, 'Ungültiger oder bereits verwendeter Link zum Zurücksetzen des Passworts.')
+        return redirect('password_reset_request')
+
+    if request.method == 'POST':
+        form = CustomSetPasswordForm(request.POST)
+        if form.is_valid():
+            user = password_reset_token.user
+            user.set_password(form.cleaned_data['new_password1'])
+            user.save()
+            
+            password_reset_token.used = True
+            password_reset_token.save()
+            
+            # Wichtig, damit der User nicht mit alter Session eingeloggt bleibt, falls er es war
+            # Wenn du Djangos auth views nutzt, passiert das oft automatisch.
+            # Hier manuell, da wir nicht wissen, ob der User aktuell eingeloggt ist.
+            # update_session_auth_hash(request, user) # Kann Fehler werfen, wenn User nicht eingeloggt ist.
+            # Sicherer ist es, den User explizit auszuloggen, falls eine Session besteht.
+            if request.user.is_authenticated and request.user.pk == user.pk:
+                 logout(request) # Loggt den aktuellen User aus, wenn es der betroffene User ist.
+
+            messages.success(request, 'Dein Passwort wurde erfolgreich zurückgesetzt. Du kannst dich jetzt mit deinem neuen Passwort anmelden.')
+            return redirect('index') # Zum Login oder zur Startseite
+    else:
+        form = CustomSetPasswordForm()
+    
+    return render(request, 'password_reset_confirm.html', {
+        'form': form,
+        'token': token
+    })

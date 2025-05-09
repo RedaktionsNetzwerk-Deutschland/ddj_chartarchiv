@@ -1,5 +1,6 @@
 <header style="background-color: #4f80ff; padding: 20px;">
   {% load static %}
+  {% load user_tags %}
   <style>
     .header-button {
       background-color: white;
@@ -29,8 +30,20 @@
       </a>
     </div>
     <div style="display: flex; gap: 15px;">
-      <a href="{% url 'chartmaker' %}" class="header-button">selber machen</a>
-      <a href="{% url 'databuddies' %}" class="header-button">Databuddies</a>
+      {% if user|has_group:'creator' %}
+        <a href="{% url 'chartmaker' %}" class="header-button">selber machen</a>
+      {% endif %}
+      {% if user|has_group:'buddies' %}
+        <a href="{% url 'databuddies' %}" class="header-button">Databuddies</a>
+      {% endif %}
+      {% if user.is_authenticated %}
+        <form method="post" action="{% url 'logout' %}" style="display: inline;">
+          {% csrf_token %}
+          <button type="submit" class="header-button" title="Abmelden" style="font-size: 1em; padding: 8px 12px; line-height: 1em; display: inline-flex; align-items: center; justify-content: center; background-color: white; color: #4f80ff; border: none; cursor: pointer;">
+            ⏻
+          </button>
+        </form>
+      {% endif %}
     </div>
   </div>
 </header> 

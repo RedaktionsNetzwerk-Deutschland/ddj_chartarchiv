@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #eeeeee;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .button {
+            display: inline-block;
+            background-color: #4f80ff;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px 0;
+            font-size: 0.8em;
+            color: #666666;
+            border-top: 1px solid #eeeeee;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Bestätige deine Registrierung</h1>
+        </div>
+        <div class="content">
+            <p>Hallo {{ name }},</p>
+            <p>vielen Dank für deine Registrierung bei der rnd-Grafik-Bibliothek!</p>
+            <p>Bitte klicke auf den folgenden Link, um deine Registrierung zu bestätigen:</p>
+            <a href="{{ confirmation_url }}" class="button">Registrierung bestätigen</a>
+            <p>Falls der Button nicht funktioniert, kopiere bitte den folgenden Link in deinen Browser:</p>
+            <p>{{ confirmation_url }}</p>
+            <p>Dieser Link ist 24 Stunden gültig.</p>
+            <p>Bei Fragen kannst du dich jederzeit an uns wenden.</p>
+            <p>Mit freundlichen Grüßen,<br>
+            Das Team der rnd-Grafik-Bibliothek</p>
+        </div>
+        <div class="footer">
+            <p>Diese E-Mail wurde automatisch generiert. Bitte antworte nicht direkt darauf.</p>
+            <p>© {% now "Y" %} RedaktionsNetzwerk Deutschland GmbH</p>
+        </div>
+    </div>
+</body>
+</html> 
