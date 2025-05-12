@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .forms import RegistrationForm, LoginForm, PasswordResetRequestForm, CustomSetPasswordForm
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
-from .models import Chart, RegistrationConfirmation, PasswordResetToken, TopicTile
+from .models import Chart, RegistrationConfirmation, PasswordResetToken, TopicTile, ChartBlacklist
 import os
 import requests
 from openai import OpenAI
@@ -20,6 +20,12 @@ from django.contrib.auth.models import User
 from .utils import generate_token, send_confirmation_email, send_password_reset_email, custom_login_required
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from django.db import transaction
+from django.core.files.base import ContentFile
+try:
+    from PIL import Image
+except ImportError:
+    print("WARNUNG: PIL/Pillow ist nicht installiert, die Thumbnail-Generierung wird nicht funktionieren")
 
 # Create your views here.
 
@@ -216,6 +222,9 @@ def chart_search(request):
     
     print(f"Debug: Suche nach '{q}' auf Seite {page}")
     
+    # Hole blacklisted Chart-IDs einmal, um sie von allen Suchergebnissen auszuschließen
+    blacklisted_chart_ids = ChartBlacklist.objects.values_list('chart_id', flat=True)
+    
     if q:
         # Teile die Suchanfrage in einzelne Wörter auf
         search_terms = q.strip().split()
@@ -244,6 +253,10 @@ def chart_search(request):
             # Ausschluss von Grafiken mit dem Tag "Tägliche Updates"
             charts_queryset = charts_queryset.exclude(tags__icontains="Tägliche Updates")
             
+            # Ausschluss von Grafiken auf der Blacklist
+            if blacklisted_chart_ids:
+                charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
+            
             total_count = charts_queryset.count()
             print(f"Debug: Gefundene Ergebnisse bei ODER-Suche: {total_count}")
             # Paginierte Ergebnisse
@@ -262,6 +275,10 @@ def chart_search(request):
             charts_queryset = Chart.objects.filter(query)
             charts_queryset = charts_queryset.exclude(tags__icontains="Tägliche Updates")
             
+            # Ausschluss von Grafiken auf der Blacklist
+            if blacklisted_chart_ids:
+                charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
+            
             total_count = charts_queryset.count()
             print(f"Debug: Gefundene Ergebnisse bei ODER-Suche nach Ausschluss: {total_count}")
             # Paginierte Ergebnisse
@@ -269,6 +286,11 @@ def chart_search(request):
     else:
         # Alle Grafiken, aber ohne "Tägliche Updates"
         charts_queryset = Chart.objects.all().exclude(tags__icontains="Tägliche Updates")
+        
+        # Ausschluss von Grafiken auf der Blacklist
+        if blacklisted_chart_ids:
+            charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
+            
         total_count = charts_queryset.count()
         print(f"Debug: Gesamtanzahl aller Charts nach Ausschluss: {total_count}")
         # Paginierte Ergebnisse
@@ -313,6 +335,108 @@ def chart_detail(request, chart_id):
         context = {'chart': chart, 'tag_list': []}
     
     return render(request, 'chart_detail.html', context)
+
+@custom_login_required(login_url='index')
+def chart_online(request, chart_id):
+    chart = get_object_or_404(Chart, chart_id=chart_id)
+    
+    # Hole Farbcodes aus der Datawrapper-API
+    api_key = os.getenv('DATAWRAPPER_API_KEY')
+    
+    if not api_key:
+        # Fehlermeldung beibehalten
+        print("WARNUNG: DATAWRAPPER_API_KEY nicht gefunden in Umgebungsvariablen")
+        api_key = 'XXXXXXXX'  # Fallback nur wenn wirklich nötig
+    
+    headers = {"Authorization": f"Bearer {api_key}"}
+    
+    try:
+        response = requests.get(
+            f"https://api.datawrapper.de/v3/charts/{chart_id}",
+            headers=headers
+        )
+        response.raise_for_status()
+        chart_data = response.json()
+        
+        # Debug-Ausgabe für die Grafik-Metadaten
+        print(f"DEBUG CHART {chart_id} TYPE: {chart_data.get('type', 'unknown')}")
+        
+        # Extrahiere die Farbcodes aus den Metadaten
+        colors = []
+        metadata = chart_data.get('metadata', {})
+        visualize = metadata.get('visualize', {})
+        
+        # Debug-Ausgabe für die visualize-Sektion
+        print(f"DEBUG VISUALIZE STRUCTURE: {json.dumps(visualize, indent=2)}")
+        
+        # 1. Prüfe auf Pie-Chart spezifische Farben
+        if visualize.get('type') == 'pie-chart':
+            pie_data = visualize.get('pie', {})
+            
+            pie_colors = pie_data.get('colors', [])
+            if pie_colors:
+                for i, color in enumerate(pie_colors):
+                    colors.append((f'Segment {i+1}', color))
+        
+        # 2. Prüfe auf custom-colors
+        custom_colors = visualize.get('custom-colors', {})
+        if custom_colors:
+            for label, color in custom_colors.items():
+                colors.append((label, color))
+        
+        # 3. Prüfe auf color-category Map
+        color_category = visualize.get('color-category', {})
+        if color_category:
+            color_map = color_category.get('map', {})
+            for label, color in color_map.items():
+                if color and isinstance(color, str):  # Prüfe ob der Farbwert gültig ist
+                    colors.append((label, color))
+        
+        # 4. Prüfe auf base color
+        base_color = visualize.get('base-color')
+        if base_color:
+            colors.append(('Base', base_color))
+        
+        # 5. Prüfe auf column colors
+        columns = visualize.get('columns', {})
+        if columns:
+            for col_name, col_data in columns.items():
+                if isinstance(col_data, dict) and 'color' in col_data:
+                    colors.append((col_name, col_data['color']))
+        
+        # 6. Für Liniengrafiken: Prüfe auf Linienfarben in series
+        series = visualize.get('series', {})
+        if series:
+            for series_name, series_data in series.items():
+                if isinstance(series_data, dict) and 'color' in series_data:
+                    colors.append((series_name, series_data['color']))
+        
+        # Hole die Dimensionen der Grafik
+        dimensions = metadata.get('publish', {}).get('chart-dimensions', {})
+        pixels_per_mm = 96 / 25.4  # 96 DPI zu mm Umrechnung
+        width_px = dimensions.get('width', 600)
+        height_px = dimensions.get('height', 400)
+        width_mm = round(width_px / pixels_per_mm)
+        height_mm = round(height_px / pixels_per_mm)
+        
+        # Debug-Ausgabe für die gefundenen Farben
+        print(f"DEBUG FOUND COLORS: {colors}")
+            
+    except Exception as e:
+        # Fehlermeldung beibehalten
+        print(f"Fehler beim Abrufen der Daten: {e}")
+        colors = []
+        width_mm = 210  # Standard A4 Breite in mm
+        height_mm = 148  # Standard A4 Höhe (quer) in mm
+    
+    context = {
+        'chart': chart,
+        'colors': colors,
+        'width': width_mm,
+        'height': height_mm
+    }
+    
+    return render(request, 'chart_online.html', context)
 
 @custom_login_required(login_url='index')
 def chart_print(request, chart_id):
@@ -499,9 +623,9 @@ def duplicate_and_export_chart(request, chart_id):
         # Erstelle die Duplizierungsdaten mit dem Titel
         duplicate_data = {
             "folderId": printexport_folder['id'],
-            "title": data.get('title', '')  # Setze den Titel direkt während der Duplizierung
+            # Wir setzen hier keinen Titel, um die automatische "(Kopie)" zu vermeiden
         }
-        print(duplicate_data)
+        
         duplicate_response = requests.post(
             duplicate_url,
             headers={**headers, 'Content-Type': 'application/json'},
@@ -511,41 +635,18 @@ def duplicate_and_export_chart(request, chart_id):
         new_chart_data = duplicate_response.json()
         new_chart_id = new_chart_data['id']
         
-        # Stelle sicher, dass der Titel korrekt gesetzt wurde
-        if data.get('title'):
-            print("Titel im Request:", data.get('title'))
-            # Überprüfe den Titel und setze ihn nochmals, falls nötig
-            check_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}"
-            check_response = requests.get(check_url, headers=headers)
-            check_response.raise_for_status()
-            current_title = check_response.json().get('title', '')
-            print("Aktueller Titel:", current_title)
-            
-            if current_title != data.get('title'):
-                # Setze den Titel erneut, falls er nicht korrekt ist
-                update_title_response = requests.patch(
-                    check_url,
-                    headers={**headers, 'Content-Type': 'application/json'},
-                    json={"title": data.get('title')}
-                )
-                update_title_response.raise_for_status()
-        
-        # Duplicat wird in den printexport-Ordner geschrieben
-        update_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}"
-        update_data = {"folderId": printexport_folder['id']}
-        update_response = requests.patch(update_url, headers=headers, json=update_data)
-        update_response.raise_for_status()
-        
-        # 3. Weitere Änderungen aus dem Request holen
-        properties_to_update = {}
+        # 3. Aktualisiere die Metadaten der neuen Grafik
+        properties_to_update = {
+            "title": data.get('title', '') # Setze den Titel explizit
+        }
             
         if data.get('description'):
-            properties_to_update['metadata'] = {
-                'describe': {
-                    'intro': data.get('description')
-                }
+            if 'metadata' not in properties_to_update:
+                properties_to_update['metadata'] = {}
+            properties_to_update['metadata']['describe'] = {
+                'intro': data.get('description')
             }
-            
+        
         # Dimensionen aktualisieren (mm zu Pixel konvertieren für die Grafik-Metadaten)
         width_mm = data.get('width')
         height_mm = data.get('height')
@@ -559,26 +660,25 @@ def duplicate_and_export_chart(request, chart_id):
                 
             # Konvertiere mm in Pixel für die Grafik-Dimensionen
             try:
-                width_px = round(float(width_mm) * pixels_per_mm) if width_mm else 600
+                width_px = round(float(width_mm) * pixels_per_mm) if width_mm and width_mm != 'auto' else None
                 
                 # Behandle "auto" für die Höhe
-                if height_mm == 'auto':
-                    height_px = 'auto'
+                if height_mm == 'auto' or not height_mm:
+                    height_px = None
                 else:
-                    height_px = round(float(height_mm) * pixels_per_mm) if height_mm else 400
+                    height_px = round(float(height_mm) * pixels_per_mm)
                 
-                properties_to_update['metadata']['publish']['chart-dimensions'] = {
-                    'width': width_px,
-                    'height': height_px
-                }
+                chart_dimensions = {}
+                if width_px:
+                    chart_dimensions['width'] = width_px
+                if height_px:
+                    chart_dimensions['height'] = height_px
+                    
+                if chart_dimensions:
+                    properties_to_update['metadata']['publish']['chart-dimensions'] = chart_dimensions
             except (ValueError, TypeError) as e:
                 print(f"Fehler bei der Konvertierung der Dimensionen: {e}")
                 print(f"width_mm: {width_mm}, height_mm: {height_mm}")
-                # Verwende Standardwerte bei Fehlern
-                properties_to_update['metadata']['publish']['chart-dimensions'] = {
-                    'width': 600,
-                    'height': 400
-                }
         
         # Farben aktualisieren
         if data.get('colors'):
@@ -666,6 +766,294 @@ def duplicate_and_export_chart(request, chart_id):
         if isinstance(e, requests.exceptions.RequestException) and hasattr(e.response, 'text'):
             print(f"API response: {e.response.text}")
         return JsonResponse({'error': str(e)}, status=500)
+
+@custom_login_required(login_url='index')
+def republish_chart(request, chart_id):
+    """Dupliziert eine Grafik und aktualisiert sie mit neuen Metadaten"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST-Anfragen werden unterstützt'}, status=405)
+    
+    try:
+        api_key = os.getenv('DATAWRAPPER_API_KEY')
+        if not api_key:
+            raise Exception("API Key nicht gefunden")
+            
+        headers = {"Authorization": f"Bearer {api_key}"}
+        data = request.POST
+        
+        # Debug-Ausgabe
+        print(f"DEBUG: Eingabedaten für republish_chart: {data}")
+        
+        # 1. Original-Grafik abrufen, um den Ursprungs-Ordner zu bestimmen
+        original_chart_url = f"https://api.datawrapper.de/v3/charts/{chart_id}"
+        
+        original_response = requests.get(original_chart_url, headers=headers)
+        original_response.raise_for_status()
+        original_chart_data = original_response.json()
+        
+        # Ursprünglichen Ordner-ID bestimmen
+        original_folder_id = original_chart_data.get('folderId')
+        
+        # 2. Grafik duplizieren im selben Ordner
+        duplicate_url = f"https://api.datawrapper.de/v3/charts/{chart_id}/copy"
+        
+        # Erstelle die Duplizierungsdaten ohne Titel, um die "(Kopie)" zu vermeiden
+        duplicate_data = {
+            "folderId": original_folder_id
+        }
+        
+        duplicate_response = requests.post(
+            duplicate_url,
+            headers={**headers, 'Content-Type': 'application/json'},
+            json=duplicate_data
+        )
+        duplicate_response.raise_for_status()
+        new_chart_data = duplicate_response.json()
+        new_chart_id = new_chart_data['id']
+        
+        print(f"DEBUG: Neue Grafik erstellt mit ID: {new_chart_id}")
+        
+        # 3. Aktualisiere die Metadaten der neuen Grafik mit explizitem Titel
+        properties_to_update = {}
+        
+        # Titel explizit setzen
+        if data.get('title'):
+            properties_to_update['title'] = data.get('title')
+        
+        # Beschreibung setzen
+        if data.get('description'):
+            if 'metadata' not in properties_to_update:
+                properties_to_update['metadata'] = {}
+            if 'describe' not in properties_to_update['metadata']:
+                properties_to_update['metadata']['describe'] = {}
+            
+            properties_to_update['metadata']['describe']['intro'] = data.get('description')
+            
+        # Dimensionen aktualisieren (mm zu Pixel konvertieren für die Grafik-Metadaten)
+        width_mm = data.get('width')
+        height_mm = data.get('height')
+        pixels_per_mm = 96 / 25.4  # 96 DPI zu mm Umrechnung
+        
+        if width_mm or height_mm:
+            if 'metadata' not in properties_to_update:
+                properties_to_update['metadata'] = {}
+            if 'publish' not in properties_to_update['metadata']:
+                properties_to_update['metadata']['publish'] = {}
+                
+            # Konvertiere mm in Pixel für die Grafik-Dimensionen
+            try:
+                width_px = round(float(width_mm) * pixels_per_mm) if width_mm and width_mm != 'auto' else None
+                
+                # Behandle "auto" für die Höhe
+                if height_mm == 'auto' or not height_mm:
+                    height_px = None
+                else:
+                    height_px = round(float(height_mm) * pixels_per_mm)
+                
+                chart_dimensions = {}
+                if width_px:
+                    chart_dimensions['width'] = width_px
+                if height_px:
+                    chart_dimensions['height'] = height_px
+                    
+                if chart_dimensions:
+                    properties_to_update['metadata']['publish']['chart-dimensions'] = chart_dimensions
+            except (ValueError, TypeError) as e:
+                print(f"Fehler bei der Konvertierung der Dimensionen: {e}")
+                print(f"width_mm: {width_mm}, height_mm: {height_mm}")
+        
+        # Farben aktualisieren
+        if data.get('colors'):
+            try:
+                import json
+                colors = json.loads(data.get('colors'))
+                if 'metadata' not in properties_to_update:
+                    properties_to_update['metadata'] = {}
+                if 'visualize' not in properties_to_update['metadata']:
+                    properties_to_update['metadata']['visualize'] = {}
+                properties_to_update['metadata']['visualize']['custom-colors'] = colors
+            except json.JSONDecodeError as e:
+                print(f"Error decoding colors JSON: {e}")
+                print("Raw colors data:", data.get('colors'))
+        
+        # 4. Grafik aktualisieren, wenn Änderungen vorliegen
+        if properties_to_update:
+            update_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}"
+            
+            print(f"DEBUG: Update Metadaten: {properties_to_update}")
+            
+            update_response = requests.patch(
+                update_url,
+                headers={**headers, 'Content-Type': 'application/json'},
+                json=properties_to_update
+            )
+            update_response.raise_for_status()
+        
+        # 5. Grafik publishen
+        publish_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}/publish"
+        
+        publish_response = requests.post(publish_url, headers=headers)
+        publish_response.raise_for_status()
+        
+        # 6. Metadaten und Thumbnail für die Datenbank abrufen
+        metadata_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}"
+        metadata_response = requests.get(metadata_url, headers=headers)
+        metadata_response.raise_for_status()
+        metadata = metadata_response.json()
+        
+        # Besorge das PNG direkt von der Export-API (besser als Thumbnail)
+        export_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}/export/png"
+        export_params = {
+            'width': 1200,  # Höhere Auflösung für bessere Qualität
+            'height': 800,  # Höhere Auflösung für bessere Qualität
+            'plain': 'false',
+            'zoom': '2',    # Erhöhter Zoom-Faktor für bessere Qualität
+            'scale': '2',   # Erhöhter Skalierungsfaktor für bessere Qualität
+            'transparent': 'false',
+            'logo': 'auto',
+            'dark': 'false'
+        }
+        
+        export_response = requests.get(export_url, headers=headers, params=export_params)
+        export_status = export_response.status_code
+        
+        # Logge das Ergebnis des Export-Aufrufs
+        print(f"DEBUG: PNG-Export Status für {new_chart_id}: {export_status}")
+        
+        # 7. In der Datenbank speichern
+        # Prüfen, ob die Grafik bereits in der Datenbank existiert
+        existing_chart = Chart.objects.filter(chart_id=new_chart_id).first()
+        
+        if existing_chart:
+            # Aktualisiere vorhandene Grafik
+            chart_model = existing_chart
+        else:
+            # Erstelle neue Grafik
+            chart_model = Chart(chart_id=new_chart_id)
+        
+        # Aktualisiere Metadaten
+        # Verwende die Werte aus der Anfrage anstatt die von der API zurückgegebenen Werte
+        chart_model.title = data.get('title') or metadata.get('title', '')
+        chart_model.description = data.get('description') or metadata.get('metadata', {}).get('describe', {}).get('intro', '')
+        chart_model.last_modified_date = timezone.now()
+        chart_model.published_date = timezone.now()
+        
+        # URL für iframe und JS-Code
+        chart_model.iframe_url = f"https://datawrapper.dwcdn.net/{new_chart_id}/1/"
+        chart_model.embed_js = f'<script src="https://static.rndtech.de/share/rnd/datenrecherche/script/dw_chart_min.js" defer></script>\n<dw-chart\n    chart-id="{new_chart_id}">\n</dw-chart>'
+        
+        # Tags aus der alten Grafik übernehmen
+        original_chart = Chart.objects.filter(chart_id=chart_id).first()
+        if original_chart:
+            chart_model.tags = original_chart.tags
+            chart_model.evergreen = original_chart.evergreen
+            chart_model.regional = original_chart.regional
+            chart_model.patch = original_chart.patch
+            chart_model.notes = original_chart.notes
+        
+        # Speichere das Modell, um eine ID zu erhalten (für Thumbnail)
+        chart_model.save()
+        
+        # Thumbnail aus dem PNG erstellen und speichern
+        if export_status == 200:
+            try:
+                # Erstelle Thumbnail-Dateinamen und -Pfad
+                thumbnail_filename = f"{new_chart_id}.png"
+                thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbnails')
+                os.makedirs(thumbnail_dir, exist_ok=True)
+                thumbnail_path = os.path.join(thumbnail_dir, thumbnail_filename)
+                
+                # Bild laden und auf Thumbnail-Größe bringen (600x400px ist eine gute Größe für Thumbnails)
+                with Image.open(io.BytesIO(export_response.content)) as img:
+                    thumbnail_size = (600, 400)
+                    
+                    # Verwende LANCZOS, falls verfügbar, sonst ANTIALIAS für ältere PIL-Versionen
+                    try:
+                        img.thumbnail(thumbnail_size, Image.LANCZOS)
+                    except AttributeError:
+                        # Fallback für ältere PIL-Versionen
+                        try:
+                            img.thumbnail(thumbnail_size, Image.ANTIALIAS)
+                        except AttributeError:
+                            # Letzter Fallback ohne Filterangabe
+                            img.thumbnail(thumbnail_size)
+                    
+                    # Speichere das Thumbnail auf der Festplatte
+                    img.save(thumbnail_path, 'PNG')
+                
+                print(f"DEBUG: Thumbnail für {new_chart_id} gespeichert unter {thumbnail_path}")
+                
+                # Setze den relativen Pfad für das Thumbnail-Feld des Chart-Modells
+                chart_model.thumbnail.name = os.path.join('thumbnails', thumbnail_filename)
+                chart_model.save()
+            except Exception as thumbnail_error:
+                print(f"Fehler beim Speichern des Thumbnails: {thumbnail_error}")
+                # Stelle sicher, dass kein Thumbnail-Attribut gesetzt ist
+                chart_model.thumbnail = None
+                chart_model.save()
+        else:
+            # Versuche alternativ, das Thumbnail direkt zu verwenden
+            thumbnail_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}/thumbnail"
+            thumbnail_response = requests.get(thumbnail_url, headers=headers)
+            
+            if thumbnail_response.status_code == 200:
+                try:
+                    # Erstelle Thumbnail-Dateinamen und -Pfad
+                    thumbnail_filename = f"{new_chart_id}.png"
+                    thumbnail_dir = os.path.join(settings.MEDIA_ROOT, 'thumbnails')
+                    os.makedirs(thumbnail_dir, exist_ok=True)
+                    thumbnail_path = os.path.join(thumbnail_dir, thumbnail_filename)
+                    
+                    # Bild laden und auf Thumbnail-Größe bringen (600x400px ist eine gute Größe für Thumbnails)
+                    with Image.open(io.BytesIO(thumbnail_response.content)) as img:
+                        thumbnail_size = (600, 400)
+                        
+                        # Verwende LANCZOS, falls verfügbar, sonst ANTIALIAS für ältere PIL-Versionen
+                        try:
+                            img.thumbnail(thumbnail_size, Image.LANCZOS)
+                        except AttributeError:
+                            # Fallback für ältere PIL-Versionen
+                            try:
+                                img.thumbnail(thumbnail_size, Image.ANTIALIAS)
+                            except AttributeError:
+                                # Letzter Fallback ohne Filterangabe
+                                img.thumbnail(thumbnail_size)
+                        
+                        # Speichere das Thumbnail
+                        img.save(thumbnail_path, 'PNG')
+                    
+                    print(f"DEBUG: Thumbnail aus Thumbnail-API für {new_chart_id} gespeichert unter {thumbnail_path}")
+                    
+                    # Setze den relativen Pfad für das Thumbnail-Feld des Chart-Modells
+                    chart_model.thumbnail.name = os.path.join('thumbnails', thumbnail_filename)
+                    chart_model.save()
+                except Exception as thumbnail_error:
+                    print(f"Fehler beim Speichern des Thumbnails (Fallback): {thumbnail_error}")
+                    chart_model.thumbnail = None
+                    chart_model.save()
+            else:
+                # Stelle sicher, dass kein Thumbnail-Attribut gesetzt ist
+                chart_model.thumbnail = None
+                chart_model.save()
+                print(f"Konnte kein Thumbnail für {new_chart_id} erstellen")
+        
+        # Rückkehr zur neuen Grafik-Detailseite
+        return JsonResponse({
+            'success': True,
+            'chart_id': new_chart_id,
+            'redirect_url': f"/chart/{new_chart_id}/"
+        })
+        
+    except Exception as e:
+        error_message = str(e)
+        if isinstance(e, requests.exceptions.RequestException) and hasattr(e, 'response') and e.response is not None:
+            try:
+                error_data = e.response.json()
+                error_message = error_data.get('message', str(e))
+            except:
+                error_message = e.response.text or str(e)
+        
+        return JsonResponse({'error': f'Fehler beim Ausspielen der Grafik: {error_message}'}, status=500)
 
 # Hilfsfunktionen zur Berechtigungsprüfung
 def is_creator(user):

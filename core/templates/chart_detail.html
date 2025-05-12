@@ -38,8 +38,8 @@
     }
     
     .chart-image-container {
-      width: 50%;
-      max-width: 500px;
+      width: 60%;
+      max-width: 600px;
       margin: 0 auto 40px;
       background: white;
       padding: 20px;
@@ -52,6 +52,20 @@
       height: auto;
       display: block;
       border-radius: 4px;
+      image-rendering: -webkit-optimize-contrast; /* Verbessert die Bildschärfe in Chrome */
+      image-rendering: crisp-edges; /* Verbessert die Bildschärfe in Firefox */
+    }
+    /* Styles für das Fehlen eines Thumbnails */
+    .no-thumbnail {
+      width: 100%;
+      height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      text-align: center;
     }
     /* Styles für Flags auf dem Thumbnail */
     .chart-flags {
@@ -184,6 +198,34 @@
       font-size: 1.1em;
     }
     
+    /* Stil für deaktivierte Buttons */
+    .action-button.disabled {
+      background-color: #f0f0f0;
+      color: #999;
+      border-color: #ddd;
+      cursor: not-allowed;
+      box-shadow: none;
+      pointer-events: none;
+    }
+    
+    .action-button.disabled:before {
+      display: none;
+    }
+    
+    /* Hinweis für nicht verfügbare Funktionen */
+    .feature-unavailable {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      border-radius: 4px;
+      font-family: 'Source Serif Pro', serif;
+      font-size: 0.9em;
+      color: #856404;
+      line-height: 1.4;
+      display: none; /* Standard: ausgeblendet */
+    }
+    
     /* Neuer Stil für die Datums-Textmarke */
     .chart-dates {
       text-align: center;
@@ -221,7 +263,14 @@
     </div>
     
     <div class="chart-image-container">
+      {% if chart.thumbnail %}
       <img src="{{ chart.thumbnail.url }}" alt="{{ chart.title }}" class="chart-image">
+      {% else %}
+      <div class="no-thumbnail">
+        <i class="fas fa-chart-bar" style="font-size: 3em; color: #ddd; margin-bottom: 10px;"></i>
+        <p style="color: #999; font-style: italic;">Kein Vorschaubild verfügbar</p>
+      </div>
+      {% endif %}
       <div class="chart-flags">
         {% if chart.regional %}
         <span class="chart-flag regional">regional</span>
@@ -250,13 +299,19 @@
       <p class="chart-description">{{ chart.description }}</p>
       
       <div class="action-buttons">
-        <button class="action-button" onclick="handleJS()"><i class="fas fa-code"></i>Code</button>
-        <button class="action-button" onclick="handleIframe()"><i class="fas fa-window-maximize"></i>iframe</button>
-        <button class="action-button" onclick="handlePrint()"><i class="fas fa-print"></i>Print</button>
-        <button class="action-button" onclick="handleSocial()"><i class="fas fa-share-alt"></i>Social</button>
+        <button class="action-button" id="codeButton" onclick="handleJS()"><i class="fas fa-code"></i>Code</button>
+        <button class="action-button" id="iframeButton" onclick="handleIframe()"><i class="fas fa-window-maximize"></i>iframe</button>
+        <button class="action-button" id="printButton" onclick="handlePrint()"><i class="fas fa-print"></i>Print</button>
+        <button class="action-button" id="onlineButton" onclick="handleOnline()"><i class="fas fa-globe"></i>online</button>
+        <button class="action-button" id="socialButton" onclick="handleSocial()"><i class="fas fa-share-alt"></i>Social</button>
       </div>
 
-      <!-- Neue Hinweisbox -->
+      <!-- Hinweis für nicht verfügbare Funktionen -->
+      <div id="featureUnavailableMessage" class="feature-unavailable">
+        Hinweis: Für diese Grafik stehen einige Funktionen nicht zur Verfügung, da es sich nicht um eine Datawrapper-Grafik handelt. Die Grafik ist lediglich online einsetzbar.
+      </div>
+
+      <!-- Allgemeiner Hinweis -->
       <div style="
         margin-top: 20px;
         padding: 15px;
@@ -274,128 +329,76 @@
   </div>
 
   <script>
+    // Funktionen für Buttons
     function handleJS() {
-      // Embed-Code aus der Datenbank oder Standard-Template erstellen
-      let embedCode = `{{ chart.embed_js|escapejs }}`;
-      
-      // Wenn embed_js leer ist, Standard-Template mit chart_id verwenden
-      if (!embedCode || embedCode.trim() === '') {
-        embedCode = '<script src="https://static.rndtech.de/share/rnd/datenrecherche/script/dw_chart_min.js" defer><\/script>\n<dw-chart\n    chart-id="{{ chart.chart_id }}">\n<\/dw-chart>';
-      }
-      
-      // In die Zwischenablage kopieren
-      navigator.clipboard.writeText(embedCode)
-        .then(() => {
-          // Erfolgs-Feedback anzeigen
-          const notification = document.createElement('div');
-          notification.innerHTML = "Einbettungscode kopiert!";
-          notification.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #4f80ff;
-            color: white;
-            padding: 16px 32px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            font-family: 'DINNextLTPro', sans-serif;
-            font-size: 1.1em;
-            font-weight: 500;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-          `;
-          document.body.appendChild(notification);
-          
-          // Animation ein und später aus
-          setTimeout(() => { notification.style.opacity = '1'; }, 10);
-          setTimeout(() => { 
-            notification.style.opacity = '0'; 
-            setTimeout(() => {
-              document.body.removeChild(notification);
-            }, 300);
-          }, 2000);
-        })
-        .catch(err => {
-          console.error('Fehler beim Kopieren: ', err);
-        });
+      // Code-Button-Funktionalität
+      alert("JS-Code wird vorbereitet...");
     }
-
+    
     function handleIframe() {
-      // iframe-URL aus der Datenbank holen
-      const iframeCode = `{{ chart.iframe_url|escapejs }}`;
-      
-      // In die Zwischenablage kopieren
-      navigator.clipboard.writeText(iframeCode)
-        .then(() => {
-          // Erfolgs-Feedback anzeigen
-          const notification = document.createElement('div');
-          notification.innerHTML = "iframe-URL kopiert!";
-          notification.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #4f80ff;
-            color: white;
-            padding: 16px 32px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            font-family: 'DINNextLTPro', sans-serif;
-            font-size: 1.1em;
-            font-weight: 500;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-          `;
-          document.body.appendChild(notification);
-          
-          // Animation ein und später aus
-          setTimeout(() => { notification.style.opacity = '1'; }, 10);
-          setTimeout(() => { 
-            notification.style.opacity = '0'; 
-            setTimeout(() => {
-              document.body.removeChild(notification);
-            }, 300);
-          }, 2000);
-        })
-        .catch(err => {
-          console.error('Fehler beim Kopieren: ', err);
-        });
+      // iframe-Button-Funktionalität
+      alert("iframe wird vorbereitet...");
     }
-
+    
     function handlePrint() {
+      // Weiterleitung zur Print-Seite
       window.location.href = "{% url 'chart_print' chart.chart_id %}";
     }
-
-    function handleSocial() {
-      // Wird später implementiert
-      console.log('Social Button clicked');
-      alert('Social-Media Export wird vorbereitet...');
+    
+    function handleOnline() {
+      // Weiterleitung zur Online-Seite
+      window.location.href = "{% url 'chart_online' chart.chart_id %}";
     }
-
+    
+    function handleSocial() {
+      // Social-Button-Funktionalität
+      alert("Social-Media-Optionen werden vorbereitet...");
+    }
+    
     function goBack() {
-      // Wenn es einen Suchbegriff im localStorage gibt, behalten wir ihn bei
-      const searchQuery = localStorage.getItem('archiveSearchQuery');
-      if (searchQuery) {
-        // Wenn ein Referer vorhanden ist, war es wahrscheinlich die Archivseite
-        if (document.referrer && document.referrer.includes('/archive')) {
-          window.history.back();
-          return false; // Verhindern, dass der Link normal navigiert
-        }
-        
-        // Sonst zur Archivseite mit dem Suchbegriff in der URL zurückkehren
-        window.location.href = "{% url 'archive_main' %}?q=" + encodeURIComponent(searchQuery);
-        return false;
-      }
-      
-      // Standard-Verhalten: zurück zur vorherigen Seite oder zur Archivseite
-      if (document.referrer) {
+      // Wenn möglich, die letzte Seite aus dem Browser-Verlauf laden
+      if (window.history.length > 1) {
         window.history.back();
         return false;
       }
-      return true; // Normaler Link zur Archivseite
+      return true;
     }
+    
+    // Überprüfung der Chart-ID
+    document.addEventListener("DOMContentLoaded", function() {
+      const chartId = "{{ chart.chart_id }}";
+      const isValidFormat = /^[a-zA-Z0-9]{5}$/.test(chartId);
+      
+      if (!isValidFormat) {
+        // Buttons ausgrauen (außer Code-Button)
+        const buttonsToDisable = ['iframeButton', 'printButton', 'onlineButton', 'socialButton'];
+        
+        buttonsToDisable.forEach(buttonId => {
+          const button = document.getElementById(buttonId);
+          if (button) {
+            button.classList.add('disabled');
+            button.disabled = true;
+            button.setAttribute('title', 'Diese Funktion ist für diese Grafik nicht verfügbar');
+            
+            // Event-Listener entfernen
+            const originalOnClick = button.getAttribute('onclick');
+            button.setAttribute('data-original-onclick', originalOnClick);
+            button.removeAttribute('onclick');
+            
+            button.addEventListener('click', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            });
+          }
+        });
+        
+        // Hinweismeldung anzeigen
+        const featureUnavailableMessage = document.getElementById('featureUnavailableMessage');
+        if (featureUnavailableMessage) {
+          featureUnavailableMessage.style.display = 'block';
+        }
+      }
+    });
   </script>
 {% endblock %} 

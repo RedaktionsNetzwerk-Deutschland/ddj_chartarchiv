@@ -193,3 +193,43 @@ class TopicTile(models.Model):
         if not self.search_terms:
             return []
         return [term.strip() for term in self.search_terms.split(',')]
+
+class ChartBlacklist(models.Model):
+    """
+    Speichert eine Blacklist von Chart-IDs, die aus den Suchergebnissen ausgeschlossen werden sollen.
+    """
+    
+    chart_id = models.CharField(
+        max_length=10,
+        unique=True,
+        verbose_name="Grafik-ID",
+        help_text="Die eindeutige ID der Datawrapper-Grafik, die ausgeschlossen werden soll"
+    )
+    
+    reason = models.TextField(
+        blank=True,
+        verbose_name="Grund",
+        help_text="Optional: Der Grund für die Blacklistung der Grafik"
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Erstellt am"
+    )
+    
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_blacklist_entries',
+        verbose_name="Erstellt von"
+    )
+    
+    class Meta:
+        verbose_name = "Blacklist-Eintrag"
+        verbose_name_plural = "Blacklist-Einträge"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Blacklist: {self.chart_id} ({self.created_at.strftime('%d.%m.%Y')})"

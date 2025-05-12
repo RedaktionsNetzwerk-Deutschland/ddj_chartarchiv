@@ -1,16 +1,22 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from .models import Chart, ChartData, RegistrationConfirmation, PasswordResetToken, TopicTile
+from .models import Chart, ChartData, RegistrationConfirmation, PasswordResetToken, TopicTile, ChartBlacklist
 from django.utils.html import format_html
 from django.conf import settings
-import os
+import os, base64, uuid
 from django import forms
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.utils import timezone
+from django.shortcuts import render, redirect
+from django.urls import path
+from django.http import JsonResponse
+from django.utils.translation import gettext_lazy as _
 
 # Register your models here.
-admin.site.register(Chart)
+# Entferne die einfache Registrierung
+# admin.site.register(Chart)
 admin.site.register(ChartData)
 admin.site.register(RegistrationConfirmation)
 admin.site.register(PasswordResetToken)
@@ -47,9 +53,18 @@ class TopicTileAdminForm(forms.ModelForm):
     def save(self, commit=True):
         instance = super().save(commit=False)
         
-        # Wenn ein bestehendes Bild ausgewählt wurde und es sich vom aktuellen unterscheidet
+        # Hole das hochgeladene Bild aus dem Formular
+        uploaded_image = self.cleaned_data.get('background_image')
         existing_image = self.cleaned_data.get('existing_image')
-        if existing_image and not self.cleaned_data.get('background_image'):
+        
+        # 1. Fall: Ein neues Bild wurde hochgeladen
+        if uploaded_image:
+            # Wenn ein neues Bild hochgeladen wird, setzen wir es und ignorieren das existing_image
+            # Django's ModelForm kümmert sich automatisch um die Speicherung des hochgeladenen Bildes
+            pass  # Das Bild wird bereits durch super().save() gesetzt
+        
+        # 2. Fall: Kein hochgeladenes Bild, aber ein bestehendes Bild ausgewählt
+        elif existing_image:
             # Bestimme den vollständigen Pfad zur Datei
             file_path = os.path.join(settings.MEDIA_ROOT, existing_image)
             
@@ -71,6 +86,90 @@ class TopicTileAdminForm(forms.ModelForm):
     class Meta:
         model = TopicTile
         fields = '__all__'
+
+# Benutzerdefiniertes Formular für Chart mit Clipboard-Unterstützung
+class ChartAdminForm(forms.ModelForm):
+    clipboard_image = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
+        help_text="Füge ein Bild mit Strg+V ein"
+    )
+
+    class Meta:
+        model = Chart
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Überprüfen, ob ein Clipboard-Bild vorhanden ist
+        clipboard_data = cleaned_data.get('clipboard_image')
+        if clipboard_data and clipboard_data.startswith('data:image'):
+            # Bild aus Base64-Daten erstellen
+            format, imgstr = clipboard_data.split(';base64,')
+            ext = format.split('/')[-1]
+            file_name = f"{uuid.uuid4()}.{ext}"
+            data = ContentFile(base64.b64decode(imgstr))
+            
+            # Lösche das vorherige Bild, falls vorhanden
+            if self.instance.pk and self.instance.thumbnail:
+                self.instance.thumbnail.delete(save=False)
+            
+            # Speichere das neue Bild
+            self.instance.thumbnail.save(file_name, data, save=False)
+        
+        return cleaned_data
+
+# Admin-Klasse für Chart
+class ChartAdmin(admin.ModelAdmin):
+    form = ChartAdminForm
+    list_display = ('title', 'chart_id', 'published_date', 'display_thumbnail', 'evergreen', 'regional')
+    list_filter = ('published_date', 'evergreen', 'regional')
+    search_fields = ('title', 'chart_id', 'description', 'tags')
+    readonly_fields = ('last_modified_date', 'display_thumbnail')
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'chart_id', 'description', 'notes', 'comments', 'tags')
+        }),
+        ('Metadaten', {
+            'fields': ('published_date', 'last_modified_date')
+        }),
+        ('Thumbnail', {
+            'fields': ('thumbnail', 'clipboard_image', 'display_thumbnail'),
+            'description': 'Du kannst ein Bild hochladen oder per Strg+V einfügen.'
+        }),
+        ('Eigenschaften', {
+            'fields': ('evergreen', 'regional', 'patch')
+        }),
+        ('Embed-Code', {
+            'fields': ('iframe_url', 'embed_js'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def display_thumbnail(self, obj):
+        """Zeigt eine Vorschau des Thumbnails im Admin-Panel"""
+        if obj.thumbnail:
+            return format_html('<img src="{}" style="max-height: 200px; max-width: 400px;" />', 
+                               obj.thumbnail.url)
+        return "Kein Bild hochgeladen."
+    
+    display_thumbnail.short_description = 'Bildvorschau'
+    
+    def save_model(self, request, obj, form, change):
+        """Aktualisiert das last_modified_date beim Speichern"""
+        # Aktualisiere last_modified_date immer
+        obj.last_modified_date = timezone.now()
+        
+        # Setze published_date auf den aktuellen Zeitstempel, wenn es nicht gesetzt ist
+        if not obj.published_date:
+            obj.published_date = timezone.now()
+        
+        super().save_model(request, obj, form, change)
+    
+    class Media:
+        js = ('core/js/clipboard_image.js',)
+
+admin.site.register(Chart, ChartAdmin)
 
 # Admin-Klasse für TopicTile
 class TopicTileAdmin(admin.ModelAdmin):
@@ -111,10 +210,38 @@ class TopicTileAdmin(admin.ModelAdmin):
                            obj.background_image.url)
         return format_html('<div style="width: 100px; height: 30px; background-color: {}; display: inline-block;"></div>', obj.background_color)
     
+    class Media:
+        js = ('core/js/admin_image_preview.js',)
+    
     display_image_thumbnail.short_description = 'Vorschau'
     image_preview.short_description = 'Bildvorschau'
 
 admin.site.register(TopicTile, TopicTileAdmin)
+
+# Admin-Klasse für ChartBlacklist
+class ChartBlacklistAdmin(admin.ModelAdmin):
+    list_display = ('chart_id', 'reason', 'created_at', 'created_by')
+    list_filter = ('created_at',)
+    search_fields = ('chart_id', 'reason')
+    readonly_fields = ('created_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('chart_id', 'reason')
+        }),
+        ('Metadaten', {
+            'fields': ('created_at', 'created_by'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        # Automatisch den aktuellen Benutzer als Ersteller setzen, wenn nicht angegeben
+        if not change:  # Nur beim Erstellen, nicht beim Bearbeiten
+            if not obj.created_by:
+                obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+admin.site.register(ChartBlacklist, ChartBlacklistAdmin)
 
 # Benutzeradmin erweitern, um Gruppenzuordnungen zu vereinfachen
 class CustomUserAdmin(UserAdmin):

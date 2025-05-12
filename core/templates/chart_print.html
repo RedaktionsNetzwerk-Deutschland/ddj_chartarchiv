@@ -343,7 +343,14 @@
     <div class="print-layout">
       <!-- Linke Spalte: Grafik-Vorschau -->
       <div class="chart-preview">
+        {% if chart.thumbnail %}
         <img src="{{ chart.thumbnail.url }}" alt="{{ chart.title }}">
+        {% else %}
+        <div style="background-color: #f5f5f5; border-radius: 8px; padding: 30px; text-align: center;">
+          <i class="fas fa-chart-bar" style="font-size: 4em; color: #ddd; margin-bottom: 20px;"></i>
+          <p style="color: #999; font-style: italic;">Kein Vorschaubild verfügbar</p>
+        </div>
+        {% endif %}
         <div class="update-info">
           <strong>Aktualisiert am:</strong> {{ chart.published_date|date:"d.m.Y H:i" }}
         </div>

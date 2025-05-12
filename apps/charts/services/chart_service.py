@@ -5,7 +5,7 @@ Enthält Logik für die Suche, das Abrufen und die Manipulation von Grafiken.
 
 from django.db.models import Q
 from django.db import transaction
-from core.models import Chart
+from core.models import Chart, ChartBlacklist
 from .datawrapper import DatawrapperService
 
 class ChartService:
@@ -63,6 +63,11 @@ class ChartService:
         
         # Ausschluss von Grafiken mit dem Tag "Tägliche Updates"
         queryset = queryset.exclude(tags__icontains="Tägliche Updates")
+        
+        # Ausschluss von Grafiken auf der Blacklist
+        blacklisted_chart_ids = ChartBlacklist.objects.values_list('chart_id', flat=True)
+        if blacklisted_chart_ids:
+            queryset = queryset.exclude(chart_id__in=blacklisted_chart_ids)
         
         # Gesamtzahl der Ergebnisse
         total_count = queryset.count()
