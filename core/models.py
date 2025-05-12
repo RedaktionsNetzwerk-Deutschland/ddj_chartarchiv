@@ -25,6 +25,12 @@ class Chart(models.Model):
     def __str__(self):
         return self.title
 
+    def get_tags_list(self):
+        """Gibt die Tags als Liste zurück."""
+        if not self.tags:
+            return []
+        return [tag.strip() for tag in self.tags.split(',')]
+
 class ChartData(models.Model):
     """
     Speichert die Rohdaten, die für einen Chart verwendet werden.
@@ -135,3 +141,55 @@ class PasswordResetToken(models.Model):
     class Meta:
         verbose_name = "Passwort Reset Token"
         verbose_name_plural = "Passwort Reset Tokens"
+
+class TopicTile(models.Model):
+    """
+    Modell für die Themenkacheln auf der Hauptseite des Archivs.
+    Erlaubt die einfache Verwaltung der Kacheln über das Admin-Panel.
+    """
+    title = models.CharField(
+        max_length=100, 
+        verbose_name="Titel",
+        help_text="Der Text, der auf der Kachel angezeigt wird"
+    )
+    background_image = models.ImageField(
+        upload_to='topic_tiles/', 
+        blank=True,
+        null=True,
+        verbose_name="Hintergrundbild",
+        help_text="Das Hintergrundbild für die Kachel (optimal: 5:1 Seitenverhältnis)"
+    )
+    background_color = models.CharField(
+        max_length=20, 
+        default="#4f80ff",
+        verbose_name="Hintergrundfarbe",
+        help_text="Hintergrundfarbe als HEX-Code (z.B. #4f80ff), falls kein Bild verwendet wird"
+    )
+    search_terms = models.TextField(
+        verbose_name="Suchbegriffe",
+        help_text="Kommagetrennte Liste von Suchbegriffen, die beim Klick gesucht werden sollen"
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Reihenfolge",
+        help_text="Position der Kachel (niedrigere Zahlen erscheinen zuerst)"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktiv",
+        help_text="Legt fest, ob die Kachel angezeigt werden soll"
+    )
+    
+    class Meta:
+        verbose_name = "Themenkachel"
+        verbose_name_plural = "Themenkacheln"
+        ordering = ['order']
+    
+    def __str__(self):
+        return self.title
+    
+    def get_search_terms_list(self):
+        """Gibt die Suchbegriffe als Liste zurück."""
+        if not self.search_terms:
+            return []
+        return [term.strip() for term in self.search_terms.split(',')]

@@ -1,5 +1,3 @@
-
-
 services:
   db:
     image: mysql:8.0
@@ -22,6 +20,8 @@ services:
     command: gunicorn archive_webapp.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/code
+      - media_data:/code/media
+      - static_data:/code/staticfiles
     ports:
       - "8000:8000"
     depends_on:
@@ -36,12 +36,14 @@ services:
     networks:
       - webapp-network
     entrypoint: ["./entrypoint.sh"]
+    restart: always
 
   fetch_datawrapper:
     build: .
     command: python manage.py fetch_datawrapper
     volumes:
       - .:/code
+      - media_data:/code/media
     depends_on:
       - db
     environment:
@@ -61,4 +63,8 @@ networks:
 
 volumes:
   db_data:
+    driver: local
+  media_data:
+    driver: local
+  static_data:
     driver: local 

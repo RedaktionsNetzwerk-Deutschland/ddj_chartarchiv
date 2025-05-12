@@ -76,6 +76,18 @@
       margin-top: -15px;
       margin-bottom: 15px;
     }
+    /* Login-Link-Stil ähnlich wie auf der Passwort-Reset-Seite */
+    .login-link {
+      display: block;
+      margin-top: 25px;
+      font-size: 0.9em;
+      color: #4f80ff;
+      text-decoration: none;
+      text-align: center;
+    }
+    .login-link:hover {
+      text-decoration: underline;
+    }
   </style>
 {% endblock %}
 
@@ -84,25 +96,31 @@
 {% block content %}
 <div class="register-container">
     <h1>Registrierung</h1>
-    <form method="post" novalidate autocomplete="on">
+    <form method="post" id="registrationForm" autocomplete="on" name="register" data-form-type="register">
         {% csrf_token %}
         <div class="mb-3">
             <label for="id_name" class="form-label">Name</label>
-            {{ form.name }}
+            <input type="text" name="name" id="id_name" class="form-control" required 
+                   placeholder="Vorname Name" autocomplete="name" 
+                   value="{{ form.name.value|default:'' }}">
             {% if form.name.errors %}
                 <div class="text-danger">{{ form.name.errors.0 }}</div>
             {% endif %}
         </div>
         <div class="mb-3">
             <label for="id_email" class="form-label">E-Mail</label>
-            {{ form.email }}
+            <input type="email" name="email" id="id_email" class="form-control" required 
+                   placeholder="name@beispiel.de" autocomplete="username email" 
+                   value="{{ form.email.value|default:'' }}">
             {% if form.email.errors %}
                 <div class="text-danger">{{ form.email.errors.0 }}</div>
             {% endif %}
         </div>
         <div class="mb-3">
             <label for="id_password1" class="form-label">Passwort</label>
-            {{ form.password1 }}
+            <input type="password" name="password1" id="id_password1" class="form-control" required 
+                   placeholder="Passwort eingeben" autocomplete="new-password" data-lpignore="false"
+                   value="{{ form.password1.value|default:'' }}">
             <div class="password-info">
                 Das Passwort muss mindestens 8 Zeichen lang sein.
             </div>
@@ -112,12 +130,22 @@
         </div>
         <div class="mb-3">
             <label for="id_password2" class="form-label">Passwort bestätigen</label>
-            {{ form.password2 }}
+            <input type="password" name="password2" id="id_password2" class="form-control" required 
+                   placeholder="Passwort wiederholen" autocomplete="new-password" data-lpignore="false"
+                   value="{{ form.password2.value|default:'' }}">
             {% if form.password2.errors %}
                 <div class="text-danger">{{ form.password2.errors.0 }}</div>
             {% endif %}
         </div>
-        <button type="submit" class="btn btn-primary w-100">Absenden</button>
+        <button type="submit" class="btn btn-primary w-100" name="register">Absenden</button>
     </form>
+    <a href="{% url 'index' %}" class="login-link">Zurück zur Startseite</a>
 </div>
+
+<script>
+    // Hilft Passwort-Managern, das Formular als Registrierungsformular zu erkennen
+    document.addEventListener('DOMContentLoaded', function() {
+        var form = document.getElementById('registrationForm');
+    });
+</script>
 {% endblock %} 

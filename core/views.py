@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .forms import RegistrationForm, LoginForm, PasswordResetRequestForm, CustomSetPasswordForm
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
-from .models import Chart, RegistrationConfirmation, PasswordResetToken
+from .models import Chart, RegistrationConfirmation, PasswordResetToken, TopicTile
 import os
 import requests
 from openai import OpenAI
@@ -18,11 +18,17 @@ import io
 from django.contrib import messages
 from django.contrib.auth.models import User
 from .utils import generate_token, send_confirmation_email, send_password_reset_email, custom_login_required
+from django.urls import reverse
+from django.utils.safestring import mark_safe
 
 # Create your views here.
 
 def index(request):
-    login_form = LoginForm()
+    # Prüfen, ob wir bereits eine login_form aus dem Context haben
+    if hasattr(request, '_login_form'):
+        login_form = request._login_form
+    else:
+        login_form = LoginForm()
     return render(request, 'index.html', {'login_form': login_form})
 
 def register(request):
@@ -41,16 +47,48 @@ def register(request):
             # Erzeuge ein Token für die Bestätigung
             token = generate_token()
             
-            # Prüfen, ob es bereits eine unbestätigte Registrierung mit dieser E-Mail gibt
+            # Prüfen, ob es bereits einen Benutzer mit dieser E-Mail gibt in der auth_user-Tabelle
+            if User.objects.filter(email=email).exists():
+                print(f"DEBUG: Ein aktiver Benutzer mit der E-Mail {email} existiert bereits in auth_user")
+                login_url = reverse('index')
+                reset_url = reverse('password_reset_request')
+                error_message = mark_safe(
+                    f'Ein Konto mit der E-Mail-Adresse {email} existiert bereits. '
+                    f'<a href="{login_url}" style="color: #007bff; text-decoration: underline;">Bitte logge dich ein</a>. '
+                    f'Wenn du ein neues Passwort benötigst, <a href="{reset_url}" style="color: #007bff; text-decoration: underline;">klicke hier</a>.'
+                )
+                messages.error(request, error_message)
+                return redirect('register')
+            
+            # Da kein Benutzer in auth_user existiert, können wir neu registrieren
+            # Prüfen, ob es bereits einen Eintrag in der RegistrationConfirmation gibt
             try:
-                # Wenn ja, dann aktualisiere den bestehenden Eintrag
-                registration = RegistrationConfirmation.objects.get(email=email, confirmed=False)
-                registration.name = name
-                registration.token = token
-                registration.created_at = timezone.now()  # Setze das Datum zurück
-                registration.save()
+                # Versuche, die Registrierungsbestätigung zu finden
+                registration = RegistrationConfirmation.objects.get(email=email)
+                
+                # Überprüfe, ob die Registrierung schon zu alt ist (älter als 24 Stunden)
+                if (timezone.now() - registration.created_at).days >= 1:
+                    print(f"DEBUG: Alte Registrierung für {email} gefunden, lösche und erstelle neu")
+                    # Lösche den alten Eintrag und erstelle einen neuen
+                    registration.delete()
+                    registration = RegistrationConfirmation.objects.create(
+                        name=name,
+                        email=email,
+                        token=token
+                    )
+                else:
+                    # Aktualisiere den bestehenden Eintrag, unabhängig davon, ob er bestätigt wurde oder nicht
+                    # (Da kein entsprechender Benutzer in auth_user existiert)
+                    print(f"DEBUG: Aktualisiere bestehende Registrierung für {email}")
+                    registration.name = name
+                    registration.token = token
+                    registration.created_at = timezone.now()
+                    registration.confirmed = False  # Zurücksetzen auf unbestätigt
+                    registration.confirmed_at = None
+                    registration.save()
             except RegistrationConfirmation.DoesNotExist:
-                # Wenn nein, erstelle einen neuen Eintrag
+                # Wenn keine Registrierungsbestätigung existiert, erstelle eine neue
+                print(f"DEBUG: Erstelle neue Registrierungsbestätigung für {email}")
                 registration = RegistrationConfirmation.objects.create(
                     name=name,
                     email=email,
@@ -148,7 +186,9 @@ def confirm_registration(request, token):
 
 @custom_login_required(login_url='index')
 def archive_main(request):
-    return render(request, 'archive_main.html')
+    # Lade aktive Themenkacheln aus der Datenbank
+    topic_tiles = TopicTile.objects.filter(is_active=True).order_by('order')
+    return render(request, 'archive_main.html', {'topic_tiles': topic_tiles})
 
 @custom_login_required(login_url='index')
 def topic_view(request, topic):
@@ -172,7 +212,7 @@ def topic_view(request, topic):
 def chart_search(request):
     q = request.GET.get('q', '')
     page = int(request.GET.get('page', 0))
-    items_per_page = 100  # Anzahl der Items pro Seite
+    items_per_page = 25  # Anzahl der Items pro Seite
     
     print(f"Debug: Suche nach '{q}' auf Seite {page}")
     
@@ -181,14 +221,11 @@ def chart_search(request):
         search_terms = q.strip().split()
         
         if len(search_terms) > 1:
-            # Bei mehreren Suchbegriffen AND-Verknüpfung verwenden
-            # Beginne mit allen Objekten
+            # Bei mehreren Suchbegriffen OR-Verknüpfung verwenden (statt AND)
+            # Initialisiere eine leere Q-Abfrage
             query = Q()
             
-            # Initialisiere einen leeren Filter
-            charts_queryset = Chart.objects.all()
-            
-            # Filtere nacheinander nach jedem Suchbegriff (AND-Verknüpfung)
+            # Verknüpfe jeden Suchbegriff mit ODER
             for term in search_terms:
                 if len(term) > 2:  # Ignoriere sehr kurze Wörter
                     term_query = Q(chart_id__icontains=term) | \
@@ -198,11 +235,17 @@ def chart_search(request):
                                Q(comments__icontains=term) | \
                                Q(embed_js__icontains=term) | \
                                Q(tags__icontains=term)
-                    # Filtere die Ergebnisse weiter (AND)
-                    charts_queryset = charts_queryset.filter(term_query)
+                    # Füge diesen Suchbegriff mit ODER hinzu
+                    query |= term_query
+            
+            # Anwenden der zusammengebauten Abfrage
+            charts_queryset = Chart.objects.filter(query)
+            
+            # Ausschluss von Grafiken mit dem Tag "Tägliche Updates"
+            charts_queryset = charts_queryset.exclude(tags__icontains="Tägliche Updates")
             
             total_count = charts_queryset.count()
-            print(f"Debug: Gefundene Ergebnisse bei UND-Suche: {total_count}")
+            print(f"Debug: Gefundene Ergebnisse bei ODER-Suche: {total_count}")
             # Paginierte Ergebnisse
             charts = charts_queryset.order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
         else:
@@ -215,15 +258,21 @@ def chart_search(request):
                     Q(embed_js__icontains=q) | \
                     Q(tags__icontains=q)
             
-            total_count = Chart.objects.filter(query).count()
-            print(f"Debug: Gefundene Ergebnisse bei ODER-Suche: {total_count}")
+            # Filter Ergebnisse, dann wende den Ausschluss an
+            charts_queryset = Chart.objects.filter(query)
+            charts_queryset = charts_queryset.exclude(tags__icontains="Tägliche Updates")
+            
+            total_count = charts_queryset.count()
+            print(f"Debug: Gefundene Ergebnisse bei ODER-Suche nach Ausschluss: {total_count}")
             # Paginierte Ergebnisse
-            charts = Chart.objects.filter(query).order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
+            charts = charts_queryset.order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
     else:
-        total_count = Chart.objects.count()
-        print(f"Debug: Gesamtanzahl aller Charts: {total_count}")
+        # Alle Grafiken, aber ohne "Tägliche Updates"
+        charts_queryset = Chart.objects.all().exclude(tags__icontains="Tägliche Updates")
+        total_count = charts_queryset.count()
+        print(f"Debug: Gesamtanzahl aller Charts nach Ausschluss: {total_count}")
         # Paginierte Ergebnisse
-        charts = Chart.objects.all().order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
+        charts = charts_queryset.order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
     
     print(f"Debug: Anzahl der Charts in dieser Seite: {len(charts)}")
     
@@ -998,7 +1047,13 @@ def create_datawrapper_chart(request):
 
 def login_modal(request):
     if request.method == 'POST':
-        form = LoginForm(request.POST)
+        # Passwort-Manager senden 'username' statt 'email', daher müssen wir das berücksichtigen
+        post_data = request.POST.copy()
+        if 'username' in post_data and 'email' not in post_data:
+            # Kopiere den Wert von 'username' nach 'email' für die Formularvalidierung
+            post_data['email'] = post_data['username']
+        
+        form = LoginForm(post_data)
         if form.is_valid():
             email = form.cleaned_data['email']
             password = form.cleaned_data['password']
@@ -1024,10 +1079,21 @@ def login_modal(request):
                 else:
                     # Authentifizierung fehlgeschlagen
                     messages.error(request, "E-Mail-Adresse oder Passwort ist falsch.")
+                    # Speichere die eingegebene E-Mail-Adresse für Wiederanzeige
+                    login_form = LoginForm(initial={'email': email, 'remember_me': remember_me})
+                    return render(request, 'index.html', {'login_form': login_form})
             except User.DoesNotExist:
                 messages.error(request, "Kein Benutzer mit dieser E-Mail-Adresse gefunden.")
-            
-            return redirect('index')
+                # Speichere die eingegebene E-Mail-Adresse für Wiederanzeige
+                login_form = LoginForm(initial={'email': email, 'remember_me': remember_me})
+                return render(request, 'index.html', {'login_form': login_form})
+        else:
+            # Formular ungültig - wir geben die eingegebene E-Mail zurück
+            if 'email' in form.data:
+                email = form.data['email']
+                remember_me = 'remember_me' in form.data
+                login_form = LoginForm(initial={'email': email, 'remember_me': remember_me})
+                return render(request, 'index.html', {'login_form': login_form})
     else:
         form = LoginForm()
     
@@ -1038,22 +1104,46 @@ def password_reset_request_view(request):
         form = PasswordResetRequestForm(request.POST)
         if form.is_valid():
             email = form.cleaned_data['email']
-            user = User.objects.get(email=email)
             
-            # Alten, unbenutzten Token für diesen User ggf. als benutzt markieren oder löschen
-            PasswordResetToken.objects.filter(user=user, used=False).update(used=True) 
+            # Debug-Ausgabe zur Problemdiagnose
+            print(f"DEBUG: Passwort-Reset angefragt für E-Mail: {email}")
+            
+            try:
+                user = User.objects.get(email=email)
+                print(f"DEBUG: Benutzer gefunden: {user.username} (ID: {user.id})")
+                
+                # Alten, unbenutzten Token für diesen User ggf. als benutzt markieren oder löschen
+                old_tokens = PasswordResetToken.objects.filter(user=user, used=False)
+                old_token_count = old_tokens.count()
+                old_tokens.update(used=True)
+                print(f"DEBUG: {old_token_count} alte Token(s) als benutzt markiert.")
 
-            token_value = generate_token() # Wiederverwendung der bestehenden Token-Generierung
-            PasswordResetToken.objects.create(user=user, token=token_value)
+                token_value = generate_token() # Wiederverwendung der bestehenden Token-Generierung
+                print(f"DEBUG: Neuer Token generiert: {token_value[:10]}...")
+                
+                PasswordResetToken.objects.create(user=user, token=token_value)
+                print(f"DEBUG: Token in Datenbank gespeichert.")
+                
+                email_sent = send_password_reset_email(email, token_value, request)
+                if email_sent:
+                    print(f"DEBUG: E-Mail erfolgreich versendet (bzw. in Konsole ausgegeben).")
+                    messages.success(request, 'Wir haben dir eine E-Mail mit Anweisungen zum Zurücksetzen deines Passworts gesendet. Bitte überprüfe dein Postfach.')
+                else:
+                    print(f"DEBUG: Fehler beim Versenden der E-Mail.")
+                    messages.error(request, 'Die E-Mail zum Zurücksetzen des Passworts konnte nicht gesendet werden. Bitte versuche es später erneut.')
             
-            email_sent = send_password_reset_email(email, token_value, request)
-            if email_sent:
-                messages.success(request, 'Wir haben dir eine E-Mail mit Anweisungen zum Zurücksetzen deines Passworts gesendet. Bitte überprüfe dein Postfach.')
-            else:
-                messages.error(request, 'Die E-Mail zum Zurücksetzen des Passworts konnte nicht gesendet werden. Bitte versuche es später erneut.')
+            except User.DoesNotExist:
+                print(f"DEBUG: Kein Benutzer mit der E-Mail-Adresse {email} gefunden.")
+                messages.error(request, f"Es existiert kein Konto mit der E-Mail-Adresse {email}.")
+                return render(request, 'password_reset_request.html', {'form': form})
+                
             return redirect('index') # Oder eine spezielle 'Passwort-Reset-E-Mail gesendet'-Seite
+        else:
+            # Bei ungültigen Formulardaten Fehler anzeigen
+            print(f"DEBUG: Formular ungültig. Fehler: {form.errors}")
     else:
         form = PasswordResetRequestForm()
+    
     return render(request, 'password_reset_request.html', {'form': form})
 
 def password_reset_confirm_view(request, token):

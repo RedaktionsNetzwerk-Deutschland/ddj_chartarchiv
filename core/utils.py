@@ -26,6 +26,7 @@ def generate_token():
 def send_confirmation_email(name, email, token, request):
     """
     Sendet eine Bestätigungsmail an den Nutzer.
+    In der Entwicklungsumgebung wird die E-Mail in der Konsole angezeigt.
     
     Args:
         name: Der Name des Nutzers
@@ -36,7 +37,6 @@ def send_confirmation_email(name, email, token, request):
     Returns:
         bool: True, wenn die E-Mail erfolgreich gesendet wurde, sonst False
     """
-    print("DEBUG: send_confirmation_email WURDE AUFGERUFEN")
     try:
         # Erstelle den Bestätigungslink mit der aktuellen Domain
         protocol = "https" if request.is_secure() else "http"
@@ -66,10 +66,23 @@ def send_confirmation_email(name, email, token, request):
         )
         email_message.attach_alternative(html_content, "text/html")
         
+        # Konsolen-Ausgabe für bessere Lesbarkeit in der Entwicklungsumgebung
+        if settings.EMAIL_BACKEND == 'django.core.mail.backends.console.EmailBackend':
+            console_separator = "\n" + "="*80 + "\n"
+            print(console_separator)
+            print(f"REGISTRIERUNGS-BESTÄTIGUNGS-E-MAIL")
+            print(f"Gesendet an: {email} (Name: {name})")
+            print(f"Betreff: {subject}")
+            print(console_separator)
+            print("TEXT VERSION:")
+            print(text_content)
+            print(console_separator)
+            print("BESTÄTIGUNGS-LINK:")
+            print(confirmation_url)
+            print(console_separator)
+        
         # Sende die E-Mail
-        print("DEBUG: VOR email_message.send()")
         email_message.send()
-        print("DEBUG: NACH email_message.send()")
         return True
     
     except Exception as e:
@@ -79,15 +92,19 @@ def send_confirmation_email(name, email, token, request):
 def send_password_reset_email(user_email, token, request):
     """
     Sendet eine E-Mail zum Zurücksetzen des Passworts.
+    In der Entwicklungsumgebung wird die E-Mail in der Konsole angezeigt.
     """
     try:
         protocol = "https" if request.is_secure() else "http"
         domain = request.get_host()
         reset_url = f"{protocol}://{domain}{reverse('password_reset_confirm', kwargs={'token': token})}"
         
+        # Nutzer holen für die personalisierte Anrede
+        user = User.objects.get(email=user_email)
+
         context = {
             'reset_url': reset_url,
-            'user': User.objects.get(email=user_email) # Für personalisierte Anrede
+            'user': user
         }
         
         html_content = render_to_string('email/password_reset_email.html', context)
@@ -103,8 +120,24 @@ def send_password_reset_email(user_email, token, request):
             [user_email]
         )
         email_message.attach_alternative(html_content, "text/html")
+        
+        # Konsolen-Ausgabe für bessere Lesbarkeit in der Entwicklungsumgebung
+        if settings.EMAIL_BACKEND == 'django.core.mail.backends.console.EmailBackend':
+            console_separator = "\n" + "="*80 + "\n"
+            print(console_separator)
+            print(f"PASSWORD RESET E-MAIL")
+            print(f"Gesendet an: {user_email} (Benutzer: {user.username})")
+            print(f"Betreff: {subject}")
+            print(console_separator)
+            print("TEXT VERSION:")
+            print(text_content)
+            print(console_separator)
+            print("LINK ZUM ZURÜCKSETZEN:")
+            print(reset_url)
+            print(console_separator)
+        
+        # E-Mail senden (in Entwicklung an Konsole)
         email_message.send()
-        print(f"DEBUG: Passwort-Reset E-Mail an {user_email} gesendet. URL: {reset_url}")
         return True
     except Exception as e:
         print(f"Fehler beim Senden der Passwort-Reset-E-Mail: {e}")
@@ -135,3 +168,36 @@ def custom_login_required(function=None, redirect_field_name='next', login_url='
     
     # Wenn der Decorator mit Argumenten aufgerufen wurde
     return lambda deferred_function: custom_login_required(deferred_function, redirect_field_name, login_url) 
+
+def cleanup_stale_registrations(days=1):
+    """
+    Bereinigt veraltete Registrierungsbestätigungen, die älter als die angegebene Anzahl von Tagen sind.
+    Dies betrifft sowohl bestätigte als auch unbestätigte Registrierungen, die keinen entsprechenden Benutzer
+    in der auth_user-Tabelle haben.
+    
+    Args:
+        days: Anzahl der Tage, nach denen eine Registrierung als veraltet gilt (Standard: 1)
+        
+    Returns:
+        int: Anzahl der gelöschten Registrierungen
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+    from core.models import RegistrationConfirmation
+    from django.contrib.auth.models import User
+    
+    # Berechne das Cutoff-Datum
+    cutoff_date = timezone.now() - timedelta(days=days)
+    
+    # Hole alle alten Registrierungen
+    old_registrations = RegistrationConfirmation.objects.filter(created_at__lt=cutoff_date)
+    
+    count = 0
+    for reg in old_registrations:
+        # Prüfe, ob ein entsprechender Benutzer existiert
+        if not User.objects.filter(email=reg.email).exists():
+            print(f"Lösche veraltete Registrierung für {reg.email} (erstellt am {reg.created_at})")
+            reg.delete()
+            count += 1
+    
+    return count 

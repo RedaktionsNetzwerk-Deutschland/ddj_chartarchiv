@@ -62,11 +62,11 @@ class RegistrationForm(forms.Form):
         # if domain not in allowed_domains:
         #     raise ValidationError("Deine Organisation ist nicht gelistet. Bitte wende dich zur Freischaltung an christoph.knoop@rnd.de")
 
-        # NEUE PRÜFUNG: Existiert die E-Mail bereits in der User-Tabelle?
+        # NEUE PRÜFUNG: Existiert die E-Mail bereits in der User-Tabelle? (auth_user)
         if User.objects.filter(email=email).exists():
             password_reset_url = reverse('password_reset_request')
             error_html = mark_safe(
-                f'Diese E-Mail ist bereits registriert, bitte andere E-Mail-Adresse auswählen. Oder <a href="{password_reset_url}" style="color: #007bff; text-decoration: underline;">Passwort vergessen?</a>'
+                f'Diese E-Mail ist bereits registriert. <a href="{password_reset_url}" style="color: #007bff; text-decoration: underline;">Passwort vergessen?</a>'
             )
             raise ValidationError(error_html)
             
@@ -90,7 +90,8 @@ class LoginForm(forms.Form):
         label="E-Mail",
         widget=forms.EmailInput(attrs={
             'placeholder': 'E-Mail-Adresse eingeben',
-            'autocomplete': 'email',
+            'autocomplete': 'username email',
+            'name': 'username',
         }),
         error_messages={
             'required': 'Bitte gib deine E-Mail-Adresse ein.',
@@ -102,6 +103,7 @@ class LoginForm(forms.Form):
         widget=forms.PasswordInput(attrs={
             'placeholder': 'Passwort eingeben',
             'autocomplete': 'current-password',
+            'data-lpignore': 'false',
         }),
         error_messages={
             'required': 'Bitte gib dein Passwort ein.'
@@ -129,8 +131,13 @@ class PasswordResetRequestForm(forms.Form):
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
+        # Prüfe nur in der auth_user-Tabelle, ob die E-Mail existiert
         if not User.objects.filter(email=email).exists():
-            raise ValidationError("Es existiert kein Konto mit dieser E-Mail-Adresse.")
+            register_url = reverse('register')
+            error_html = mark_safe(
+                f'Es existiert kein aktives Konto mit dieser E-Mail-Adresse. <a href="{register_url}" style="color: #007bff; text-decoration: underline;">Bitte registrieren!</a>'
+            )
+            raise ValidationError(error_html)
         return email
 
 class CustomSetPasswordForm(forms.Form):

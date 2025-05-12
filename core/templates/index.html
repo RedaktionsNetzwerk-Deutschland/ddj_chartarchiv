@@ -314,12 +314,14 @@
                 {% endfor %}
             {% endif %}
             
-            <form method="post" action="{% url 'login_modal' %}" autocomplete="on">
+            <form method="post" action="{% url 'login_modal' %}" id="loginForm" autocomplete="on" data-form-type="login" data-login-form="login" name="login">
                 {% csrf_token %}
                 
                 <div class="form-group">
                     <label for="id_email">E-Mail</label>
-                    {{ login_form.email }}
+                    <input type="email" name="username" id="id_email" class="form-control" required 
+                           placeholder="E-Mail-Adresse eingeben" autocomplete="username email" 
+                           value="{{ login_form.email.value|default:'' }}">
                     {% if login_form.email.errors %}
                         <div class="error-message">{{ login_form.email.errors.0 }}</div>
                     {% endif %}
@@ -327,7 +329,8 @@
                 
                 <div class="form-group">
                     <label for="id_password">Passwort</label>
-                    {{ login_form.password }}
+                    <input type="password" name="password" id="id_password" class="form-control" required 
+                           placeholder="Passwort eingeben" autocomplete="current-password" data-lpignore="false">
                     {% if login_form.password.errors %}
                         <div class="error-message">{{ login_form.password.errors.0 }}</div>
                     {% endif %}
@@ -337,11 +340,11 @@
                 </div>
                 
                 <div class="checkbox-group">
-                    {{ login_form.remember_me }}
+                    <input type="checkbox" name="remember_me" id="id_remember_me" {% if login_form.remember_me.value %}checked{% endif %}>
                     <label for="id_remember_me">Eingeloggt bleiben</label>
                 </div>
                 
-                <button type="submit" class="btn" style="width: 100%;">Absenden</button>
+                <button type="submit" class="btn" name="login" style="width: 100%;">Absenden</button>
             </form>
         </div>
     </div>
@@ -370,6 +373,14 @@
                     {% endif %}
                 {% endfor %}
             {% endif %}
+
+            /* Hilfe für Passwort-Manager */
+            var loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.setAttribute('data-form-type', 'login');
+                loginForm.setAttribute('data-login-form', 'login');
+                loginForm.setAttribute('name', 'login');
+            }
         });
         
         function openLoginModal() {

@@ -86,6 +86,15 @@
          from { opacity: 0; transform: translateY(-20px); }
          to { opacity: 1; transform: translateY(0); }
       }
+      
+      @keyframes fadeOut {
+         from { opacity: 1; transform: translateY(0); }
+         to { opacity: 0; transform: translateY(-20px); }
+      }
+      
+      .fade-out {
+         animation: fadeOut 0.5s forwards;
+      }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -98,6 +107,30 @@
             </div>
         {% endfor %}
     </div>
+    
+    <script>
+        // Die Erfolgsmeldungen (grün) nach 3 Sekunden automatisch ausblenden
+        document.addEventListener('DOMContentLoaded', function() {
+            // Finde alle Erfolgsmeldungen
+            var successMessages = document.querySelectorAll('.message.success');
+            
+            // Wenn es Erfolgsmeldungen gibt
+            if (successMessages.length > 0) {
+                // Warte 3 Sekunden
+                setTimeout(function() {
+                    // Füge allen Erfolgsmeldungen die fade-out-Animation hinzu
+                    successMessages.forEach(function(message) {
+                        message.classList.add('fade-out');
+                        
+                        // Entferne die Meldung nach Abschluss der Animation
+                        setTimeout(function() {
+                            message.style.display = 'none';
+                        }, 500); // Nach 500ms (Dauer der Animation)
+                    });
+                }, 3000); // 3000ms = 3 Sekunden
+            }
+        });
+    </script>
     {% endif %}
     {% block content %}{% endblock %}
 </body>

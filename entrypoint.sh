@@ -7,6 +7,12 @@ while ! nc -z $DB_HOST $DB_PORT; do
 done
 echo "Datenbank ist erreichbar."
 
+# Stelle sicher, dass die Media-Verzeichnisse existieren und korrekte Berechtigungen haben
+echo "Erstelle und konfiguriere Media-Verzeichnisse..."
+mkdir -p /code/media/thumbnails
+mkdir -p /code/media/topic_tiles
+chmod -R 777 /code/media
+
 # Migrationen erstellen und anwenden
 echo "Führe Migrationen aus..."
 python manage.py makemigrations

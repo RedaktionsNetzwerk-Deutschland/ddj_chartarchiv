@@ -183,6 +183,22 @@
       margin-right: 10px;
       font-size: 1.1em;
     }
+    
+    /* Neuer Stil für die Datums-Textmarke */
+    .chart-dates {
+      text-align: center;
+      margin-bottom: 15px;
+      font-size: 0.9em;
+      color: #666;
+      font-family: 'DINNextLTPro', sans-serif;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+      background-color: #f5f5f5;
+      padding: 8px 15px;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
   </style>
 {% endblock %}
 
@@ -196,6 +212,12 @@
       <a href="{% url 'archive_main' %}" class="back-button" onclick="return goBack()">
         <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
       </a>
+    </div>
+    
+    <!-- Neue Datums-Textmarke außerhalb des Containers -->
+    <div class="chart-dates" style="background-color: #f0f0f0; padding: 10px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
+      {% if chart.published_date %}
+      Erstellung: {{ chart.published_date|date:"d.m.Y" }}{% endif %}{% if chart.last_modified_date %}, letzte Bearbeitung: {{ chart.last_modified_date|date:"d.m.Y" }}{% endif %}
     </div>
     
     <div class="chart-image-container">
