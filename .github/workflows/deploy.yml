@@ -23,18 +23,20 @@ jobs:
           script: |
             echo "Starting deployment..."
             cd /home/christoph/webarchiv # WECHSEL ZUM PROJEKTVERZEICHNIS AUF DEM SERVER
-            
+            echo "Current git status:"
+            git status
+
             echo "Pulling latest changes..."
             git pull origin main # Oder dein Hauptbranch
             
             echo "Stopping current services..."
-            docker compose -f docker-compose.yml down
+            sudo docker compose -f docker-compose.yml down
             
             echo "Building and starting web service..."
-            docker compose -f docker-compose.yml up -d --build web
+            sudo docker compose -f docker-compose.yml up -d --build web
             
             echo "Cleaning up old Docker images and containers..."
-            docker image prune -af
-            docker container prune -f
+            sudo docker image prune -af
+            sudo docker container prune -f
             
             echo "Deployment successful!"
