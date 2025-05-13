@@ -1,3 +1,4 @@
+
 services:
   web:
     build: .
@@ -6,11 +7,12 @@ services:
       - .:/code
       - ./media:/code/media
       - static_data:/code/staticfiles
+      
     ports:
       - "8000:8000"
     env_file:
       - .env
-    entrypoint: ["./entrypoint.sh"]
+    entrypoint: ["/code/entrypoint.sh"]
     restart: always
 
   fetch_datawrapper:
@@ -20,9 +22,10 @@ services:
     volumes:
       - .:/code
       - ./media:/code/media
+      
     env_file:
       - .env
-    entrypoint: ["./entrypoint.sh"]
+    entrypoint: ["/code/entrypoint.sh"]
 
 volumes:
   static_data:
