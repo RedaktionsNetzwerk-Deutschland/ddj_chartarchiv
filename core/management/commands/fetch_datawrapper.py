@@ -345,7 +345,7 @@ class Command(BaseCommand):
             exclude_names = ['printexport']
             filtered_charts = self.filter_folders(charts_df, folders_df, exclude_names=exclude_names)
             self.stdout.write(f'Gefilterte Charts: {len(filtered_charts)}')
-            folders_df.to_clipboard(index=False)
+            
             # Bereits existierende Charts identifizieren
             existing_chart_ids = set(Chart.objects.values_list('chart_id', flat=True))
             all_chart_ids = filtered_charts["chart_id"].unique()

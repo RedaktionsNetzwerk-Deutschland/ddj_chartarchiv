@@ -1,70 +1,29 @@
 services:
-  db:
-    image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: archive_db
-      MYSQL_USER: archive_user
-      MYSQL_PASSWORD: archive_pass
-      MYSQL_ROOT_PASSWORD: root_passwort
-    ports:
-      - "3306:3306"
-    networks:
-      - webapp-network
-    volumes:
-      - db_data:/var/lib/mysql
-    restart: always
-    command: --default-authentication-plugin=mysql_native_password
-
   web:
     build: .
     command: gunicorn archive_webapp.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/code
-      - media_data:/code/media
+      - ./media:/code/media
       - static_data:/code/staticfiles
     ports:
       - "8000:8000"
-    depends_on:
-      - db
-    environment:
-      DB_HOST: db
-      DB_NAME: archive_db
-      DB_USER: dein_user
-      DB_PASSWORD: dein_passwort
-      DB_PORT: 3306
-      DATAWRAPPER_API_KEY: ${DATAWRAPPER_API_KEY}
-    networks:
-      - webapp-network
+    env_file:
+      - .env
     entrypoint: ["./entrypoint.sh"]
     restart: always
 
   fetch_datawrapper:
+    profiles: ["manual"]
     build: .
     command: python manage.py fetch_datawrapper
     volumes:
       - .:/code
-      - media_data:/code/media
-    depends_on:
-      - db
-    environment:
-      DB_HOST: db
-      DB_NAME: archive_db
-      DB_USER: dein_user
-      DB_PASSWORD: dein_passwort
-      DB_PORT: 3306
-      DATAWRAPPER_API_KEY: ${DATAWRAPPER_API_KEY}
-    networks:
-      - webapp-network
+      - ./media:/code/media
+    env_file:
+      - .env
     entrypoint: ["./entrypoint.sh"]
 
-networks:
-  webapp-network:
-    driver: bridge
-
 volumes:
-  db_data:
-    driver: local
-  media_data:
-    driver: local
   static_data:
     driver: local 
