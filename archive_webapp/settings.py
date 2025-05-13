@@ -30,8 +30,13 @@ SECRET_KEY = 'django-insecure-)ey3pj9ivs8dg2)+de(vn!8&oq^=8rng0inq)@k4lgjy-k402=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '178.18.243.174',  # Ihre Server-IP
+    'datenrecherche-archiv.de',  # Fügen Sie auch Ihren Domainnamen hinzu, falls vorhanden
+    'www.datenrecherche-archiv.de',
+]
 
 # Application definition
 
