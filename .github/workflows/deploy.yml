@@ -26,8 +26,10 @@ jobs:
             echo "Current git status:"
             git status
 
-            echo "Pulling latest changes..."
-            git pull origin main # Oder dein Hauptbranch
+            echo "Forcing full fetch and reset..."
+            
+            git fetch --all
+            git reset --hard origin/main
             
             echo "Stopping current services..."
             sudo docker compose -f docker-compose.yml down
