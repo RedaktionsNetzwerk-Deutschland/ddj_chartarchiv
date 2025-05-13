@@ -28,10 +28,10 @@ jobs:
             git pull origin main # Oder dein Hauptbranch
             
             echo "Stopping current services..."
-            docker-compose -f docker-compose.yml down
+            docker compose -f docker-compose.yml down
             
             echo "Building and starting web service..."
-            docker-compose -f docker-compose.yml up -d --build web
+            docker compose -f docker-compose.yml up -d --build web
             
             echo "Cleaning up old Docker images and containers..."
             docker image prune -af
