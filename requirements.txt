@@ -46,6 +46,7 @@ pillow==11.1.0
 platformdirs==4.3.6
 prompt_toolkit==3.0.48
 psutil==7.0.0
+psycopg2-binary==2.9.10
 pure_eval==0.2.3
 pydantic==2.10.6
 pydantic_core==2.27.2
@@ -53,7 +54,7 @@ Pygments==2.19.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 pytz==2024.2
-#pywin32==308
+PyYAML==6.0.2
 pyzmq==26.2.1
 requests==2.32.3
 rich==13.9.4

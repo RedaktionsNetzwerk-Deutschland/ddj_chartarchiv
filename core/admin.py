@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from .models import Chart, ChartData, RegistrationConfirmation, PasswordResetToken, TopicTile, ChartBlacklist
+from .models import Chart, ChartData, RegistrationConfirmation, PasswordResetToken, TopicTile, ChartBlacklist, AllowedEmailDomain, AllowedEmailAddress
 from django.utils.html import format_html
 from django.conf import settings
 import os, base64, uuid
@@ -242,6 +242,58 @@ class ChartBlacklistAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 admin.site.register(ChartBlacklist, ChartBlacklistAdmin)
+
+# Admin-Klasse für AllowedEmailDomain
+class AllowedEmailDomainAdmin(admin.ModelAdmin):
+    list_display = ('domain', 'description', 'is_active', 'created_at', 'created_by')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('domain', 'description')
+    list_editable = ('is_active',)
+    readonly_fields = ('created_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('domain', 'description', 'is_active')
+        }),
+        ('Metadaten', {
+            'fields': ('created_at', 'created_by'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        # Automatisch den aktuellen Benutzer als Ersteller setzen, wenn nicht angegeben
+        if not change:  # Nur beim Erstellen, nicht beim Bearbeiten
+            if not obj.created_by:
+                obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+admin.site.register(AllowedEmailDomain, AllowedEmailDomainAdmin)
+
+# Admin-Klasse für AllowedEmailAddress
+class AllowedEmailAddressAdmin(admin.ModelAdmin):
+    list_display = ('email', 'description', 'is_active', 'created_at', 'created_by')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('email', 'description')
+    list_editable = ('is_active',)
+    readonly_fields = ('created_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('email', 'description', 'is_active')
+        }),
+        ('Metadaten', {
+            'fields': ('created_at', 'created_by'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        # Automatisch den aktuellen Benutzer als Ersteller setzen, wenn nicht angegeben
+        if not change:  # Nur beim Erstellen, nicht beim Bearbeiten
+            if not obj.created_by:
+                obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+admin.site.register(AllowedEmailAddress, AllowedEmailAddressAdmin)
 
 # Benutzeradmin erweitern, um Gruppenzuordnungen zu vereinfachen
 class CustomUserAdmin(UserAdmin):

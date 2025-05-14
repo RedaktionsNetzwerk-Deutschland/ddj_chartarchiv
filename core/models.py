@@ -233,3 +233,86 @@ class ChartBlacklist(models.Model):
     
     def __str__(self):
         return f"Blacklist: {self.chart_id} ({self.created_at.strftime('%d.%m.%Y')})"
+
+class AllowedEmailDomain(models.Model):
+    """
+    Speichert erlaubte E-Mail-Domains für die Registrierung.
+    """
+    domain = models.CharField(
+        max_length=255,
+        unique=True,
+        verbose_name="Domain",
+        help_text="E-Mail-Domain, die für die Registrierung erlaubt ist (z.B. 'rnd.de')"
+    )
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Beschreibung",
+        help_text="Optionale Beschreibung für diese Domain (z.B. 'RedaktionsNetzwerk Deutschland')"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktiv",
+        help_text="Legt fest, ob diese Domain derzeit erlaubt ist"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Erstellt am"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_domain_entries',
+        verbose_name="Erstellt von"
+    )
+    
+    class Meta:
+        verbose_name = "Erlaubte E-Mail-Domain"
+        verbose_name_plural = "Erlaubte E-Mail-Domains"
+        ordering = ['domain']
+    
+    def __str__(self):
+        return self.domain
+
+class AllowedEmailAddress(models.Model):
+    """
+    Speichert einzelne erlaubte E-Mail-Adressen für die Registrierung.
+    """
+    email = models.EmailField(
+        unique=True,
+        verbose_name="E-Mail-Adresse",
+        help_text="Vollständige E-Mail-Adresse, die für die Registrierung erlaubt ist"
+    )
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="Beschreibung",
+        help_text="Optionale Beschreibung für diese E-Mail-Adresse (z.B. 'Externer Mitarbeiter')"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktiv",
+        help_text="Legt fest, ob diese E-Mail-Adresse derzeit erlaubt ist"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Erstellt am"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_email_entries',
+        verbose_name="Erstellt von"
+    )
+    
+    class Meta:
+        verbose_name = "Erlaubte E-Mail-Adresse"
+        verbose_name_plural = "Erlaubte E-Mail-Adressen"
+        ordering = ['email']
+    
+    def __str__(self):
+        return self.email

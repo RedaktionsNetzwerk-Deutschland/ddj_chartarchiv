@@ -13,7 +13,8 @@ python manage.py makemigrations
 
 # Warten auf MySQL
 echo "Warte auf MySQL..."
-until mysql -h db -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1" &>/dev/null; do
+#until mysql -h db -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1" &>/dev/null; do
+until mysql -h db -u"$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1"; do
   echo "MySQL ist noch nicht verfügbar - warte..."
   sleep 1
 done

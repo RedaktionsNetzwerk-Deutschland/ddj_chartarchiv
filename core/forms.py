@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 import re
+from .models import AllowedEmailDomain, AllowedEmailAddress
 
 class RegistrationForm(forms.Form):
     name = forms.CharField(
@@ -56,11 +57,17 @@ class RegistrationForm(forms.Form):
         if email and not re.match(r"[^@]+@[^@]+\.[^@]+", email):
             raise ValidationError("Bitte gib eine gültige E-Mail-Adresse ein.")
             
-        # Liste der erlaubten E-Mail-Domains (Beispiel)
-        # allowed_domains = ['rnd.de', 'madsack.de', 'haz.de', 'neuepresse.de']
-        # domain = email.split('@')[-1].lower()
-        # if domain not in allowed_domains:
-        #     raise ValidationError("Deine Organisation ist nicht gelistet. Bitte wende dich zur Freischaltung an christoph.knoop@rnd.de")
+        # NEUE PRÜFUNG: Überprüfen, ob die E-Mail-Adresse in der Whitelist ist
+        # 1. Prüfen, ob die vollständige E-Mail-Adresse in der AllowedEmailAddress-Tabelle ist
+        email_allowed = AllowedEmailAddress.objects.filter(email=email, is_active=True).exists()
+        
+        # 2. Wenn nicht, prüfen, ob die E-Mail-Domain in der AllowedEmailDomain-Tabelle ist
+        if not email_allowed:
+            domain = email.split('@')[-1].lower()
+            domain_allowed = AllowedEmailDomain.objects.filter(domain=domain, is_active=True).exists()
+            
+            if not domain_allowed:
+                raise ValidationError("Deine E-Mail-Adresse oder Domain ist nicht für die Registrierung berechtigt. Bitte wende dich zur Freischaltung an christoph.knoop@rnd.de")
 
         # NEUE PRÜFUNG: Existiert die E-Mail bereits in der User-Tabelle? (auth_user)
         if User.objects.filter(email=email).exists():
