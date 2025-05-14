@@ -1,0 +1,37 @@
+
+name: Deploy main branch to Hetzner
+
+on:
+  push:
+    branches:
+      - main  # Deploy bei Push auf main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ vars.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Sync project to Hetzner
+        run: |
+          rsync -avz --delete --exclude 'mysql-data' --exclude ".env" . ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/opt/docker/ddj_chartarchiv
+
+      - name: Deploy with Docker Compose
+        run: |
+          ssh ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }} << 'EOF'
+          cd /opt/docker/ddj_chartarchiv
+          
+          # Docker Compose aktualisieren
+          docker compose pull
+          docker compose build
+          docker compose up -d --remove-orphans
+          
+          EOF
