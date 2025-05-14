@@ -15,7 +15,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Lade Umgebungsvariablen aus .env-Datei
-load_dotenv()
+load_dotenv(override=True)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -87,11 +87,19 @@ WSGI_APPLICATION = 'archive_webapp.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.environ.get('DB_NAME'),  # Ersetze dies mit dem Namen deiner MySQL-Datenbank
+        'USER': os.environ.get('DB_USER'),   # Ersetze dies mit deinem MySQL-Benutzernamen
+        'PASSWORD': os.environ.get('DB_PASSWORD'), # Ersetze dies mit deinem MySQL-Passwort
+        #'HOST': 'localhost',             # Oder die IP-Adresse deines MySQL-Servers
+        'HOST': 'db',
+        'PORT': '3306',                  # Standard-MySQL-Port
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'charset': 'utf8mb4',
+        },
     }
 }
-
 
 # Mailversand
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
