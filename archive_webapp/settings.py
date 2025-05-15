@@ -43,14 +43,13 @@ ALLOWED_HOSTS = [
 
 CSRF_TRUSTED_ORIGINS = [
     'https://grafikarchiv.rndtech.de',
-    'https://grafikarchiv.rndtech.de/login',
-    'http://grafikarchiv.rndtech.de',  # Falls HTTP verwendet wird
-    'https://www.grafikarchiv.rndtech.de',  # Falls eine www-Subdomain existiert
-    'http://www.grafikarchiv.rndtech.de',
-    'http://localhost:8000',  # Für lokale Entwicklung
-    'http://127.0.0.1:8000',  # Alternative lokale Entwicklung
+    'http://grafikarchiv.rndtech.de',
+    #'https://www.grafikarchiv.rndtech.de',  # Falls eine www-Subdomain existiert
+    #'http://www.grafikarchiv.rndtech.de',
+    #'http://localhost:8000',  # Für lokale Entwicklung
+    #'http://127.0.0.1:8000',  # Alternative lokale Entwicklung
     # Weitere Domains hier
-]
+] + [host.strip() for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()] + [host.strip() for host in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if host.strip()]
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 
