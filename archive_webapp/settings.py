@@ -43,20 +43,19 @@ ALLOWED_HOSTS = [
 
 CSRF_TRUSTED_ORIGINS = [
     'https://grafikarchiv.rndtech.de',
-    'http://grafikarchiv.rndtech.de',
-    'https://www.grafikarchiv.rndtech.de',  # Falls eine www-Subdomain existiert
+    'https://www.grafikarchiv.rndtech.de',
     'http://localhost:8000',  # Für lokale Entwicklung
     'http://127.0.0.1:8000',     
-    'https://grafikarchiv.rndtech.de/register/'
+    
 ]
 
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
 
 # Versuch CORS-Fehler zu vermeiden 
-USE_X_FORWARDED_HOST = True
-USE_X_FORWARDED_PROTO = True
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+#USE_X_FORWARDED_HOST = True
+#USE_X_FORWARDED_PROTO = True
+#SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
