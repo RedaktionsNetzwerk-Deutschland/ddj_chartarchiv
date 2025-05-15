@@ -42,10 +42,16 @@ ALLOWED_HOSTS = [
 
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://grafikarchiv.rndtech.de',
-    'https://www.grafikarchiv.rndtech.de',
-    'http://localhost:8000',  # Für lokale Entwicklung
-    'http://127.0.0.1:8000',     
+    # 'https://grafikarchiv.rndtech.de',
+    # 'https://www.grafikarchiv.rndtech.de',
+    # 'http://localhost:8000',  # Für lokale Entwicklung
+    # 'http://127.0.0.1:8000',  
+    
+    'grafikarchiv.rndtech.de',
+    'www.grafikarchiv.rndtech.de',
+    'localhost:8000',
+    '127.0.0.1:8000',
+   
     
 ]
 

@@ -36,7 +36,7 @@ def index(request):
     else:
         login_form = LoginForm()
     return render(request, 'index.html', {'login_form': login_form})
-@csrf_exempt
+
 def register(request):
     print("DEBUG: register VIEW - ANFANG")
     if request.method == "POST":
@@ -1074,7 +1074,7 @@ def databuddies(request):
     """View für die Databuddies-Seite - nur für buddies-Gruppe zugänglich"""
     return render(request, 'databuddies.html')
 
-@csrf_exempt
+
 @custom_login_required(login_url='index')
 @user_passes_test(is_buddy, login_url='archive_main')
 def analyze_data(request):
@@ -1303,7 +1303,7 @@ def analyze_data(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-@csrf_exempt
+
 @custom_login_required(login_url='index')
 @user_passes_test(is_creator, login_url='archive_main')
 def create_datawrapper_chart(request):
