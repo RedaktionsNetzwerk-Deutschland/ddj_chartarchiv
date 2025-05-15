@@ -46,12 +46,10 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.grafikarchiv.rndtech.de',
     'http://localhost:8000',  # Für lokale Entwicklung
     'http://127.0.0.1:8000',
-    'grafikarchiv.rndtech.de',
-    'www.grafikarchiv.rndtech.de',
-    'localhost:8000',
-    '127.0.0.1:8000',
-   
-    
+    'http://grafikarchiv.rndtech.de',
+    'http://www.grafikarchiv.rndtech.de',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
 ]
 
 CSRF_COOKIE_SECURE = False
