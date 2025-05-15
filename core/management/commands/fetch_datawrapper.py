@@ -376,13 +376,40 @@ class Command(BaseCommand):
                     notes = chart_details.get('metadata', {}).get('describe', {}).get('notes', '')
                     published_at_str = chart_details.get('publishedAt')
                     lastModified_at_str = chart_details.get('lastModifiedAt')
-                    iframe_url = chart_details.get('publicUrl', '')
+                    
+                    # Responsive Iframe aus den Metadaten extrahieren
+                    iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {}).get('responsive', '')
+                    
+                    # Debug-Ausgabe der Metadaten-Struktur für embed-codes
+                    embed_codes = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {})
+                    print(f"DEBUG embed-codes Struktur für Chart {chart_id}:")
+                    print(json.dumps(embed_codes, indent=2)[:500] + "..." if embed_codes else "Keine embed-codes gefunden")
+                    
+                    # Fallback zur alten API-Struktur oder zur publicUrl, falls der responsive Iframe nicht gefunden wird
+                    if not iframe_url:
+                        # Versuche zuerst, den alten Pfad zu nutzen
+                        iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-responsive', '')
+                        
+                        # Wenn auch das nicht funktioniert, verwende die publicUrl als Fallback
+                        if not iframe_url:
+                            iframe_url = chart_details.get('publicUrl', '')
+                    
+                    # Debug-Ausgabe für iframe_url
+                    print(f"DEBUG iframe_url für Chart {chart_id}:")
+                    if len(iframe_url) > 100:
+                        print(f"{iframe_url[:100]}... (verkürzt)")
+                    else:
+                        print(iframe_url)
                     
                     # Embed-Code aus den Metadaten extrahieren
                     embed_js = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {}).get('embed', '')
                     # Fallback zur alten API-Struktur, falls der neue Pfad leer ist
                     if not embed_js:
                         embed_js = chart_details.get('metadata', {}).get('publish', {}).get('embed', '')
+                    
+                    # Wenn embed_js immer noch leer ist, eigenen Code generieren
+                    if not embed_js:
+                        embed_js = f'<script src="https://static.rndtech.de/share/rnd/datenrecherche/script/dw_chart_min.js" defer></script>\n<dw-chart\n    chart-id="{chart_id}">\n</dw-chart>'
                     
                     # Custom Fields extrahieren
                     custom_fields = self.get_custom_fields(chart_details)

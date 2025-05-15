@@ -91,8 +91,8 @@ DATABASES = {
         'NAME': os.environ.get('DB_NAME'),  # Ersetze dies mit dem Namen deiner MySQL-Datenbank
         'USER': os.environ.get('DB_USER'),   # Ersetze dies mit deinem MySQL-Benutzernamen
         'PASSWORD': os.environ.get('DB_PASSWORD'), # Ersetze dies mit deinem MySQL-Passwort
-        'HOST': 'localhost',             # Oder die IP-Adresse deines MySQL-Servers
-        #'HOST': 'db',
+        'HOST': os.environ.get('DB_HOST'),             # Oder die IP-Adresse deines MySQL-Servers
+        
         'PORT': '3306',                  # Standard-MySQL-Port
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",

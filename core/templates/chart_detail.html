@@ -331,13 +331,103 @@
   <script>
     // Funktionen für Buttons
     function handleJS() {
-      // Code-Button-Funktionalität
-      alert("JS-Code wird vorbereitet...");
+      // Code-Button-Funktionalität - kopiere embed_js in die Zwischenablage
+      const embedCode = `{{ chart.embed_js|escapejs }}`;
+      
+      navigator.clipboard.writeText(embedCode).then(function() {
+        // Erfolgsmeldung
+        showToast("JavaScript-Code wurde in die Zwischenablage kopiert");
+      }).catch(function(err) {
+        // Fallback wenn das Clipboard API nicht funktioniert
+        console.error('Fehler beim Kopieren: ', err);
+        fallbackCopyToClipboard(embedCode);
+      });
     }
     
     function handleIframe() {
-      // iframe-Button-Funktionalität
-      alert("iframe wird vorbereitet...");
+      // iframe-Button-Funktionalität - kopiere iframe_url in die Zwischenablage
+      const iframeCode = `{{ chart.iframe_url|escapejs }}`;
+      
+      navigator.clipboard.writeText(iframeCode).then(function() {
+        // Erfolgsmeldung
+        showToast("Iframe-Code wurde in die Zwischenablage kopiert");
+      }).catch(function(err) {
+        // Fallback wenn das Clipboard API nicht funktioniert
+        console.error('Fehler beim Kopieren: ', err);
+        fallbackCopyToClipboard(iframeCode);
+      });
+    }
+    
+    // Fallback-Methode für ältere Browser
+    function fallbackCopyToClipboard(text) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      
+      // Verhindere Scrolling zur textArea
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.position = "fixed";
+      
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          showToast("Code wurde in die Zwischenablage kopiert");
+        } else {
+          showToast("Kopieren fehlgeschlagen, bitte manuell kopieren", "error");
+        }
+      } catch (err) {
+        console.error('Fallback: Fehler beim Kopieren', err);
+        showToast("Kopieren fehlgeschlagen, bitte manuell kopieren", "error");
+      }
+      
+      document.body.removeChild(textArea);
+    }
+    
+    // Toast-Nachricht anzeigen
+    function showToast(message, type = "success") {
+      // Toast-Container erstellen falls noch nicht vorhanden
+      let toastContainer = document.getElementById('toast-container');
+      if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.style.position = 'fixed';
+        toastContainer.style.bottom = '20px';
+        toastContainer.style.right = '20px';
+        toastContainer.style.zIndex = '1000';
+        document.body.appendChild(toastContainer);
+      }
+      
+      // Toast-Element erstellen
+      const toast = document.createElement('div');
+      toast.style.backgroundColor = type === 'success' ? '#4CAF50' : '#F44336';
+      toast.style.color = 'white';
+      toast.style.padding = '15px 20px';
+      toast.style.marginBottom = '10px';
+      toast.style.borderRadius = '4px';
+      toast.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease-in-out';
+      toast.textContent = message;
+      
+      // Toast zum Container hinzufügen
+      toastContainer.appendChild(toast);
+      
+      // Animation für Einblenden
+      setTimeout(() => {
+        toast.style.opacity = '1';
+      }, 10);
+      
+      // Nach 3 Sekunden ausblenden und entfernen
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          toastContainer.removeChild(toast);
+        }, 300);
+      }, 3000);
     }
     
     function handlePrint() {
