@@ -43,5 +43,9 @@ echo "Sammle statische Dateien..."
 python manage.py collectstatic --noinput
 
 # Starte den Django-Server
-echo "Starte den Django-Server..."
-exec "$@" 
+if [ $# -eq 0 ]; then
+    echo "Starte Standard-Django-Server..."
+    exec gunicorn archive_webapp.wsgi:application --bind 0.0.0.0:8000
+else
+    exec "$@"
+fi

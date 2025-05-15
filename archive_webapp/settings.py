@@ -21,6 +21,7 @@ load_dotenv(override=True)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -36,7 +37,7 @@ ALLOWED_HOSTS = [
     '178.18.243.174',  # Ihre Server-IP
     'datenrecherche-archiv.de',  # Fügen Sie auch Ihren Domainnamen hinzu, falls vorhanden
     'www.datenrecherche-archiv.de',
-]
+] + [host.strip() for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()]
 
 # Application definition
 
