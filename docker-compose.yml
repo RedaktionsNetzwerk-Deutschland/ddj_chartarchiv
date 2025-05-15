@@ -16,7 +16,7 @@ services:
   db:
     image: mysql:8.0
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ./mysql_data:/var/lib/mysql
     restart: always
     environment:
       - MYSQL_DATABASE=${DB_NAME}
@@ -47,10 +47,6 @@ services:
       - db
     networks:
           - haproxy
-
-volumes:
-  static_data:
-    driver: local 
 
 networks:
   haproxy:
