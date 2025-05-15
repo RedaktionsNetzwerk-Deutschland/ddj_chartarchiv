@@ -36,7 +36,7 @@ def index(request):
     else:
         login_form = LoginForm()
     return render(request, 'index.html', {'login_form': login_form})
-
+@csrf_exempt
 def register(request):
     print("DEBUG: register VIEW - ANFANG")
     if request.method == "POST":
