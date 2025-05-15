@@ -127,68 +127,69 @@ def register(request):
     return render(request, 'register.html', {'form': form})
 
 def confirm_registration(request, token):
-    """
-    Bestätigt die Registrierung eines Nutzers anhand des Tokens.
-    """
-    # Suche nach der Registrierungsbestätigung mit dem Token
-    registration = get_object_or_404(RegistrationConfirmation, token=token, confirmed=False)
-    
-    # Prüfe, ob die Registrierung schon zu alt ist (24 Stunden)
-    if (timezone.now() - registration.created_at).days >= 1:
-        messages.error(request, "Der Bestätigungslink ist abgelaufen. Bitte registriere dich erneut.")
+    try:
+        # Nur nach Token suchen, ohne confirmed=False
+        registration = RegistrationConfirmation.objects.get(token=token)
+        
+        # Prüfen ob bereits bestätigt
+        if registration.confirmed:
+            messages.info(request, "Deine Registrierung wurde bereits bestätigt. Bitte logge dich ein.")
+            return redirect('index')
+        
+        # Erstelle einen neuen Nutzer
+        username = registration.email.split('@')[0]  # Einfacher Benutzername: Teil vor dem @
+        
+        # Falls der Benutzername schon existiert, füge eine Nummer hinzu
+        base_username = username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{counter}"
+            counter += 1
+        
+        # Wenn das temporäre Passwort noch in der Session ist, verwende es
+        # Falls nicht, generiere ein neues (fallback)
+        temp_password = None
+        if request.session.get('registration_id') == registration.id:
+            temp_password = request.session.get('temp_password')
+        
+        if not temp_password:
+            # Fallback: Generiere ein zufälliges Passwort
+            temp_password = generate_token()[:12]
+        
+        # Erstelle den Nutzer mit dem Passwort
+        user = User.objects.create_user(
+            username=username,
+            email=registration.email,
+            password=temp_password,
+            first_name=registration.name.split(' ')[0] if ' ' in registration.name else registration.name,
+            last_name=' '.join(registration.name.split(' ')[1:]) if ' ' in registration.name else ''
+        )
+        
+        # Markiere die Registrierung als bestätigt
+        registration.confirmed = True
+        registration.confirmed_at = timezone.now()
+        registration.save()
+        
+        # Lösche die temporären Session-Daten
+        if 'temp_password' in request.session:
+            del request.session['temp_password']
+        if 'registration_id' in request.session:
+            del request.session['registration_id']
+        
+        # Logge den Benutzer automatisch ein
+        user = authenticate(username=username, password=temp_password)
+        if user is not None:
+            login(request, user)
+            messages.success(request, "Deine Registrierung wurde erfolgreich bestätigt. Du bist jetzt eingeloggt.")
+            return redirect('archive_main')  # Direkt zum Hauptarchiv weiterleiten
+        else:
+            # Falls das automatische Login nicht funktioniert
+            messages.success(request, "Deine Registrierung wurde erfolgreich bestätigt. Du kannst dich jetzt anmelden.")
+            # Zeige die Bestätigungsseite an
+            return render(request, 'confirmation_success.html')
+    except RegistrationConfirmation.DoesNotExist:
+        messages.error(request, "Ungültiger Bestätigungslink. Bitte registriere dich erneut.")
         return redirect('register')
-    
-    # Erstelle einen neuen Nutzer
-    username = registration.email.split('@')[0]  # Einfacher Benutzername: Teil vor dem @
-    
-    # Falls der Benutzername schon existiert, füge eine Nummer hinzu
-    base_username = username
-    counter = 1
-    while User.objects.filter(username=username).exists():
-        username = f"{base_username}{counter}"
-        counter += 1
-    
-    # Wenn das temporäre Passwort noch in der Session ist, verwende es
-    # Falls nicht, generiere ein neues (fallback)
-    temp_password = None
-    if request.session.get('registration_id') == registration.id:
-        temp_password = request.session.get('temp_password')
-    
-    if not temp_password:
-        # Fallback: Generiere ein zufälliges Passwort
-        temp_password = generate_token()[:12]
-    
-    # Erstelle den Nutzer mit dem Passwort
-    user = User.objects.create_user(
-        username=username,
-        email=registration.email,
-        password=temp_password,
-        first_name=registration.name.split(' ')[0] if ' ' in registration.name else registration.name,
-        last_name=' '.join(registration.name.split(' ')[1:]) if ' ' in registration.name else ''
-    )
-    
-    # Markiere die Registrierung als bestätigt
-    registration.confirmed = True
-    registration.confirmed_at = timezone.now()
-    registration.save()
-    
-    # Lösche die temporären Session-Daten
-    if 'temp_password' in request.session:
-        del request.session['temp_password']
-    if 'registration_id' in request.session:
-        del request.session['registration_id']
-    
-    # Logge den Benutzer automatisch ein
-    user = authenticate(username=username, password=temp_password)
-    if user is not None:
-        login(request, user)
-        messages.success(request, "Deine Registrierung wurde erfolgreich bestätigt. Du bist jetzt eingeloggt.")
-        return redirect('archive_main')  # Direkt zum Hauptarchiv weiterleiten
-    else:
-        # Falls das automatische Login nicht funktioniert
-        messages.success(request, "Deine Registrierung wurde erfolgreich bestätigt. Du kannst dich jetzt anmelden.")
-        # Zeige die Bestätigungsseite an
-        return render(request, 'confirmation_success.html')
 
 @custom_login_required(login_url='index')
 def archive_main(request):
