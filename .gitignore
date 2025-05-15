@@ -68,3 +68,4 @@ github_actions_key.pub
 *.pem
 *.key
 static_data/
+media/
