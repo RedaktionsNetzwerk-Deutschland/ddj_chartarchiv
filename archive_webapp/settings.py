@@ -43,6 +43,7 @@ ALLOWED_HOSTS = [
 
 CSRF_TRUSTED_ORIGINS = [
     'https://grafikarchiv.rndtech.de',
+    'https://grafikarchiv.rndtech.de/login',
     'http://grafikarchiv.rndtech.de',  # Falls HTTP verwendet wird
     'https://www.grafikarchiv.rndtech.de',  # Falls eine www-Subdomain existiert
     'http://www.grafikarchiv.rndtech.de',
