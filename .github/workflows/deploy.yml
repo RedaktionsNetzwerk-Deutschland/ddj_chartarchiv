@@ -22,7 +22,7 @@ jobs:
 
       - name: Sync project to Hetzner
         run: |
-          rsync -avz --delete --exclude 'mysql-data' --exclude ".env" . ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/opt/docker/ddj_chartarchiv
+          rsync -avz --delete --exclude 'mysql-data' --exclude 'media' --exclude 'static_data' --exclude ".env" . ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:/opt/docker/ddj_chartarchiv
 
       - name: Deploy with Docker Compose
         run: |
