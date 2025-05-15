@@ -37,15 +37,23 @@ ALLOWED_HOSTS = [
     '178.18.243.174',  # Ihre Server-IP
     'datenrecherche-archiv.de',  # Fügen Sie auch Ihren Domainnamen hinzu, falls vorhanden
     'www.datenrecherche-archiv.de',
+    'grafikarchiv.rndtech.de',
 ] + [host.strip() for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()]
 
 
 CSRF_TRUSTED_ORIGINS = [
     'https://grafikarchiv.rndtech.de',
+    'http://grafikarchiv.rndtech.de',  # Falls HTTP verwendet wird
+    'https://www.grafikarchiv.rndtech.de',  # Falls eine www-Subdomain existiert
+    'http://www.grafikarchiv.rndtech.de'
     'http://localhost:8000',  # Für lokale Entwicklung
     'http://127.0.0.1:8000',  # Alternative lokale Entwicklung
     # Weitere Domains hier
 ]
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+
+
 # Application definition
 
 INSTALLED_APPS = [
