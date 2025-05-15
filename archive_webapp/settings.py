@@ -49,7 +49,7 @@ CSRF_TRUSTED_ORIGINS = [
     #'http://localhost:8000',  # Für lokale Entwicklung
     #'http://127.0.0.1:8000',  # Alternative lokale Entwicklung
     # Weitere Domains hier
-] + [host.strip() for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()] + [host.strip() for host in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if host.strip()]
+] + + [f"https://{host.strip()}" for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()] + [host.strip() for host in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if host.strip()]
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 
