@@ -43,7 +43,7 @@ ALLOWED_HOSTS = [
 
 CSRF_TRUSTED_ORIGINS = [
     'https://grafikarchiv.rndtech.de',
-   
+    'grafikarchiv.rndtech.de',
     'https://www.grafikarchiv.rndtech.de',
     'http://localhost:8000',  # Für lokale Entwicklung
     'http://127.0.0.1:8000',
@@ -53,8 +53,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
 ]
 
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
 
 # Versuch CORS-Fehler zu vermeiden 
 #USE_X_FORWARDED_HOST = True
