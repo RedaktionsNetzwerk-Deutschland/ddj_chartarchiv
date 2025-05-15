@@ -46,7 +46,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://grafikarchiv.rndtech.de',
     'https://www.grafikarchiv.rndtech.de',  # Falls eine www-Subdomain existiert
     'http://localhost:8000',  # Für lokale Entwicklung
-    'http://127.0.0.1:8000'
+    'http://127.0.0.1:8000',     
+    'https://grafikarchiv.rndtech.de/register/'
 ]
 
 CSRF_COOKIE_SECURE = True
