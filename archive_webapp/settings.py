@@ -39,6 +39,13 @@ ALLOWED_HOSTS = [
     'www.datenrecherche-archiv.de',
 ] + [host.strip() for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()]
 
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://grafikarchiv.rndtech.de',
+    'http://localhost:8000',  # Für lokale Entwicklung
+    'http://127.0.0.1:8000',  # Alternative lokale Entwicklung
+    # Weitere Domains hier
+]
 # Application definition
 
 INSTALLED_APPS = [
