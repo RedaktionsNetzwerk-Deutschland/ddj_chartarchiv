@@ -148,10 +148,23 @@ def confirm_registration(request, token):
         # Nur nach Token suchen
         registration = RegistrationConfirmation.objects.get(token=token)
         
-        # Prüfen ob bereits bestätigt
+        # Prüfen ob bereits bestätigt UND ob ein Benutzer mit dieser E-Mail existiert
         if registration.confirmed:
-            messages.info(request, "Deine Registrierung ist jetzt bestätigt. Bitte logge dich ein.")
-            return redirect('index')
+            if User.objects.filter(email=registration.email).exists():
+                messages.info(request, "Deine Registrierung ist jetzt bestätigt. Bitte logge dich ein.")
+                return redirect('index')
+            else:
+                # Registrierung ist bestätigt, aber kein Benutzer existiert mehr
+                # (Das kann passieren, wenn ein Admin den Benutzer gelöscht hat)
+                print(f"DEBUG: Bestätigte Registrierung für {registration.email} gefunden, aber kein Benutzer existiert.")
+                
+                # Setze die Registrierung zurück
+                registration.confirmed = False
+                registration.confirmed_at = None
+                registration.save()
+                
+                # Weiterleitung zur Passwort-Einrichtungsseite
+                return redirect('set_password', token=token)
         
         # Markiere die Registrierung als bestätigt
         registration.confirmed = True
