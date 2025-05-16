@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 import re
 from .models import AllowedEmailDomain, AllowedEmailAddress, RegistrationConfirmation
+from .utils import generate_token
 
 class RegistrationForm(forms.Form):
     name = forms.CharField(
@@ -65,7 +66,7 @@ class RegistrationForm(forms.Form):
                 # Wir setzen sie automatisch zurück
                 reg.confirmed = False
                 reg.confirmed_at = None
-                reg.token = None  # Das neue Token wird später beim Speichern generiert
+                reg.token = generate_token()  # Generiere direkt ein neues Token
                 reg.save()
                 print(f"DEBUG: Eine bestätigte Registrierung ohne Benutzer für {email} wurde automatisch zurückgesetzt")
         except RegistrationConfirmation.DoesNotExist:
