@@ -391,6 +391,15 @@
         function openLoginModal() {
             document.getElementById('loginModal').classList.add('active');
             document.body.style.overflow = 'hidden'; // Verhindert Scrollen im Hintergrund
+            
+            // Formularfelder leeren, wenn das Modal geöffnet wird
+            document.getElementById('id_email').value = '';
+            document.getElementById('id_password').value = '';
+            document.getElementById('id_remember_me').checked = false;
+            
+            // Sicherstellen, dass das Passwortfeld vom Typ "password" ist
+            document.getElementById('id_password').type = 'password';
+            document.getElementById('show_password').checked = false;
         }
         
         function closeLoginModal() {
