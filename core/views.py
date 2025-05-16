@@ -71,6 +71,28 @@ def register(request):
                 # Versuche, die Registrierungsbestätigung zu finden
                 registration = RegistrationConfirmation.objects.get(email=email)
                 
+                # Überprüfe, ob die Registrierung bereits bestätigt ist, aber kein zugehöriger Benutzer existiert
+                # (Dies kann passieren, wenn ein Benutzer im Admin-Bereich gelöscht wurde)
+                if registration.confirmed and not User.objects.filter(email=email).exists():
+                    print(f"DEBUG: Bestätigte Registrierung für {email} gefunden, aber kein Benutzer existiert. Registrierung wird zurückgesetzt.")
+                    registration.confirmed = False
+                    registration.confirmed_at = None
+                    registration.token = token
+                    registration.created_at = timezone.now()
+                    registration.save()
+                    
+                    # Sende die Bestätigungsmail
+                    print("DEBUG: register VIEW - Vor Aufruf von send_confirmation_email() (Neuregistrierung nach Löschung)")
+                    email_sent = send_confirmation_email(name, email, token, request)
+                    print(f"DEBUG: register VIEW - email_sent: {email_sent}")
+                    
+                    if email_sent:
+                        messages.success(request, "Wir haben dir einen neuen Bestätigungslink geschickt. Bitte schau in dein Postfach.")
+                    else:
+                        messages.error(request, "Leider konnte die Bestätigungsmail nicht gesendet werden. Bitte versuche es später erneut.")
+                    
+                    return redirect('index')
+                
                 # Überprüfe, ob die Registrierung schon zu alt ist (älter als 24 Stunden)
                 if (timezone.now() - registration.created_at).days >= 1:
                     print(f"DEBUG: Alte Registrierung für {email} gefunden, lösche und erstelle neu")

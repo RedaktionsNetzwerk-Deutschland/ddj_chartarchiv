@@ -53,7 +53,7 @@ class RegistrationForm(forms.Form):
         if User.objects.filter(email=email).exists():
             password_reset_url = reverse('password_reset_request')
             error_html = mark_safe(
-                f'Diese E-Mail ist bereits registriert. <a href="{password_reset_url}" style="color: #007bff; text-decoration: underline;">Passwort vergessen?</a>'
+                f'Deine E-Mail ist bereits registriert. <a href="{password_reset_url}" style="color: #007bff; text-decoration: underline;">Passwort vergessen?</a>'
             )
             raise ValidationError(error_html)
             
