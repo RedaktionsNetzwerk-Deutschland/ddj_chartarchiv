@@ -177,7 +177,11 @@ def set_password(request, token):
         
         # Prüfe, ob bereits ein Benutzer mit dieser E-Mail existiert
         if User.objects.filter(email=registration.email).exists():
-            messages.warning(request, "Es existiert bereits ein Konto mit dieser E-Mail-Adresse. Bitte logge dich ein.")
+            password_reset_url = reverse('password_reset_request')
+            error_message = mark_safe(
+                f'Deine E-Mail-Adresse ist bereits registriert. <a href="{password_reset_url}" style="color: #4f80ff; text-decoration: underline;">Passwort vergessen?</a>'
+            )
+            messages.warning(request, error_message)
             return redirect('index')
             
         if request.method == "POST":

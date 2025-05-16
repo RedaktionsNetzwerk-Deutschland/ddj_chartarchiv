@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 import re
-from .models import AllowedEmailDomain, AllowedEmailAddress
+from .models import AllowedEmailDomain, AllowedEmailAddress, RegistrationConfirmation
 
 class RegistrationForm(forms.Form):
     name = forms.CharField(
@@ -56,6 +56,20 @@ class RegistrationForm(forms.Form):
                 f'Deine E-Mail ist bereits registriert. <a href="{password_reset_url}" style="color: #007bff; text-decoration: underline;">Passwort vergessen?</a>'
             )
             raise ValidationError(error_html)
+            
+        # NEUE PRÜFUNG: Prüfe, ob eine bestätigte Registrierung existiert, aber kein Benutzer
+        try:
+            reg = RegistrationConfirmation.objects.get(email=email)
+            if reg.confirmed and not User.objects.filter(email=email).exists():
+                # Wir haben eine bestätigte Registrierung ohne Benutzer gefunden
+                # Wir setzen sie automatisch zurück
+                reg.confirmed = False
+                reg.confirmed_at = None
+                reg.token = None  # Das neue Token wird später beim Speichern generiert
+                reg.save()
+                print(f"DEBUG: Eine bestätigte Registrierung ohne Benutzer für {email} wurde automatisch zurückgesetzt")
+        except RegistrationConfirmation.DoesNotExist:
+            pass  # Keine Registrierung gefunden, alles in Ordnung
             
         return email
 
