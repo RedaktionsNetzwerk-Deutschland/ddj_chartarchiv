@@ -203,17 +203,8 @@ def set_password(request, token):
             messages.warning(request, error_message)
             return redirect('index')
         
-        # Stelle sicher, dass die Registrierung bestätigt wurde oder wir es zulassen
-        if not registration.confirmed:
-            print(f"DEBUG: Registrierung für {registration.email} ist nicht bestätigt")
-            # Wenn wir direkt von der confirm_registration kommen, könnte es okay sein
-            if request.META.get('HTTP_REFERER') and 'confirm' in request.META.get('HTTP_REFERER'):
-                print(f"DEBUG: Erlauben Sie die Einrichtung des Passworts trotz nicht bestätigter Registrierung (kam von confirm)")
-                # Erlauben Sie die Einrichtung des Passworts
-                pass
-            else:
-                messages.error(request, "Bitte bestätige zuerst deine E-Mail-Adresse.")
-                return redirect('index')
+        # Wir prüfen nicht mehr, ob die Registrierung bestätigt wurde
+        # Solange ein gültiges Token vorhanden ist, erlauben wir die Passwort-Einrichtung
             
         if request.method == "POST":
             form = CustomSetPasswordForm(request.POST)
