@@ -22,4 +22,6 @@ urlpatterns = [
     path('create-datawrapper-chart/', views.create_datawrapper_chart, name='create_datawrapper_chart'),
     path('password-reset/', views.password_reset_request_view, name='password_reset_request'),
     path('password-reset-confirm/<str:token>/', views.password_reset_confirm_view, name='password_reset_confirm'),
+    path('admin/clear-registration/', views.clear_registration, name='clear_registration'),
+    path('admin/clear-registration/<str:email>/', views.clear_registration, name='clear_registration_email'),
 ] 

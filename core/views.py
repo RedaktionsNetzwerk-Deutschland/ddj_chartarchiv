@@ -148,6 +148,9 @@ def confirm_registration(request, token):
         # Nur nach Token suchen
         registration = RegistrationConfirmation.objects.get(token=token)
         
+        print(f"DEBUG: confirm_registration für E-Mail: {registration.email}, Token: {token[:10]}..., Bereits bestätigt: {registration.confirmed}")
+        print(f"DEBUG: User existiert: {User.objects.filter(email=registration.email).exists()}")
+        
         # Prüfen ob bereits bestätigt UND ob ein Benutzer mit dieser E-Mail existiert
         if registration.confirmed:
             if User.objects.filter(email=registration.email).exists():
@@ -156,7 +159,7 @@ def confirm_registration(request, token):
             else:
                 # Registrierung ist bestätigt, aber kein Benutzer existiert mehr
                 # (Das kann passieren, wenn ein Admin den Benutzer gelöscht hat)
-                print(f"DEBUG: Bestätigte Registrierung für {registration.email} gefunden, aber kein Benutzer existiert.")
+                print(f"DEBUG: Bestätigte Registrierung gefunden, aber kein Benutzer existiert für {registration.email}")
                 
                 # Setze die Registrierung zurück
                 registration.confirmed = False
@@ -164,6 +167,7 @@ def confirm_registration(request, token):
                 registration.save()
                 
                 # Weiterleitung zur Passwort-Einrichtungsseite
+                print(f"DEBUG: Leite zur Passwort-Einrichtungsseite weiter mit Token: {token[:10]}...")
                 return redirect('set_password', token=token)
         
         # Markiere die Registrierung als bestätigt
@@ -172,6 +176,7 @@ def confirm_registration(request, token):
         registration.save()
         
         # Weiterleitung zur Passwort-Einrichtungsseite
+        print(f"DEBUG: Leite zur Passwort-Einrichtungsseite weiter mit Token: {token[:10]}...")
         return redirect('set_password', token=token)
         
     except RegistrationConfirmation.DoesNotExist:
@@ -183,19 +188,32 @@ def set_password(request, token):
         # Finde die Registrierungsbestätigung
         registration = RegistrationConfirmation.objects.get(token=token)
         
-        # Stelle sicher, dass die Registrierung bestätigt wurde
-        if not registration.confirmed:
-            messages.error(request, "Bitte bestätige zuerst deine E-Mail-Adresse.")
-            return redirect('index')
+        print(f"DEBUG: set_password für E-Mail: {registration.email}, Token: {token[:10]}..., Bestätigt: {registration.confirmed}")
         
         # Prüfe, ob bereits ein Benutzer mit dieser E-Mail existiert
-        if User.objects.filter(email=registration.email).exists():
+        user_exists = User.objects.filter(email=registration.email).exists()
+        print(f"DEBUG: User existiert: {user_exists}")
+        
+        if user_exists:
+            print(f"DEBUG: User existiert bereits für {registration.email}, leite zur Passwort-Reset-Seite weiter")
             password_reset_url = reverse('password_reset_request')
             error_message = mark_safe(
                 f'Deine E-Mail-Adresse ist bereits registriert. <a href="{password_reset_url}" style="color: #4f80ff; text-decoration: underline;">Passwort vergessen?</a>'
             )
             messages.warning(request, error_message)
             return redirect('index')
+        
+        # Stelle sicher, dass die Registrierung bestätigt wurde oder wir es zulassen
+        if not registration.confirmed:
+            print(f"DEBUG: Registrierung für {registration.email} ist nicht bestätigt")
+            # Wenn wir direkt von der confirm_registration kommen, könnte es okay sein
+            if request.META.get('HTTP_REFERER') and 'confirm' in request.META.get('HTTP_REFERER'):
+                print(f"DEBUG: Erlauben Sie die Einrichtung des Passworts trotz nicht bestätigter Registrierung (kam von confirm)")
+                # Erlauben Sie die Einrichtung des Passworts
+                pass
+            else:
+                messages.error(request, "Bitte bestätige zuerst deine E-Mail-Adresse.")
+                return redirect('index')
             
         if request.method == "POST":
             form = CustomSetPasswordForm(request.POST)
@@ -222,6 +240,13 @@ def set_password(request, token):
                     last_name=' '.join(registration.name.split(' ')[1:]) if ' ' in registration.name else ''
                 )
                 
+                print(f"DEBUG: Benutzer erstellt für {registration.email} mit Benutzername {username}")
+                
+                # Markiere die Registrierung als bestätigt (falls sie es noch nicht ist)
+                registration.confirmed = True
+                registration.confirmed_at = timezone.now()
+                registration.save()
+                
                 # Logge den Benutzer automatisch ein
                 user = authenticate(username=username, password=password)
                 if user is not None:
@@ -244,6 +269,7 @@ def set_password(request, token):
         })
         
     except RegistrationConfirmation.DoesNotExist:
+        print(f"DEBUG: Keine Registrierungsbestätigung gefunden für Token: {token[:10]}...")
         messages.error(request, "Ungültiger oder abgelaufener Link. Bitte registriere dich erneut.")
         return redirect('register')
 
@@ -1631,3 +1657,33 @@ def password_reset_confirm_view(request, token):
         'form': form,
         'token': token
     })
+
+def clear_registration(request, email=None):
+    """
+    Admin-Funktion zum vollständigen Löschen einer Registrierung.
+    Erfordert Admin-Rechte, da sie potenziell gefährlich ist.
+    """
+    if not request.user.is_superuser:
+        messages.error(request, "Nur Administratoren können diese Funktion nutzen.")
+        return redirect('index')
+    
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        
+        if not email:
+            messages.error(request, "Bitte gib eine E-Mail-Adresse an.")
+            return render(request, 'clear_registration.html')
+        
+        # Registrierungen löschen
+        reg_count = RegistrationConfirmation.objects.filter(email=email).delete()[0]
+        
+        # Passwort-Reset-Tokens löschen
+        token_count = PasswordResetToken.objects.filter(user__email=email).delete()[0]
+        
+        # Benutzer löschen
+        user_count = User.objects.filter(email=email).delete()[0]
+        
+        messages.success(request, f"Registrierung für {email} vollständig gelöscht. Gelöschte Datensätze: {reg_count} Registrierungen, {token_count} Tokens, {user_count} Benutzer.")
+        return redirect('admin:index')
+    
+    return render(request, 'clear_registration.html', {'email': email})
