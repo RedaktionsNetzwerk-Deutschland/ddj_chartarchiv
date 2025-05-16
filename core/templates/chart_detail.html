@@ -332,7 +332,13 @@
     // Funktionen für Buttons
     function handleJS() {
       // Code-Button-Funktionalität - kopiere embed_js in die Zwischenablage
-      const embedCode = `{{ chart.embed_js|escapejs }}`;
+      let embedCode = `{{ chart.embed_js|escapejs }}`;
+      
+      // Wenn embed_js leer ist, verwende Standard-Code mit der richtigen Chart-ID
+      if (!embedCode.trim()) {
+        embedCode = `<script src="https://static.rndtech.de/share/rnd/datenrecherche/script/dw_chart_min.js" defer><\/script>
+<dw-chart chart-id="{{ chart.chart_id }}"></dw-chart>`;
+      }
       
       navigator.clipboard.writeText(embedCode).then(function() {
         // Erfolgsmeldung
