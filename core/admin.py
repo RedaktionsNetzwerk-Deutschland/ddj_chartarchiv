@@ -307,41 +307,51 @@ class CustomUserAdmin(UserAdmin):
     
     get_groups.short_description = 'Gruppen'
     
+    def delete_related_user_data(self, email, user):
+        """Löscht alle mit dem Benutzer verknüpften Daten"""
+        if email:
+            # Importiere hier, um zirkuläre Importe zu vermeiden
+            from core.models import AllowedEmailAddress, RegistrationConfirmation, PasswordResetToken, Chart, ChartBlacklist
+            
+            print(f"Lösche verknüpfte Daten für E-Mail: {email}")
+            
+            # Lösche den Eintrag in AllowedEmailAddress, wenn vorhanden
+            deleted_email = AllowedEmailAddress.objects.filter(email=email).delete()
+            print(f"Gelöschte AllowedEmailAddress-Einträge: {deleted_email}")
+            
+            # Lösche alle Chart-Einträge, die vom Benutzer erstellt wurden
+            deleted_charts = Chart.objects.filter(created_by=user).delete()
+            print(f"Gelöschte Chart-Einträge: {deleted_charts}")
+            
+            # Lösche alle ChartBlacklist-Einträge, die vom Benutzer erstellt wurden
+            deleted_blacklist = ChartBlacklist.objects.filter(created_by=user).delete()
+            print(f"Gelöschte ChartBlacklist-Einträge: {deleted_blacklist}")
+            
+            # Lösche alle Registrierungsbestätigungen für diesen Benutzer
+            deleted_reg = RegistrationConfirmation.objects.filter(email=email).delete()
+            print(f"Gelöschte RegistrationConfirmation-Einträge: {deleted_reg}")
+            
+            # Lösche alle Password-Reset-Tokens für diesen Benutzer
+            deleted_tokens = PasswordResetToken.objects.filter(user=user).delete()
+            print(f"Gelöschte PasswordResetToken-Einträge: {deleted_tokens}")
+            
+            return True
+        return False
+    
     def delete_model(self, request, obj):
         """Überschriebene Methode zum Löschen eines Benutzers und aller verknüpften Daten"""
         email = obj.email
-        
-        # Lösche alle mit dem Benutzer verknüpften Daten
-        if email:
-            # Lösche Einträge in AllowedEmailAddress, wenn die E-Mail dort vorhanden ist
-            AllowedEmailAddress.objects.filter(email=email).delete()
-            
-            # Lösche alle Chart-Einträge, die vom Benutzer erstellt wurden
-            Chart.objects.filter(created_by=obj).delete()
-            
-            # Lösche alle ChartBlacklist-Einträge, die vom Benutzer erstellt wurden
-            ChartBlacklist.objects.filter(created_by=obj).delete()
-            
-            # Lösche alle Registrierungsbestätigungen für diesen Benutzer
-            # Prüfe sowohl nach E-Mail als auch nach direktem Benutzerbezug
-            RegistrationConfirmation.objects.filter(email=email).delete()
-            
-            # Falls das Modell ein user-Feld hat, auch dieses prüfen
-            try:
-                RegistrationConfirmation.objects.filter(user=obj).delete()
-            except:
-                pass  # Falls kein user-Feld existiert
-            
-            # Lösche alle Password-Reset-Tokens für diesen Benutzer
-            PasswordResetToken.objects.filter(email=email).delete()
-            # Falls das Modell ein user-Feld hat, auch dieses prüfen
-            try:
-                PasswordResetToken.objects.filter(user=obj).delete()
-            except:
-                pass  # Falls kein user-Feld existiert
-        
-        # Zum Schluss den Benutzer selbst löschen
+        # Zuerst verknüpfte Daten löschen
+        self.delete_related_user_data(email, obj)
+        # Dann den Benutzer selbst löschen
         super().delete_model(request, obj)
+    
+    def delete_queryset(self, request, queryset):
+        """Überschriebene Methode zum Löschen mehrerer Benutzer und ihrer verknüpften Daten"""
+        for obj in queryset:
+            self.delete_related_user_data(obj.email, obj)
+        # Dann die Benutzer selbst löschen
+        super().delete_queryset(request, queryset)
 
 # Deregistriere den Standard-UserAdmin und registriere unseren benutzerdefinierten
 admin.site.unregister(User)
