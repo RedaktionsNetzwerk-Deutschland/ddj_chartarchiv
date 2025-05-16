@@ -45,6 +45,7 @@ services:
     entrypoint: ["/code/entrypoint.sh"]
     depends_on:
       - db
+    restart: always
     networks:
           - haproxy
 
