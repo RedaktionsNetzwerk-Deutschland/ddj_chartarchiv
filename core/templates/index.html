@@ -334,6 +334,10 @@
                     {% if login_form.password.errors %}
                         <div class="error-message">{{ login_form.password.errors.0 }}</div>
                     {% endif %}
+                    <div class="checkbox-group" style="margin-top: 8px; margin-bottom: 0;">
+                        <input type="checkbox" id="show_password" onchange="togglePasswordVisibility()">
+                        <label for="show_password">Passwort anzeigen</label>
+                    </div>
                     <div style="text-align: right; margin-top: 8px;">
                         <a href="{% url 'password_reset_request' %}" style="font-size: 0.9em; color: #4f80ff; text-decoration: none;">Passwort vergessen?</a>
                     </div>
@@ -407,6 +411,18 @@
                 closeLoginModal();
             }
         });
+        
+        // Funktion zum Umschalten der Passwort-Sichtbarkeit
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('id_password');
+            const showPasswordCheckbox = document.getElementById('show_password');
+            
+            if (showPasswordCheckbox.checked) {
+                passwordInput.type = 'text';
+            } else {
+                passwordInput.type = 'password';
+            }
+        }
     </script>
 </body>
 </html> 
