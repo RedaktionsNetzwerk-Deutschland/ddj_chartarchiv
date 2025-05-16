@@ -29,26 +29,6 @@ class RegistrationForm(forms.Form):
             'invalid': 'Bitte gib eine gültige E-Mail-Adresse ein.'
         }
     )
-    password1 = forms.CharField(
-        label="Passwort",
-        widget=forms.PasswordInput(attrs={
-            'placeholder': 'Passwort eingeben',
-            'autocomplete': 'new-password',
-        }),
-        error_messages={
-            'required': 'Bitte gib ein Passwort ein.'
-        }
-    )
-    password2 = forms.CharField(
-        label="Passwort bestätigen",
-        widget=forms.PasswordInput(attrs={
-            'placeholder': 'Passwort wiederholen',
-            'autocomplete': 'new-password',
-        }),
-        error_messages={
-            'required': 'Bitte bestätige dein Passwort.'
-        }
-    )
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
@@ -78,19 +58,6 @@ class RegistrationForm(forms.Form):
             raise ValidationError(error_html)
             
         return email
-        
-    def clean_password2(self):
-        password1 = self.cleaned_data.get('password1')
-        password2 = self.cleaned_data.get('password2')
-        
-        if password1 and password2 and password1 != password2:
-            raise ValidationError("Die Passwörter stimmen nicht überein.")
-        
-        # Einfache Passwortvalidierung
-        if password2 and len(password2) < 8:
-            raise ValidationError("Das Passwort muss mindestens 8 Zeichen lang sein.")
-            
-        return password2 
 
 class LoginForm(forms.Form):
     email = forms.EmailField(

@@ -97,7 +97,7 @@ def send_password_reset_email(user_email, token, request):
     try:
         protocol = "https" if request.is_secure() else "http"
         domain = request.get_host()
-        reset_url = f"{protocol}://{domain}{reverse('password_reset_confirm', kwargs={'token': token})}"
+        reset_url = f"{protocol}://{domain}/password-reset-confirm/{token}/"
         
         # Nutzer holen für die personalisierte Anrede
         user = User.objects.get(email=user_email)
