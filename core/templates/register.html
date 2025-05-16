@@ -99,21 +99,21 @@
     <form method="post" id="registrationForm" autocomplete="on" name="register" data-form-type="register">
         {% csrf_token %}
         <div class="mb-3">
-            <label for="id_name" class="form-label">Name</label>
-            <input type="text" name="name" id="id_name" class="form-control" required 
-                   placeholder="Vorname Name" autocomplete="name" 
-                   value="{{ form.name.value|default:'' }}">
-            {% if form.name.errors %}
-                <div class="text-danger">{{ form.name.errors.0 }}</div>
-            {% endif %}
-        </div>
-        <div class="mb-3">
             <label for="id_email" class="form-label">E-Mail</label>
             <input type="email" name="email" id="id_email" class="form-control" required 
                    placeholder="name@beispiel.de" autocomplete="username email" 
                    value="{{ form.email.value|default:'' }}">
             {% if form.email.errors %}
                 <div class="text-danger">{{ form.email.errors.0 }}</div>
+            {% endif %}
+        </div>
+        <div class="mb-3">
+            <label for="id_name" class="form-label">Name</label>
+            <input type="text" name="name" id="id_name" class="form-control" required 
+                   placeholder="Vorname Name" autocomplete="name" 
+                   value="{{ form.name.value|default:'' }}">
+            {% if form.name.errors %}
+                <div class="text-danger">{{ form.name.errors.0 }}</div>
             {% endif %}
         </div>
         <div class="mb-3">
