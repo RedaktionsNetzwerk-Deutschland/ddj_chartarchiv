@@ -10,6 +10,7 @@ import requests
 import os
 import json
 import pandas as pd
+import logging
 from datetime import datetime, timezone
 from io import BytesIO
 
@@ -22,6 +23,9 @@ from PIL import Image
 
 # Umgebungsvariablen aus .env laden
 load_dotenv()
+
+# Logger konfigurieren
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -59,12 +63,12 @@ class Command(BaseCommand):
                     # Lösche den Datenbank-Eintrag
                     chart.delete()
                     deleted_count += 1
-                    self.stdout.write(f"Gelöschte Grafik entfernt: {chart.chart_id}")
+                    logger.info(f"Gelöschte Grafik entfernt: {chart.chart_id}")
                     
             except Exception as e:
-                self.stderr.write(f'Fehler beim Prüfen von Chart {chart.chart_id}: {e}')
+                logger.error(f'Fehler beim Prüfen von Chart {chart.chart_id}: {e}')
                 
-        self.stdout.write(f"Gelöschte Grafiken geprüft in {time.time() - start_time:.2f} Sekunden")
+        logger.info(f"Gelöschte Grafiken geprüft in {time.time() - start_time:.2f} Sekunden")
         return deleted_count
 
     def get_all_folders(self, headers):
@@ -86,14 +90,14 @@ class Command(BaseCommand):
             response.raise_for_status()
             folders_data = response.json()
             
-            # Speichere Ordnerdaten zur Nachverfolgung in Datei
-            data_dir = os.path.join(settings.BASE_DIR, 'datawrapper_data')
-            os.makedirs(data_dir, exist_ok=True)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = os.path.join(data_dir, f'datawrapper_folders_{timestamp}.json')
-            
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(folders_data.get('list', []), f, indent=4, ensure_ascii=False)
+            # # Speichere Ordnerdaten zur Nachverfolgung in Datei
+            # data_dir = os.path.join(settings.BASE_DIR, 'datawrapper_data')
+            # os.makedirs(data_dir, exist_ok=True)
+            # timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            # filename = os.path.join(data_dir, f'datawrapper_folders_{timestamp}.json')
+            # 
+            # with open(filename, 'w', encoding='utf-8') as f:
+            #     json.dump(folders_data.get('list', []), f, indent=4, ensure_ascii=False)
                 
             # Listen für die DataFrames vorbereiten
             folder_records = []
@@ -188,8 +192,13 @@ class Command(BaseCommand):
                     
             return folders_df, charts_df
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f'API-Fehler beim Abrufen der Ordner: {e}')
+            if hasattr(e, 'response') and e.response:
+                logger.error(f'API-Antwort: {e.response.status_code} - {e.response.text}')
+            return pd.DataFrame(), pd.DataFrame()
         except Exception as e:
-            self.stderr.write(f'Fehler beim Abrufen der Ordner: {e}')
+            logger.error(f'Allgemeiner Fehler beim Abrufen der Ordner: {e}')
             return pd.DataFrame(), pd.DataFrame()
 
     def filter_folders(self, charts, folders, exclude_names=['printexport']):
@@ -224,7 +233,7 @@ class Command(BaseCommand):
             
             return charts_filtered
         except Exception as e:
-            self.stderr.write(f'Fehler beim Filtern der Ordner: {e}')
+            logger.error(f'Fehler beim Filtern der Ordner: {e}')
             return charts
 
     def get_custom_fields(self, chart_details):
@@ -311,12 +320,12 @@ class Command(BaseCommand):
         3. Filtert Charts nach Ordnern
         4. Identifiziert und verarbeitet neue Charts
         5. Erstellt Thumbnails und speichert alles in der Datenbank
-        6. Wiederholt den Vorgang alle 2 Minuten
+        6. Wiederholt den Vorgang alle 15 Minuten
         """
         # API-Key aus der .env Datei laden
         api_key = os.getenv('DATAWRAPPER_API_KEY')
         if not api_key:
-            self.stderr.write("Kein API-Key gefunden. Bitte DATAWRAPPER_API_KEY in .env definieren.")
+            logger.error("Kein API-Key gefunden. Bitte DATAWRAPPER_API_KEY in .env definieren.")
             return
             
         self.headers = {"Authorization": f"Bearer {api_key}"}
@@ -328,23 +337,23 @@ class Command(BaseCommand):
             self.stdout.write('Datawrapper-API wird abgefragt...')
             
             # Gelöschte Grafiken prüfen
-            # deleted_count = self.check_deleted_charts(self.headers)
-            # self.stdout.write(f'Gelöschte Grafiken entfernt: {deleted_count}')
+            deleted_count = self.check_deleted_charts(self.headers)
+            self.stdout.write(f'Gelöschte Grafiken entfernt: {deleted_count}')
             
             # Alle Ordner und Charts holen
             folders_df, charts_df = self.get_all_folders(self.headers)
             if folders_df.empty or charts_df.empty:
-                self.stderr.write('Keine Ordner oder Charts gefunden.')
-                time.sleep(120)
+                logger.error('Keine Ordner oder Charts gefunden.')
+                time.sleep(900)  # 15 Minuten warten
                 continue
                 
-            self.stdout.write(f'Gefundene Ordner: {len(folders_df)}')
-            self.stdout.write(f'Gefundene Charts: {len(charts_df)}')
+            logger.info(f'Gefundene Ordner: {len(folders_df)}')
+            logger.info(f'Gefundene Charts: {len(charts_df)}')
             
             # Unerwünschte Ordner aus den Charts filtern
             exclude_names = ['printexport']
             filtered_charts = self.filter_folders(charts_df, folders_df, exclude_names=exclude_names)
-            self.stdout.write(f'Gefilterte Charts: {len(filtered_charts)}')
+            logger.info(f'Gefilterte Charts: {len(filtered_charts)}')
             
             # Bereits existierende Charts identifizieren
             existing_chart_ids = set(Chart.objects.values_list('chart_id', flat=True))
@@ -352,22 +361,21 @@ class Command(BaseCommand):
             
             # Neue Charts identifizieren
             new_chart_ids = [chart_id for chart_id in all_chart_ids if chart_id not in existing_chart_ids]
-            self.stdout.write(f'Neue Charts zum Verarbeiten: {len(new_chart_ids)}')
+            logger.info(f'Neue Charts zum Verarbeiten: {len(new_chart_ids)}')
             
             # Neue Charts verarbeiten
             for chart_id in new_chart_ids:
-                print(chart_id)
+                logger.debug(f"Verarbeite Chart ID: {chart_id}")
                 try:
                     # Chart-Details abrufen
                     chart_details_url = f"https://api.datawrapper.de/v3/charts/{chart_id}?expand=true"
                     details_response = requests.get(chart_details_url, headers=self.headers)
                     details_response.raise_for_status()
                     chart_details = details_response.json()
-                    print(chart_details)
                     
                     # Prüfen, ob die Grafik veröffentlicht wurde
                     if chart_details.get('publishedAt') is None:
-                        self.stdout.write(f"Chart {chart_id} ist nicht veröffentlicht, überspringe...")
+                        logger.info(f"Chart {chart_id} ist nicht veröffentlicht, überspringe...")
                         continue
                         
                     # Basisdaten extrahieren
@@ -382,8 +390,7 @@ class Command(BaseCommand):
                     
                     # Debug-Ausgabe der Metadaten-Struktur für embed-codes
                     embed_codes = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {})
-                    print(f"DEBUG embed-codes Struktur für Chart {chart_id}:")
-                    print(json.dumps(embed_codes, indent=2)[:500] + "..." if embed_codes else "Keine embed-codes gefunden")
+                    logger.debug(f"Embed-Codes Struktur für Chart {chart_id}: {json.dumps(embed_codes, indent=2)[:500] + '...' if embed_codes else 'Keine embed-codes gefunden'}")
                     
                     # Fallback zur alten API-Struktur oder zur publicUrl, falls der responsive Iframe nicht gefunden wird
                     if not iframe_url:
@@ -395,11 +402,10 @@ class Command(BaseCommand):
                             iframe_url = chart_details.get('publicUrl', '')
                     
                     # Debug-Ausgabe für iframe_url
-                    print(f"DEBUG iframe_url für Chart {chart_id}:")
-                    if len(iframe_url) > 100:
-                        print(f"{iframe_url[:100]}... (verkürzt)")
+                    if iframe_url:
+                        logger.debug(f"Iframe URL für Chart {chart_id}: {iframe_url[:100]}... (verkürzt)" if len(iframe_url) > 100 else iframe_url)
                     else:
-                        print(iframe_url)
+                        logger.warning(f"Keine Iframe URL für Chart {chart_id} gefunden")
                     
                     # Embed-Code aus den Metadaten extrahieren
                     embed_js = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {}).get('embed', '')
@@ -415,8 +421,7 @@ class Command(BaseCommand):
                     custom_fields = self.get_custom_fields(chart_details)
                     comments = custom_fields.get("kommentar", "")
                     tags = custom_fields.get("tags", "") or ""
-                    print(tags)
-                    print("-------")
+                    
                     # Ordnername zu Tags hinzufügen
                     # Schritt 1: Ordnername aus Filtern Charts extrahieren
                     chart_filter = filtered_charts[filtered_charts["chart_id"] == chart_id]
@@ -440,8 +445,6 @@ class Command(BaseCommand):
                                 break
                                 
                             folder_name = parent
-                    
-                    print(tags)
                         
                     # Boolean-Felder extrahieren
                     patch = custom_fields.get("patch", "false")
@@ -454,13 +457,13 @@ class Command(BaseCommand):
                     if published_at_str:
                         try:
                             published_date = datetime.fromisoformat(published_at_str.replace('Z', '+00:00'))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Fehler beim Konvertieren des Veröffentlichungsdatums für Chart {chart_id}: {e}")
                     if lastModified_at_str:
                         try:
                             last_modified_date = datetime.fromisoformat(lastModified_at_str.replace('Z', '+00:00'))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Fehler beim Konvertieren des Änderungsdatums für Chart {chart_id}: {e}")
 
                     # Chart in der Datenbank speichern
                     try:
@@ -482,7 +485,7 @@ class Command(BaseCommand):
                         chart_obj.embed_js = embed_js
                         chart_obj.save()
                         
-                        self.stdout.write(f"Bestehendes Chart aktualisiert: {title} (ID: {chart_id})")
+                        logger.info(f"Bestehendes Chart aktualisiert: {title} (ID: {chart_id})")
                     except Chart.DoesNotExist:
                         # Erstelle eine neue Chart
                         chart_obj = Chart.objects.create(
@@ -500,7 +503,7 @@ class Command(BaseCommand):
                             iframe_url=iframe_url or '',
                             embed_js=embed_js,
                         )
-                        self.stdout.write(f"Neues Chart gespeichert: {title} (ID: {chart_id})")
+                        logger.info(f"Neues Chart gespeichert: {title} (ID: {chart_id})")
 
                     # Thumbnail erstellen, wenn URL vorhanden
                     if iframe_url:
@@ -517,14 +520,18 @@ class Command(BaseCommand):
                             chart_obj.thumbnail.name = os.path.join('thumbnails', thumbnail_filename)
                             chart_obj.save()
                         except Exception as e:
-                            self.stderr.write(f'Warnung: Thumbnail konnte nicht erstellt werden für {chart_id}: {e}')
+                            logger.warning(f'Thumbnail konnte nicht erstellt werden für {chart_id}: {e}')
 
-                    self.stdout.write(f"Neue Grafik gespeichert: {title} (ID: {chart_id})")
+                    logger.info(f"Neue Grafik gespeichert: {title} (ID: {chart_id})")
                     
+                except requests.exceptions.RequestException as e:
+                    logger.error(f'API-Fehler bei der Verarbeitung von Chart {chart_id}: {e}')
+                    if hasattr(e, 'response') and e.response:
+                        logger.error(f'API-Antwort: {e.response.status_code} - {e.response.text[:200]}')
                 except Exception as e:
-                    self.stderr.write(f'Fehler bei der Verarbeitung von Chart {chart_id}: {e}')
+                    logger.error(f'Allgemeiner Fehler bei der Verarbeitung von Chart {chart_id}: {e}')
                     continue
 
             # Warten bis zum nächsten Durchlauf
-            self.stdout.write('Warte 120 Sekunden bis zum nächsten Durchlauf...')
+            logger.info('Warte 15 Minuten bis zum nächsten Durchlauf...')
             time.sleep(900) 
