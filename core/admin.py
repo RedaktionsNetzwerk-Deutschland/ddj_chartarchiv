@@ -306,6 +306,42 @@ class CustomUserAdmin(UserAdmin):
         return ", ".join([group.name for group in obj.groups.all()])
     
     get_groups.short_description = 'Gruppen'
+    
+    def delete_model(self, request, obj):
+        """Überschriebene Methode zum Löschen eines Benutzers und aller verknüpften Daten"""
+        email = obj.email
+        
+        # Lösche alle mit dem Benutzer verknüpften Daten
+        if email:
+            # Lösche Einträge in AllowedEmailAddress, wenn die E-Mail dort vorhanden ist
+            AllowedEmailAddress.objects.filter(email=email).delete()
+            
+            # Lösche alle Chart-Einträge, die vom Benutzer erstellt wurden
+            Chart.objects.filter(created_by=obj).delete()
+            
+            # Lösche alle ChartBlacklist-Einträge, die vom Benutzer erstellt wurden
+            ChartBlacklist.objects.filter(created_by=obj).delete()
+            
+            # Lösche alle Registrierungsbestätigungen für diesen Benutzer
+            # Prüfe sowohl nach E-Mail als auch nach direktem Benutzerbezug
+            RegistrationConfirmation.objects.filter(email=email).delete()
+            
+            # Falls das Modell ein user-Feld hat, auch dieses prüfen
+            try:
+                RegistrationConfirmation.objects.filter(user=obj).delete()
+            except:
+                pass  # Falls kein user-Feld existiert
+            
+            # Lösche alle Password-Reset-Tokens für diesen Benutzer
+            PasswordResetToken.objects.filter(email=email).delete()
+            # Falls das Modell ein user-Feld hat, auch dieses prüfen
+            try:
+                PasswordResetToken.objects.filter(user=obj).delete()
+            except:
+                pass  # Falls kein user-Feld existiert
+        
+        # Zum Schluss den Benutzer selbst löschen
+        super().delete_model(request, obj)
 
 # Deregistriere den Standard-UserAdmin und registriere unseren benutzerdefinierten
 admin.site.unregister(User)
