@@ -88,6 +88,21 @@
     .login-link:hover {
       text-decoration: underline;
     }
+    /* Checkbox für Passwort anzeigen */
+    .show-password-container {
+      display: flex;
+      align-items: center;
+      margin-top: -15px;
+      margin-bottom: 15px;
+    }
+    .show-password-container input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    .show-password-container label {
+      font-size: 0.85em;
+      color: #666;
+      cursor: pointer;
+    }
   </style>
 {% endblock %}
 
@@ -121,6 +136,10 @@
             <input type="password" name="password1" id="id_password1" class="form-control" required 
                    placeholder="Passwort eingeben" autocomplete="new-password" data-lpignore="false"
                    value="{{ form.password1.value|default:'' }}">
+            <div class="show-password-container">
+                <input type="checkbox" id="showPassword1" onclick="togglePasswordVisibility('id_password1')">
+                <label for="showPassword1">Passwort anzeigen</label>
+            </div>
             <div class="password-info">
                 Das Passwort muss mindestens 8 Zeichen lang sein.
             </div>
@@ -133,6 +152,10 @@
             <input type="password" name="password2" id="id_password2" class="form-control" required 
                    placeholder="Passwort wiederholen" autocomplete="new-password" data-lpignore="false"
                    value="{{ form.password2.value|default:'' }}">
+            <div class="show-password-container">
+                <input type="checkbox" id="showPassword2" onclick="togglePasswordVisibility('id_password2')">
+                <label for="showPassword2">Passwort anzeigen</label>
+            </div>
             {% if form.password2.errors %}
                 <div class="text-danger">{{ form.password2.errors.0 }}</div>
             {% endif %}
@@ -147,5 +170,15 @@
     document.addEventListener('DOMContentLoaded', function() {
         var form = document.getElementById('registrationForm');
     });
+    
+    // Funktion zum Ein- und Ausblenden des Passworts
+    function togglePasswordVisibility(inputId) {
+        var passwordInput = document.getElementById(inputId);
+        if (passwordInput.type === "password") {
+            passwordInput.type = "text";
+        } else {
+            passwordInput.type = "password";
+        }
+    }
 </script>
 {% endblock %} 

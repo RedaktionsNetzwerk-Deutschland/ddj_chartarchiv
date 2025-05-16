@@ -46,6 +46,20 @@
         background: #f8d7da;
         border-radius: 4px;
     }
+    .show-password-container {
+        display: flex;
+        align-items: center;
+        margin-top: 0.25rem;
+        margin-bottom: 1rem;
+    }
+    .show-password-container input[type="checkbox"] {
+        margin-right: 0.5rem;
+    }
+    .show-password-container label {
+        font-size: 0.85rem;
+        color: #666;
+        cursor: pointer;
+    }
 </style>
 {% endblock %}
 
@@ -70,6 +84,10 @@
         <div class="form-group">
             <label for="id_password">Passwort:</label>
             {{ form.password }}
+            <div class="show-password-container">
+                <input type="checkbox" id="showPassword" onclick="togglePasswordVisibility('id_password')">
+                <label for="showPassword">Passwort anzeigen</label>
+            </div>
         </div>
         
         <input type="hidden" name="next" value="{{ next }}" />
@@ -77,4 +95,16 @@
         <button type="submit" class="submit-btn">Anmelden</button>
     </form>
 </div>
+
+<script>
+    // Funktion zum Ein- und Ausblenden des Passworts
+    function togglePasswordVisibility(inputId) {
+        var passwordInput = document.getElementById(inputId);
+        if (passwordInput.type === "password") {
+            passwordInput.type = "text";
+        } else {
+            passwordInput.type = "password";
+        }
+    }
+</script>
 {% endblock %} 

@@ -311,21 +311,13 @@ class CustomUserAdmin(UserAdmin):
         """Löscht alle mit dem Benutzer verknüpften Daten"""
         if email:
             # Importiere hier, um zirkuläre Importe zu vermeiden
-            from core.models import AllowedEmailAddress, RegistrationConfirmation, PasswordResetToken, Chart, ChartBlacklist
+            from core.models import AllowedEmailAddress, RegistrationConfirmation, PasswordResetToken
             
             print(f"Lösche verknüpfte Daten für E-Mail: {email}")
             
-            # Lösche den Eintrag in AllowedEmailAddress, wenn vorhanden
+            # Lösche den Eintrag in AllowedEmailAddress, wenn die E-Mail dort vorhanden ist
             deleted_email = AllowedEmailAddress.objects.filter(email=email).delete()
             print(f"Gelöschte AllowedEmailAddress-Einträge: {deleted_email}")
-            
-            # Lösche alle Chart-Einträge, die vom Benutzer erstellt wurden
-            deleted_charts = Chart.objects.filter(created_by=user).delete()
-            print(f"Gelöschte Chart-Einträge: {deleted_charts}")
-            
-            # Lösche alle ChartBlacklist-Einträge, die vom Benutzer erstellt wurden
-            deleted_blacklist = ChartBlacklist.objects.filter(created_by=user).delete()
-            print(f"Gelöschte ChartBlacklist-Einträge: {deleted_blacklist}")
             
             # Lösche alle Registrierungsbestätigungen für diesen Benutzer
             deleted_reg = RegistrationConfirmation.objects.filter(email=email).delete()
