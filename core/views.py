@@ -1589,7 +1589,7 @@ def password_reset_request_view(request):
                 email_sent = send_password_reset_email(email, token_value, request)
                 if email_sent:
                     print(f"DEBUG: E-Mail erfolgreich versendet (bzw. in Konsole ausgegeben).")
-                    messages.success(request, 'Wir haben dir eine E-Mail mit Anweisungen zum Zurücksetzen deines Passworts gesendet. Bitte überprüfe dein Postfach.')
+                    messages.success(request, 'Wir haben dir eine E-Mail mit Anweisungen zum Zurücksetzen deines Passworts gesendet. Dies kann einige Minuten dauern. Bitte überprüfe dein Postfach.')
                 else:
                     print(f"DEBUG: Fehler beim Versenden der E-Mail.")
                     messages.error(request, 'Die E-Mail zum Zurücksetzen des Passworts konnte nicht gesendet werden. Bitte versuche es später erneut.')
