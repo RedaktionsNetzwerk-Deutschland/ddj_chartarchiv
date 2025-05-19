@@ -174,25 +174,29 @@ admin.site.register(Chart, ChartAdmin)
 # Admin-Klasse für TopicTile
 class TopicTileAdmin(admin.ModelAdmin):
     form = TopicTileAdminForm
-    list_display = ('title', 'order', 'is_active', 'display_image_thumbnail')
-    list_editable = ('order', 'is_active')
-    list_filter = ('is_active',)
+    list_display = ('title', 'parent', 'order', 'is_active', 'show_in_main', 'display_image_thumbnail')
+    list_editable = ('order', 'is_active', 'show_in_main')
+    list_filter = ('is_active', 'show_in_main', 'parent')
     search_fields = ('title', 'search_terms')
-    readonly_fields = ('image_preview',)
+    readonly_fields = ('image_preview', 'display_combined_search_terms')
     fieldsets = (
         (None, {
             'fields': ('title', 'background_color')
+        }),
+        ('Hierarchie', {
+            'fields': ('parent', 'inherit_parent_search', 'show_in_main'),
+            'description': 'Beziehung zu anderen Themenkacheln festlegen. Unterkacheln können unter übergeordneten Kacheln angezeigt werden.'
         }),
         ('Hintergrundbild', {
             'fields': ('existing_image', 'background_image', 'image_preview'),
             'description': 'Wähle entweder ein bestehendes Bild aus oder lade ein neues hoch.'
         }),
         ('Suchoptionen', {
-            'fields': ('search_terms',),
+            'fields': ('search_terms', 'display_combined_search_terms'),
             'description': 'Kommagetrennte Liste von Suchbegriffen, die beim Klick auf die Kachel verwendet werden.'
         }),
         ('Anzeige-Optionen', {
-            'fields': ('order', 'is_active')
+            'fields': ('order',),
         }),
     )
     
@@ -210,11 +214,39 @@ class TopicTileAdmin(admin.ModelAdmin):
                            obj.background_image.url)
         return format_html('<div style="width: 100px; height: 30px; background-color: {}; display: inline-block;"></div>', obj.background_color)
     
+    def display_combined_search_terms(self, obj):
+        """Zeigt alle Suchbegriffe inklusive geerbter an"""
+        if not obj.pk:  # Für neue Objekte, die noch nicht gespeichert wurden
+            return "Verfügbar nach dem Speichern"
+            
+        own_terms = obj.search_terms.split(',') if obj.search_terms else []
+        own_terms = [term.strip() for term in own_terms if term.strip()]
+        
+        if not obj.inherit_parent_search or not obj.parent:
+            return format_html('<div>{}</div>', ', '.join(own_terms) or 'Keine Suchbegriffe definiert')
+            
+        # Zeige eigene und geerbte Begriffe an
+        combined_terms = obj.get_search_terms_list()
+        inherited_terms = [term for term in combined_terms if term not in own_terms]
+        
+        if not inherited_terms:
+            return format_html('<div>{}</div>', ', '.join(own_terms) or 'Keine Suchbegriffe definiert')
+            
+        return format_html(
+            '<div><strong>Eigene Begriffe:</strong> {}</div>'
+            '<div><strong>Geerbte Begriffe:</strong> <span style="color: #4f80ff;">{}</span></div>'
+            '<div><strong>Kombiniert:</strong> {}</div>',
+            ', '.join(own_terms) or 'Keine',
+            ', '.join(inherited_terms),
+            ', '.join(combined_terms)
+        )
+    
     class Media:
         js = ('core/js/admin_image_preview.js',)
     
     display_image_thumbnail.short_description = 'Vorschau'
     image_preview.short_description = 'Bildvorschau'
+    display_combined_search_terms.short_description = 'Kombinierte Suchbegriffe'
 
 admin.site.register(TopicTile, TopicTileAdmin)
 

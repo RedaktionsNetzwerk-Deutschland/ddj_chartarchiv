@@ -8,6 +8,7 @@ urlpatterns = [
     path('confirm/<str:token>/', views.confirm_registration, name='confirm_registration'),
     path('set-password/<str:token>/', views.set_password, name='set_password'),
     path('archive/', views.archive_main, name='archive_main'),
+    path('archive/subtopics/<int:parent_id>/', views.subtopics_view, name='subtopics_view'),
     path('archive/topic/<str:topic>/', views.topic_view, name='topic_view'),
     path('chart-search/', views.chart_search, name='chart_search'),
     path('chart/<str:chart_id>/', views.chart_detail, name='chart_detail'),

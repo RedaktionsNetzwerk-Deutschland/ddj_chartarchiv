@@ -1,0 +1,932 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .search-container {
+      max-width: 1200px;
+      margin: 40px auto 0;
+      padding: 0 20px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      border-radius: 12px;
+      background: white;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .search-container:focus-within {
+      box-shadow: 0 8px 24px rgba(79, 128, 255, 0.15);
+      transform: translateY(-2px);
+    }
+    
+    .search-icon {
+      position: absolute;
+      left: 30px;
+      color: #999;
+      font-size: 20px;
+      z-index: 2;
+    }
+    
+    .search-container input[type="text"] {
+      width: 100%;
+      padding: 18px 18px 18px 60px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1em;
+      box-sizing: border-box;
+      margin: 0;
+      transition: all 0.3s ease;
+      height: 60px;
+      color: #333;
+      font-family: 'DINNextLTPro', sans-serif;
+      background: transparent;
+    }
+    
+    .search-container input[type="text"]:focus {
+      outline: none;
+    }
+    
+    .search-container input[type="text"]::placeholder {
+      color: #aaa;
+      transition: color 0.3s ease;
+    }
+    
+    .search-container input[type="text"]:focus::placeholder {
+      color: #ccc;
+    }
+    
+    /* Stil für den Bereichsanzeiger */
+    .topic-indicator {
+      max-width: 1200px;
+      margin: 15px auto 0;
+      padding: 15px 20px;
+      background-color: #f5f8ff;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'DINNextLTPro', sans-serif;
+      color: #333;
+    }
+    
+    .topic-indicator .topic-title {
+      font-size: 1.4em;
+      font-weight: 600;
+    }
+    
+    .topic-indicator .topic-title span {
+      font-weight: 700;
+      color: #4f80ff;
+    }
+    
+    .topic-indicator .back-button {
+      background-color: #4f80ff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 18px;
+      cursor: pointer;
+      font-family: 'DINNextLTPro', sans-serif;
+      font-size: 1em;
+      transition: all 0.2s ease;
+      font-weight: 500;
+    }
+    
+    .topic-indicator .back-button:hover {
+      background-color: #3a6cd9;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+    
+    .tile {
+      background-color: #fff;
+      padding: 20px;
+      text-align: center;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1.2em;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+      cursor: pointer;
+      aspect-ratio: 4/2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .tile.with-bg {
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      font-size: 1.4em;
+      font-weight: bold;
+      border: none;
+      aspect-ratio: 5/1;
+    }
+    
+    .tile.with-bg::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-size: cover;
+      background-position: center;
+      background-image: inherit;
+      z-index: 0;
+      transition: transform 0.3s ease;
+    }
+    
+    .tile.with-bg:hover::before {
+      transform: scale(1.1);
+    }
+    
+    .tile.with-bg span {
+      position: relative;
+      z-index: 1;
+      background-color: rgba(0, 0, 0, 0.625);
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-weight: normal;
+    }
+    
+    .tile:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      background-color: #f9f9f9;
+    }
+    
+    /* Subtopic badge für Kacheln mit eigenen Unterthemen */
+    .subtopics-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 2;
+      background-color: rgba(79, 128, 255, 0.85);
+      color: white;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7em;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+    
+    .tile:hover .subtopics-badge {
+      transform: scale(1.15);
+      background-color: rgba(79, 128, 255, 1);
+    }
+
+    /* Neue Styles für Animationen */
+    @keyframes fadeOutScale {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+    }
+
+    @keyframes fadeInScale {
+      0% {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .tiles {
+      transition: all 0.5s ease;
+      transform-origin: center top;
+    }
+
+    .tiles.fade-out {
+      animation: fadeOutScale 0.4s ease forwards;
+    }
+
+    .tiles.fade-in {
+      animation: fadeInScale 0.5s ease forwards;
+    }
+    
+    /* Stile für die Tabelle */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0;
+      padding: 0 20px;
+    }
+    
+    table, th, td {
+      border: none;
+      border-bottom: 1px solid #eee;
+      padding: 12px 8px;
+      text-align: left;
+    }
+    
+    th {
+      background-color: #f5f8ff;
+      color: #333 !important;
+      font-weight: bold !important;
+      font-size: 0.9em;
+      text-transform: uppercase;
+      padding: 15px 8px;
+      border-bottom: 2px solid #4f80ff;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    th:hover {
+      background-color: #e8efff;
+    }
+    
+    tr:hover {
+      background-color: #f5f8ff;
+    }
+    
+    .table-flags {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .table-flag {
+      display: inline-block;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75em;
+      font-weight: 500;
+      text-transform: uppercase;
+      text-align: center;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      margin-bottom: 3px;
+    }
+    
+    .table-flag.regional {
+      background-color: #ff4444;
+    }
+    
+    .table-flag.evergreen {
+      background-color: #44bb55;
+    }
+    
+    .table-flag.patch {
+      background-color: #a044ff;
+    }
+    
+    .tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-width: 200px;
+    }
+    
+    .tag {
+      display: inline-block;
+      background-color: #eaeaea;
+      color: #666;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.75em;
+      white-space: nowrap;
+      margin-bottom: 2px;
+    }
+    
+    .charts-table-container {
+      max-width: 1200px;
+      margin: 10px auto 0;
+      padding: 0 20px;
+      transition: all 0.5s ease;
+    }
+    
+    .charts-table-container.loading {
+      opacity: 0.95;
+    }
+
+    .charts-table-container.fade-out {
+      animation: fadeOut 0.3s ease forwards;
+    }
+    
+    .charts-table-container.fade-in {
+      animation: fadeIn 0.5s ease forwards;
+    }
+
+    /* Animation für Tabellenzeilen */
+    .charts-table tbody tr {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s ease, transform 0.3s ease, background-color 0.2s ease;
+    }
+
+    .charts-table tbody tr.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Verbesserte Loading-Animation */
+    #loading-spinner {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      text-align: center;
+      padding: 20px;
+      margin: 20px auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 60px;
+    }
+
+    #loading-spinner.visible {
+      opacity: 1;
+    }
+
+    /* Animation für den Spinner */
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(79, 128, 255, 0.2);
+      border-radius: 50%;
+      border-top-color: #4f80ff;
+      animation: spin 1s ease-in-out infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Neue Animationen für Tabellen-Übergänge */
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-10px); }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Responsive Anpassungen */
+    @media (max-width: 1200px) {
+      .tiles {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .charts-table {
+        font-size: 0.9em;
+      }
+      .tags-container {
+        max-width: 150px;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .tiles {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 576px) {
+      .tiles {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block title %}{{ parent_tile.title }} - Unterthemen{% endblock %}
+
+{% block content %}
+  {% include 'partials/header.html' %}
+  
+  <div class="search-container">
+    <i class="search-icon fas fa-search"></i>
+    <input type="text" id="search-input" placeholder="Grafiken im Bereich '{{ parent_tile.title }}' durchsuchen...">
+  </div>
+  
+  <!-- Bereichsanzeiger für die ausgewählte Themenkachel -->
+  <div class="topic-indicator">
+    <h2 class="topic-title">Ausgewählter Bereich: <span>{{ parent_tile.title }}</span></h2>
+    <a href="{% url 'archive_main' %}" class="back-button">Zurück zur Hauptansicht</a>
+  </div>
+  
+  {% if subtopic_tiles %}
+    <div class="tiles fade-in">
+      {% for tile in subtopic_tiles %}
+        <div class="tile with-bg" 
+             {% if tile.background_image %}
+             style="background-image: url('{{ tile.background_image.url }}');"
+             {% else %}
+             style="background-color: {{ tile.background_color }};"
+             {% endif %}
+             data-search-terms="{{ tile.get_combined_search_terms }}"
+             data-tile-id="{{ tile.id }}"
+             {% if tile.children.exists %}data-has-subtopics="true"{% endif %}>
+          <span>{{ tile.title }}</span>
+          {% if tile.children.exists %}
+            <div class="subtopics-badge">
+              <i class="fas fa-layer-group"></i>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align: center; margin: 30px auto; color: #666; max-width: 600px;">
+      <i class="fas fa-info-circle" style="font-size: 2em; color: #4f80ff; margin-bottom: 15px;"></i>
+      <h3>Keine Unterthemen definiert</h3>
+      <p>Für dieses Thema wurden noch keine Unterthemen angelegt. Du kannst direkt nach Grafiken im Hauptthema suchen.</p>
+    </div>
+  {% endif %}
+  
+  <div class="charts-table-container">
+    <h2 style="font-family: 'DINNextLTPro', sans-serif; color: #333; margin-bottom: 20px;">Grafiken werden geladen...</h2>
+    <table class="charts-table">
+      <thead>
+        <tr style="background: linear-gradient(135deg, #4f80ff 0%, #3a6cd9 100%);">
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Erstellung</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Thumb</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Titel</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">ChartId</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Beschreibung</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Tags</th>
+          <th style="padding: 15px 12px; text-align: left; color: white; font-weight: 500; font-size: 0.9em; letter-spacing: 0.5px; border: none;">Flags</th>
+        </tr>
+      </thead>
+      <tbody id="charts-table-body">
+        <!-- Wird durch JavaScript gefüllt -->
+      </tbody>
+    </table>
+    <div id="loading-spinner">
+      <div class="spinner"></div>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      // Variablen initialisieren
+      const searchInput = document.getElementById("search-input");
+      const chartsTableBody = document.getElementById("charts-table-body");
+      const loadingSpinner = document.getElementById("loading-spinner");
+      const chartsTable = document.querySelector('.charts-table-container');
+      const parentTile = {
+        id: "{{ parent_tile.id }}",
+        title: "{{ parent_tile.title }}",
+        searchTerms: "{{ parent_tile.search_terms }}"
+      };
+      let currentSearchResults = [];
+      let currentPage = 0;
+      let hasMoreSearchResults = false;
+      let searchQuery = '';
+      let isLoadingMoreSearchResults = false;
+      
+      // Debug-Logger
+      function debugLog(message) {
+        console.log(`[DEBUG] ${message}`);
+      }
+      
+      // Lade automatisch die Ergebnisse für die Haupt-Themenkachel beim Laden der Seite
+      loadParentResults();
+      
+      // Event-Handler für Unterthemenkacheln hinzufügen
+      const subtopicTiles = document.querySelectorAll('.tiles .tile');
+      subtopicTiles.forEach(tile => {
+        tile.addEventListener('click', function() {
+          const searchTerms = this.getAttribute('data-search-terms');
+          const tileId = this.getAttribute('data-tile-id');
+          const hasSubtopics = this.hasAttribute('data-has-subtopics');
+          const tileTitle = this.querySelector('span').textContent;
+          
+          // Bei Kacheln mit eigenen Unterthemen zur Unterthemen-Ansicht navigieren
+          if (hasSubtopics && tileId) {
+            window.location.href = `/archive/subtopics/${tileId}/`;
+            return;
+          }
+          
+          debugLog(`Unterkachel geklickt: ${tileTitle} mit Suchbegriffen: ${searchTerms}`);
+          
+          // Ändere Suchfeld-Placeholder
+          searchInput.placeholder = `Grafiken im Unterthema '${tileTitle}' durchsuchen...`;
+          
+          // Wichtig: Bei Unterkacheln müssen wir innerhalb der Elternergebnisse filtern,
+          // daher verwenden wir logical_op=AND, um die Suche zu verfeinern
+          searchWithinParentScope(searchTerms, tileTitle);
+        });
+      });
+      
+      // Event-Listener für Suchfeld
+      searchInput.addEventListener("input", debounce(function() {
+        const query = this.value.trim();
+        
+        if (query) {
+          // Wenn eine neue Suche eingegeben wurde, kombiniere mit den Eltern-Suchbegriffen
+          searchWithinResults(query);
+        } else {
+          // Bei leerem Suchfeld zeige nur die Ergebnisse der Elternkachel
+          loadParentResults();
+        }
+      }, 500));
+      
+      // Funktion zum Laden der Haupt-Themenkachel-Ergebnisse
+      function loadParentResults() {
+        debugLog(`Lade Ergebnisse für Hauptthema: ${parentTile.title}`);
+        searchWithTerms(parentTile.searchTerms, parentTile.title);
+      }
+      
+      // Neue Funktion zum Suchen innerhalb des Elternbereichs
+      function searchWithinParentScope(searchTerms, displayTitle) {
+        // Setze Suchdaten zurück
+        currentPage = 0;
+        
+        // Erste Phase: Tabelle ausblenden mit Animation
+        chartsTable.classList.add('fade-out');
+        
+        // Zeige Loading-Spinner
+        setTimeout(() => {
+          loadingSpinner.classList.add('visible');
+          
+          // Bei Unterkacheln verwenden wir logical_op=AND, damit nur innerhalb der Elternergebnisse gefiltert wird
+          // Der Server versteht die Kommas als ODER-Verknüpfung, daher fügen wir explizit den AND-Parameter hinzu
+          const searchUrl = `/chart-search/?q=${encodeURIComponent(searchTerms)}&limit=50&logical_op=AND`;
+          
+          debugLog(`Sende Unterkachel-Suchanfrage: ${searchUrl}`);
+          
+          // API-Anfrage durchführen
+          fetch(searchUrl)
+            .then(response => response.json())
+            .then(data => {
+              // Aktualisiere die Überschrift mit der Gesamtanzahl
+              const headerText = document.querySelector('.charts-table-container h2');
+              
+              debugLog(`Erhalten: ${data.total_count} Ergebnisse für Unterkachel`);
+              
+              if (data.total_count === 0) {
+                headerText.textContent = `Keine Grafiken im Unterthema ${displayTitle} gefunden`;
+                chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
+              } else {
+                headerText.textContent = `${data.total_count} Grafiken im Unterthema ${displayTitle} gefunden`;
+                
+                // Speichere die Suchergebnisse
+                currentSearchResults = data.results;
+                hasMoreSearchResults = data.has_more;
+                searchQuery = searchTerms;
+                
+                // Leere die Tabelle
+                chartsTableBody.innerHTML = "";
+                
+                // Zeige die Ergebnisse an
+                prepareResults(data.results);
+              }
+              
+              // Zweite Phase: Tabelle einblenden mit Animation
+              setTimeout(() => {
+                chartsTable.classList.remove('fade-out');
+                chartsTable.classList.add('fade-in');
+                
+                // Nach Ende der Animation den Klassen-Status zurücksetzen
+                setTimeout(() => {
+                  chartsTable.classList.remove('fade-in');
+                  loadingSpinner.classList.remove('visible');
+                }, 500);
+              }, 50);
+            })
+            .catch(error => {
+              console.error('Fehler beim Laden der Daten:', error);
+              const headerText = document.querySelector('.charts-table-container h2');
+              headerText.textContent = 'Fehler beim Laden der Daten';
+              loadingSpinner.classList.remove('visible');
+            });
+        }, 300); // Dauer der Ausblendanimation
+      }
+      
+      // Funktion zum Suchen innerhalb der Ergebnisse mit zusätzlichem Begriff
+      function searchWithinResults(query) {
+        debugLog(`Suche innerhalb der Ergebnisse nach: ${query}`);
+        
+        // Hier verwenden wir logical_op=AND, da wir innerhalb der Ergebnisse filtern wollen
+        let combinedQuery = `${parentTile.searchTerms}, ${query}`;
+        const searchUrl = `/chart-search/?q=${encodeURIComponent(combinedQuery)}&limit=50&logical_op=AND`;
+        
+        // Erste Phase: Tabelle ausblenden mit Animation
+        chartsTable.classList.add('fade-out');
+        
+        // Zeige Loading-Spinner
+        setTimeout(() => {
+          loadingSpinner.classList.add('visible');
+          
+          debugLog(`Sende kombinierte Suchanfrage: ${searchUrl}`);
+          
+          // API-Anfrage durchführen
+          fetch(searchUrl)
+            .then(response => response.json())
+            .then(data => {
+              // Aktualisiere die Überschrift mit der Gesamtanzahl
+              const headerText = document.querySelector('.charts-table-container h2');
+              
+              debugLog(`Erhalten: ${data.total_count} Ergebnisse für kombinierte Suche`);
+              
+              if (data.total_count === 0) {
+                headerText.textContent = `Keine Grafiken für "${query}" im Bereich ${parentTile.title} gefunden`;
+                chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
+              } else {
+                headerText.textContent = `${data.total_count} Grafiken für "${query}" im Bereich ${parentTile.title} gefunden`;
+                
+                // Speichere die Suchergebnisse
+                currentSearchResults = data.results;
+                hasMoreSearchResults = data.has_more;
+                searchQuery = combinedQuery;
+                
+                // Leere die Tabelle
+                chartsTableBody.innerHTML = "";
+                
+                // Zeige die Ergebnisse an
+                prepareResults(data.results);
+              }
+              
+              // Zweite Phase: Tabelle einblenden mit Animation
+              setTimeout(() => {
+                chartsTable.classList.remove('fade-out');
+                chartsTable.classList.add('fade-in');
+                
+                // Nach Ende der Animation den Klassen-Status zurücksetzen
+                setTimeout(() => {
+                  chartsTable.classList.remove('fade-in');
+                  loadingSpinner.classList.remove('visible');
+                }, 500);
+              }, 50);
+            })
+            .catch(error => {
+              console.error('Fehler beim Laden der Daten:', error);
+              const headerText = document.querySelector('.charts-table-container h2');
+              headerText.textContent = 'Fehler beim Laden der Daten';
+              loadingSpinner.classList.remove('visible');
+            });
+        }, 300); // Dauer der Ausblendanimation
+      }
+      
+      // Funktion zum Suchen mit angegebenen Suchbegriffen
+      function searchWithTerms(searchTerms, displayTitle) {
+        // Setze Suchdaten zurück
+        currentPage = 0;
+        
+        // Erste Phase: Tabelle ausblenden mit Animation
+        chartsTable.classList.add('fade-out');
+        
+        // Zeige Loading-Spinner
+        setTimeout(() => {
+          loadingSpinner.classList.add('visible');
+          
+          // API-Parameter vorbereiten
+          // Wichtig: Kein logical_op=AND für Themenkacheln, da dies zu streng filtert
+          // Bei Themenkacheln verwenden wir stattdessen standardmäßig OR
+          const searchUrl = `/chart-search/?q=${encodeURIComponent(searchTerms)}&limit=50`;
+          
+          debugLog(`Sende Suchanfrage: ${searchUrl}`);
+          
+          // API-Anfrage durchführen
+          fetch(searchUrl)
+            .then(response => response.json())
+            .then(data => {
+              // Aktualisiere die Überschrift mit der Gesamtanzahl
+              const headerText = document.querySelector('.charts-table-container h2');
+              
+              debugLog(`Erhalten: ${data.total_count} Ergebnisse`);
+              
+              if (data.total_count === 0) {
+                if (displayTitle === parentTile.title) {
+                  headerText.textContent = `Keine Grafiken aus dem Bereich ${displayTitle} gefunden`;
+                } else {
+                  headerText.textContent = `Keine Grafiken für "${displayTitle}" gefunden`;
+                }
+                chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
+              } else {
+                if (displayTitle === parentTile.title) {
+                  headerText.textContent = `${data.total_count} Grafiken aus dem Bereich ${displayTitle} gefunden`;
+                } else {
+                  headerText.textContent = `${data.total_count} Grafiken für "${displayTitle.replace(parentTile.title + ' + ', '')}" im Bereich ${parentTile.title} gefunden`;
+                }
+                
+                // Speichere die Suchergebnisse
+                currentSearchResults = data.results;
+                hasMoreSearchResults = data.has_more;
+                searchQuery = searchTerms;
+                
+                // Leere die Tabelle
+                chartsTableBody.innerHTML = "";
+                
+                // Zeige die Ergebnisse an
+                prepareResults(data.results);
+              }
+              
+              // Zweite Phase: Tabelle einblenden mit Animation
+              setTimeout(() => {
+                chartsTable.classList.remove('fade-out');
+                chartsTable.classList.add('fade-in');
+                
+                // Nach Ende der Animation den Klassen-Status zurücksetzen
+                setTimeout(() => {
+                  chartsTable.classList.remove('fade-in');
+                  loadingSpinner.classList.remove('visible');
+                }, 500);
+              }, 50);
+            })
+            .catch(error => {
+              console.error('Fehler beim Laden der Daten:', error);
+              const headerText = document.querySelector('.charts-table-container h2');
+              headerText.textContent = 'Fehler beim Laden der Daten';
+              loadingSpinner.classList.remove('visible');
+            });
+        }, 300); // Dauer der Ausblendanimation
+      }
+      
+      // Neue Funktion zum Vorbereiten aller Ergebnisse auf einmal
+      function prepareResults(results) {
+        // Erstelle alle Zeilen gleichzeitig
+        results.forEach(chart => {
+          const row = document.createElement('tr');
+          row.style.cursor = 'pointer';
+          row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
+          
+          // Generiere die Flags für die Tabelle
+          let flagsHTML = '';
+          if (chart.regional || chart.evergreen || chart.patch) {
+            flagsHTML = '<div class="table-flags">';
+            if (chart.regional) {
+              flagsHTML += '<span class="table-flag regional">regional</span>';
+            }
+            if (chart.evergreen) {
+              flagsHTML += '<span class="table-flag evergreen">evergreen</span>';
+            }
+            if (chart.patch) {
+              flagsHTML += '<span class="table-flag patch">patch</span>';
+            }
+            flagsHTML += '</div>';
+          }
+          
+          // Generiere Tags-HTML für die formatierte Anzeige
+          let tagsHTML = '';
+          if (chart.tags && chart.tags.length > 0) {
+            const tagsList = chart.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+            if (tagsList.length > 0) {
+              tagsHTML = `<div class="tags-container">` + 
+                tagsList.map(tag => `<span class="tag">${tag}</span>`).join('') +
+                `</div>`;
+            }
+          }
+          
+          const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
+          row.innerHTML = `
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formattedDate}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
+              <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
+              </div>
+            </td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${chart.title}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${chart.description || ''}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
+          `;
+          
+          row.style.cursor = 'pointer';
+          row.style.transition = 'background-color 0.2s ease';
+          
+          row.addEventListener('mouseover', function() {
+            this.style.backgroundColor = '#f8f9ff';
+          });
+          
+          row.addEventListener('mouseout', function() {
+            this.style.backgroundColor = '';
+          });
+          
+          // Versteckt hinzufügen, wird später mit der Animation sichtbar
+          row.style.opacity = "0";
+          chartsTableBody.appendChild(row);
+        });
+        
+        // Alle Zeilen auf einmal sichtbar machen
+        requestAnimationFrame(() => {
+          const rows = chartsTableBody.querySelectorAll('tr');
+          rows.forEach(row => {
+            row.style.opacity = "1";
+            row.classList.add('visible');
+          });
+        });
+      }
+      
+      // Funktion zum Formatieren des Datums
+      function formatDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      }
+      
+      // Debounce-Funktion
+      function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      }
+      
+      // Event-Listener für Scroll (Lazy Loading)
+      window.addEventListener('scroll', function() {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+          // Wenn eine Suche aktiv ist und weitere Ergebnisse existieren
+          if (hasMoreSearchResults && !isLoadingMoreSearchResults && searchQuery) {
+            loadMoreSearchResults();
+          }
+        }
+      });
+      
+      // Funktion zum Laden der nächsten Seite der Suchergebnisse
+      function loadMoreSearchResults() {
+        if (isLoadingMoreSearchResults || !hasMoreSearchResults) return;
+        
+        isLoadingMoreSearchResults = true;
+        loadingSpinner.classList.add('visible');
+        
+        // Neue Seite laden
+        currentPage++;
+        
+        // URL für die Suchabfrage vorbereiten
+        // Jetzt müssen wir verschiedene Szenarien unterscheiden:
+        // 1. Normale Themenkachel (Eltern) -> kein logical_op
+        // 2. Unterkachel -> logical_op=AND
+        // 3. Kombinierte Suche (Eltern + Suchbegriff) -> logical_op=AND
+        let fetchUrl = '';
+        
+        // Überprüfen, ob es eine Unterkachel-Suche ist (wenn wir auf eine Unterkachel geklickt haben)
+        const isSubtopicSearch = document.querySelector('.topic-title span').textContent === parentTile.title && 
+                               searchQuery !== parentTile.searchTerms;
+                               
+        if (isSubtopicSearch || 
+            (searchQuery.includes(parentTile.searchTerms) && searchQuery.length > parentTile.searchTerms.length)) {
+          // Es ist eine Unterkachel oder kombinierte Suche - verwende AND
+          fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=50&offset=${currentPage * 50}&logical_op=AND`;
+          debugLog(`Lade mehr Ergebnisse mit AND-Verknüpfung: ${fetchUrl}`);
+        } else {
+          // Es ist eine einfache Elternkachel-Suche
+          fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=50&offset=${currentPage * 50}`;
+          debugLog(`Lade mehr Ergebnisse für Elternkachel: ${fetchUrl}`);
+        }
+        
+        fetch(fetchUrl)
+          .then(response => response.json())
+          .then(data => {
+            debugLog(`Erhalten: ${data.results.length} weitere Ergebnisse`);
+            
+            // Füge die neuen Ergebnisse zur bestehenden Liste hinzu
+            currentSearchResults = [...currentSearchResults, ...data.results];
+            
+            // Rendere die zusätzlichen Ergebnisse
+            prepareResults(data.results);
+            
+            // Aktualisiere Status
+            hasMoreSearchResults = data.has_more;
+            isLoadingMoreSearchResults = false;
+            
+            // Verstecke Loading-Spinner
+            loadingSpinner.classList.remove('visible');
+          })
+          .catch(error => {
+            console.error('Fehler beim Laden weiterer Ergebnisse:', error);
+            isLoadingMoreSearchResults = false;
+            loadingSpinner.classList.remove('visible');
+          });
+      }
+    });
+  </script>
+{% endblock %} 

@@ -146,6 +146,7 @@ class TopicTile(models.Model):
     """
     Modell für die Themenkacheln auf der Hauptseite des Archivs.
     Erlaubt die einfache Verwaltung der Kacheln über das Admin-Panel.
+    Unterstützt hierarchische Themenkacheln (Eltern-Kind-Beziehungen).
     """
     title = models.CharField(
         max_length=100, 
@@ -179,6 +180,25 @@ class TopicTile(models.Model):
         verbose_name="Aktiv",
         help_text="Legt fest, ob die Kachel angezeigt werden soll"
     )
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='children',
+        verbose_name="Übergeordnete Kachel",
+        help_text="Falls dies eine Unterkachel ist, wähle die übergeordnete Themenkachel aus"
+    )
+    show_in_main = models.BooleanField(
+        default=True,
+        verbose_name="Auf Hauptseite anzeigen",
+        help_text="Legt fest, ob die Kachel auf der Hauptseite angezeigt werden soll (für Unterkacheln typischerweise deaktiviert)"
+    )
+    inherit_parent_search = models.BooleanField(
+        default=True,
+        verbose_name="Eltern-Suchbegriffe erben",
+        help_text="Wenn aktiviert, werden die Suchbegriffe der übergeordneten Kachel zu den eigenen hinzugefügt"
+    )
     
     class Meta:
         verbose_name = "Themenkachel"
@@ -186,13 +206,31 @@ class TopicTile(models.Model):
         ordering = ['order']
     
     def __str__(self):
+        if self.parent:
+            return f"{self.title} (unter {self.parent.title})"
         return self.title
     
     def get_search_terms_list(self):
         """Gibt die Suchbegriffe als Liste zurück."""
+        terms = []
         if not self.search_terms:
-            return []
-        return [term.strip() for term in self.search_terms.split(',')]
+            own_terms = []
+        else:
+            own_terms = [term.strip() for term in self.search_terms.split(',')]
+        
+        # Füge eigene Begriffe hinzu
+        terms.extend(own_terms)
+        
+        # Füge Eltern-Begriffe hinzu, wenn aktiviert
+        if self.inherit_parent_search and self.parent:
+            parent_terms = self.parent.get_search_terms_list()
+            terms.extend(parent_terms)
+            
+        return list(set(terms))  # Entferne Duplikate
+    
+    def get_combined_search_terms(self):
+        """Gibt alle Suchbegriffe inklusive geerbter als Komma-getrennte Liste zurück."""
+        return ", ".join(self.get_search_terms_list())
 
 class ChartBlacklist(models.Model):
     """

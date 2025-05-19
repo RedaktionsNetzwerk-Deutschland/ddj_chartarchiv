@@ -266,9 +266,34 @@ def set_password(request, token):
 
 @custom_login_required(login_url='index')
 def archive_main(request):
-    # Lade aktive Themenkacheln aus der Datenbank
-    topic_tiles = TopicTile.objects.filter(is_active=True).order_by('order')
+    # Lade aktive Themenkacheln aus der Datenbank (nur Hauptkacheln)
+    topic_tiles = TopicTile.objects.filter(is_active=True, show_in_main=True).order_by('order')
     return render(request, 'archive_main.html', {'topic_tiles': topic_tiles})
+
+@custom_login_required(login_url='index')
+def subtopics_view(request, parent_id):
+    """
+    Zeigt die Unterthemen einer Hauptkachel an.
+    """
+    try:
+        # Lade die übergeordnete Kachel
+        parent_tile = TopicTile.objects.get(id=parent_id, is_active=True)
+        
+        # Lade Unterkacheln
+        subtopic_tiles = TopicTile.objects.filter(
+            parent=parent_tile,
+            is_active=True
+        ).order_by('order')
+        
+        context = {
+            'parent_tile': parent_tile,
+            'subtopic_tiles': subtopic_tiles
+        }
+        
+        return render(request, 'subtopics.html', context)
+    except TopicTile.DoesNotExist:
+        # Falls die übergeordnete Kachel nicht existiert, Redirect zur Hauptseite
+        return redirect('archive_main')
 
 @custom_login_required(login_url='index')
 def topic_view(request, topic):
