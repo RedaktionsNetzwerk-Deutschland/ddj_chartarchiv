@@ -292,9 +292,15 @@ def topic_view(request, topic):
 def chart_search(request):
     q = request.GET.get('q', '')
     page = int(request.GET.get('page', 0))
-    items_per_page = 25  # Anzahl der Items pro Seite
+    items_per_page = int(request.GET.get('limit', 25))  # Anzahl der Items pro Seite, default 25
+    offset = int(request.GET.get('offset', 0))  # Optional offset Parameter
+    logical_op = request.GET.get('logical_op', 'OR').upper()  # Default ist OR, kann auf AND gesetzt werden
     
-    print(f"DEBUG[SERVER]: Suchanfrage erhalten - Suchbegriff: '{q}', Seite: {page}")
+    # Bei Verwendung von offset, berechnen wir die Seite entsprechend
+    if offset > 0:
+        page = offset // items_per_page
+    
+    print(f"DEBUG[SERVER]: Suchanfrage erhalten - Suchbegriff: '{q}', Seite: {page}, Limit: {items_per_page}, Offset: {offset}, LogicalOp: {logical_op}")
     print(f"DEBUG[SERVER]: Alle Request-Parameter: {dict(request.GET.items())}")
     
     # Hole blacklisted Chart-IDs einmal, um sie von allen Suchergebnissen auszuschließen
@@ -307,22 +313,44 @@ def chart_search(request):
         print(f"DEBUG[SERVER]: Suchbegriffe aufgeteilt: {search_terms}")
         
         if len(search_terms) > 1:
-            # Bei mehreren Suchbegriffen OR-Verknüpfung verwenden (statt AND)
             # Initialisiere eine leere Q-Abfrage
             query = Q()
             
-            # Verknüpfe jeden Suchbegriff mit ODER
-            for term in search_terms:
-                if len(term) > 2:  # Ignoriere sehr kurze Wörter
-                    term_query = Q(chart_id__icontains=term) | \
-                               Q(title__icontains=term) | \
-                               Q(description__icontains=term) | \
-                               Q(notes__icontains=term) | \
-                               Q(comments__icontains=term) | \
-                               Q(embed_js__icontains=term) | \
-                               Q(tags__icontains=term)
-                    # Füge diesen Suchbegriff mit ODER hinzu
-                    query |= term_query
+            # Je nach logical_op verwenden wir AND oder OR Verknüpfung
+            if logical_op == 'AND':
+                # Bei AND verwenden wir einen Grundfilter, der alle Einträge enthält
+                query = Q(pk__isnull=False)  # Grundfilter, der alle Einträge einschließt
+                
+                # Jeder Suchbegriff wird mit AND hinzugefügt
+                for term in search_terms:
+                    if len(term) > 2:  # Ignoriere sehr kurze Wörter
+                        term_query = Q(chart_id__icontains=term) | \
+                                   Q(title__icontains=term) | \
+                                   Q(description__icontains=term) | \
+                                   Q(notes__icontains=term) | \
+                                   Q(comments__icontains=term) | \
+                                   Q(embed_js__icontains=term) | \
+                                   Q(tags__icontains=term)
+                        # Füge diesen Suchbegriff mit UND hinzu
+                        query &= term_query
+                
+                print(f"DEBUG[SERVER]: Verwende UND-Verknüpfung für mehrere Suchbegriffe")
+            else:
+                # Bei OR verwenden wir die bisherige Logik
+                # Verknüpfe jeden Suchbegriff mit ODER
+                for term in search_terms:
+                    if len(term) > 2:  # Ignoriere sehr kurze Wörter
+                        term_query = Q(chart_id__icontains=term) | \
+                                   Q(title__icontains=term) | \
+                                   Q(description__icontains=term) | \
+                                   Q(notes__icontains=term) | \
+                                   Q(comments__icontains=term) | \
+                                   Q(embed_js__icontains=term) | \
+                                   Q(tags__icontains=term)
+                        # Füge diesen Suchbegriff mit ODER hinzu
+                        query |= term_query
+                
+                print(f"DEBUG[SERVER]: Verwende ODER-Verknüpfung für mehrere Suchbegriffe")
             
             # Anwenden der zusammengebauten Abfrage
             charts_queryset = Chart.objects.filter(query)
@@ -335,7 +363,7 @@ def chart_search(request):
                 charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
             
             total_count = charts_queryset.count()
-            print(f"DEBUG[SERVER]: Gefundene Ergebnisse bei ODER-Suche: {total_count}")
+            print(f"DEBUG[SERVER]: Gefundene Ergebnisse bei {logical_op}-Suche: {total_count}")
             
             # SQL-Abfrage loggen vor der Sortierung
             print(f"DEBUG[SERVER]: SQL vor Sortierung: {charts_queryset.query}")
@@ -352,7 +380,11 @@ def chart_search(request):
                 last_date = charts_queryset.last().published_date if charts_queryset.last().published_date else None
                 print(f"DEBUG[SERVER]: Erste Sortier-Datum: {first_date}, Letztes Sortier-Datum: {last_date}")
             
-            charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
+            # Berücksichtige die Paginierung mit offset und limit
+            if offset > 0:
+                charts = charts_queryset[offset:offset+items_per_page]
+            else:
+                charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
         else:
             # Bei einem einzelnen Suchbegriff OR-Verknüpfung verwenden (wie bisher)
             query = Q(chart_id__icontains=q) | \
@@ -389,7 +421,11 @@ def chart_search(request):
                 last_date = charts_queryset.last().published_date if charts_queryset.last().published_date else None
                 print(f"DEBUG[SERVER]: Erste Sortier-Datum: {first_date}, Letztes Sortier-Datum: {last_date}")
             
-            charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
+            # Berücksichtige die Paginierung mit offset und limit
+            if offset > 0:
+                charts = charts_queryset[offset:offset+items_per_page]
+            else:
+                charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
     else:
         # Alle Grafiken, aber ohne "Tägliche Updates"
         charts_queryset = Chart.objects.all().exclude(tags__icontains="Tägliche Updates")
@@ -416,7 +452,11 @@ def chart_search(request):
             last_date = charts_queryset.last().published_date if charts_queryset.last().published_date else None
             print(f"DEBUG[SERVER]: Erste Sortier-Datum: {first_date}, Letztes Sortier-Datum: {last_date}")
         
-        charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
+        # Berücksichtige die Paginierung mit offset und limit
+        if offset > 0:
+            charts = charts_queryset[offset:offset+items_per_page]
+        else:
+            charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
     
     print(f"DEBUG[SERVER]: Anzahl der Charts in dieser Seite: {len(charts)}")
     if charts:
@@ -441,7 +481,7 @@ def chart_search(request):
     data = {
         'results': results,
         'total_count': total_count,
-        'has_more': (page + 1) * items_per_page < total_count
+        'has_more': (page + 1) * items_per_page < total_count if offset == 0 else offset + items_per_page < total_count
     }
     print(f"DEBUG[SERVER]: Sende {len(results)} Ergebnisse zurück")
     return JsonResponse(data)

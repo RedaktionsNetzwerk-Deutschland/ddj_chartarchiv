@@ -528,11 +528,19 @@
       max-width: 1200px;
       margin: 10px auto 0;
       padding: 0 20px;
-      transition: opacity 0.3s ease;
+      transition: all 0.5s ease;
     }
     
     .charts-table-container.loading {
-      opacity: 0.6;
+      opacity: 0.95;
+    }
+
+    .charts-table-container.fade-out {
+      animation: fadeOut 0.3s ease forwards;
+    }
+    
+    .charts-table-container.fade-in {
+      animation: fadeIn 0.5s ease forwards;
     }
 
     /* Animation für Tabellenzeilen */
@@ -621,6 +629,17 @@
       background-color: #3a6cd9;
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Neue Animationen für Tabellen-Übergänge */
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-10px); }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 {% endblock %}
@@ -931,7 +950,7 @@
                 console.error('Fehler beim Laden der Gesamtanzahl:', error);
               });
           }
-        }, 300); // 300ms Verzögerung
+        }, 500); // 500ms Verzögerung (erhöht von 300ms)
 
         // Event-Listener für die Suche
         searchInput.addEventListener("input", function() {
@@ -960,12 +979,17 @@
       // Beobachte den Loading Spinner
       tableObserver.observe(loadingSpinner);
       
-      // Event-Listener für Scrolling hinzufügen
+      // Event-Listener für Scroll hinzu, um weitere Suchergebnisse zu laden
       window.addEventListener('scroll', function() {
-        // Prüfen, ob der Nutzer nahe am Ende der Seite ist
+        // Wenn der Nutzer nahe am Ende der Seite ist
         if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
-          // Lade nur mehr Daten, wenn keine Themenfilterung oder Suche aktiv ist
-          if (!isLoadingTable && hasMoreCharts && !isThemeFilterActive && !searchInput.value.trim()) {
+          // Wenn eine Suche aktiv ist und weitere Ergebnisse existieren
+          if (hasMoreSearchResults && !isLoadingMoreSearchResults) {
+            // Lade mehr Suchergebnisse (sowohl für normale Suche als auch für Themenkachel-Suche)
+            loadMoreSearchResults();
+          }
+          // Lade normale Tabellendaten wenn keine Suche aktiv ist
+          else if (!searchInput.value.trim() && !isThemeFilterActive && hasMoreCharts && !isLoadingTable) {
             loadChartData();
           }
         }
@@ -1057,15 +1081,17 @@
         chartsTable.classList.add('loading');
         loadingSpinner.classList.add('visible');
         
-        fetch("/chart-search/?q=" + encodeURIComponent(query))
+        // Füge den Parameter logical_op=AND hinzu, um UND-Verknüpfung für mehrere Suchbegriffe zu erzwingen
+        fetch("/chart-search/?q=" + encodeURIComponent(query) + "&limit=50&logical_op=AND")
           .then(response => response.json())
           .then(data => {
+            // Anstatt die Ergebnislänge zu verwenden, nehmen wir total_count vom Server
             currentSearchResults = data.results;
-            totalResults = data.results.length;
+            totalResults = data.total_count; // Verwende total_count statt data.results.length
             
             // Speichere die Ergebnisse im Cache, wenn ein Themenfilter aktiv ist
             if (currentTopicTitle && query === lastSearchTerms) {
-              topicCachedResults = [...data.results]; // Speichere eine Kopie
+              topicCachedResults = [...data.results];
             }
             
             // Aktualisiere die Überschrift
@@ -1083,7 +1109,7 @@
               return;
             }
             
-            // Zeige die angepasste Überschrift mit Themenkachel oder Suchbegriff
+            // Zeige die angepasste Überschrift mit Themenkachel oder Suchbegriff und der Gesamtanzahl der Ergebnisse
             if (currentTopicTitle) {
               if (query !== lastSearchTerms) {
                 headerText.textContent = `${totalResults} Grafiken für "${query}" im Bereich ${currentTopicTitle} gefunden`;
@@ -1099,6 +1125,19 @@
             
             // Füge die Ergebnisse hinzu
             renderSearchResults(data.results);
+            
+            // Aktiviere Lazy-Loading für weitere Ergebnisse beim Scrollen
+            if (data.has_more) {
+              currentSearchPage = 1; // Erste Seite wurde geladen
+              searchQuery = query; // Speichere die aktuelle Suchanfrage
+              hasMoreSearchResults = true; // Es gibt weitere Ergebnisse
+            } else {
+              hasMoreSearchResults = false;
+            }
+            
+            // Entferne Loading-Status
+            chartsTable.classList.remove('loading');
+            loadingSpinner.classList.remove('visible');
           })
           .catch(error => {
             console.error('Error fetching search results:', error);
@@ -1108,86 +1147,104 @@
           });
       }
 
-      // Funktion zum Filtern der gecachten Ergebnisse basierend auf dem Suchbegriff
-      function filterCachedResults(query) {
-        if (!topicCachedResults.length) return;
+      // Variablen für die Suchpaginierung
+      let currentSearchPage = 0;
+      let hasMoreSearchResults = false;
+      let searchQuery = '';
+      let isLoadingMoreSearchResults = false;
+
+      // Funktion zum Laden der nächsten Seite der Suchergebnisse
+      function loadMoreSearchResults() {
+        if (isLoadingMoreSearchResults || !hasMoreSearchResults) return;
         
-        // Filtere die gecachten Ergebnisse nach dem Suchbegriff
-        const searchTerms = query.toLowerCase().split(' ').filter(term => term.length >= 2);
+        isLoadingMoreSearchResults = true;
+        const loadingSpinner = document.getElementById("loading-spinner");
         
-        if (searchTerms.length === 0) {
-          // Keine gültigen Suchbegriffe, zeige alle Ergebnisse
-          displayCachedResults();
-          return;
+        // Zeige den Spinner am unteren Rand der Tabelle an
+        const spinnerAtBottom = document.createElement('div');
+        spinnerAtBottom.className = 'text-center py-3';
+        spinnerAtBottom.innerHTML = '<div class="spinner" style="width: 30px; height: 30px;"></div>';
+        document.getElementById("charts-table-body").appendChild(spinnerAtBottom);
+        
+        // URL für die Suchabfrage vorbereiten
+        let fetchUrl = "";
+        
+        // Prüfen, ob es sich um eine Themenkachel-Suche oder eine normale Suche handelt
+        if (isThemeFilterActive && currentTopicTitle) {
+          // Bei Themenkachel-Suche, kein logical_op hinzufügen
+          fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=25&offset=${currentSearchPage * 25}`;
+          debugLog(`Lade mehr Themenkachel-Ergebnisse: ${fetchUrl}`);
+        } else {
+          // Bei normaler Suche
+          fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=50&offset=${currentSearchPage * 50}&logical_op=AND`;
+          debugLog(`Lade mehr normale Suchergebnisse: ${fetchUrl}`);
         }
         
-        // Filtere die Ergebnisse
-        const filteredResults = topicCachedResults.filter(chart => {
-          // Prüfe, ob mindestens ein Suchbegriff im Chart vorkommt
-          return searchTerms.some(term => {
-            return (
-              (chart.title && chart.title.toLowerCase().includes(term)) ||
-              (chart.description && chart.description.toLowerCase().includes(term)) ||
-              (chart.chart_id && chart.chart_id.toLowerCase().includes(term)) ||
-              (chart.notes && chart.notes.toLowerCase().includes(term)) ||
-              (chart.tags && chart.tags.toLowerCase().includes(term))
-            );
+        fetch(fetchUrl)
+          .then(response => response.json())
+          .then(data => {
+            currentSearchPage++;
+            
+            // Entferne den temporären Spinner
+            spinnerAtBottom.remove();
+            
+            // Füge die neuen Ergebnisse zu den bestehenden hinzu
+            currentSearchResults = [...currentSearchResults, ...data.results];
+            
+            // Wenn es ein Themenfilter ist, aktualisiere auch den Cache
+            if (isThemeFilterActive && currentTopicTitle) {
+              topicCachedResults = [...topicCachedResults, ...data.results];
+              debugLog(`Themenkachel-Cache auf ${topicCachedResults.length} Einträge erweitert`);
+            }
+            
+            // Rendere die zusätzlichen Ergebnisse im Append-Modus
+            renderSearchResults(data.results, true); // true für append-Modus
+            
+            // Prüfe, ob es weitere Ergebnisse gibt
+            hasMoreSearchResults = data.has_more;
+            
+            isLoadingMoreSearchResults = false;
+          })
+          .catch(error => {
+            console.error('Error fetching additional search results:', error);
+            // Entferne den temporären Spinner bei Fehler
+            spinnerAtBottom.remove();
+            isLoadingMoreSearchResults = false;
           });
-        });
-        
-        // Aktualisiere die aktuelle Ergebnisliste
-        currentSearchResults = filteredResults;
-        totalResults = filteredResults.length;
-        
-        // Aktualisiere die Überschrift
-        const headerText = document.querySelector('.charts-table-container h2');
-        
-        if (totalResults === 0) {
-          headerText.textContent = `Keine Grafiken für "${query}" im Bereich ${currentTopicTitle} gefunden`;
-          chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
-          
-          // Entferne Loading-Status
-          const chartsTable = document.querySelector('.charts-table-container');
-          chartsTable.classList.remove('loading');
-          loadingSpinner.classList.remove('visible');
-          return;
-        }
-        
-        // Zeige die angepasste Überschrift
-        headerText.textContent = `${totalResults} Grafiken für "${query}" im Bereich ${currentTopicTitle} gefunden`;
-        
-        // Leere die Tabelle
-        chartsTableBody.innerHTML = "";
-        
-        // Zeige die gefilterten Ergebnisse an
-        renderSearchResults(filteredResults);
-      }
-      
-      // Funktion zum Anzeigen der gecachten Ergebnisse
-      function displayCachedResults() {
-        currentSearchResults = topicCachedResults;
-        totalResults = topicCachedResults.length;
-        
-        // Aktualisiere die Überschrift
-        const headerText = document.querySelector('.charts-table-container h2');
-        headerText.textContent = `${totalResults} Grafiken aus dem Bereich ${currentTopicTitle} gefunden`;
-        
-        // Leere die Tabelle
-        chartsTableBody.innerHTML = "";
-        
-        // Zeige die Ergebnisse an
-        renderSearchResults(topicCachedResults);
       }
 
       // Funktion zum Rendern der Suchergebnisse
-      function renderSearchResults(results) {
+      function renderSearchResults(results, append = false) {
         const chartsTable = document.querySelector('.charts-table-container');
         const chartsTableBody = document.getElementById("charts-table-body");
         const loadingSpinner = document.getElementById("loading-spinner");
         
-        // Füge die Ergebnisse mit Verzögerung hinzu
-        results.forEach((chart, index) => {
+        // Entferne immer den Loading-Status, egal ob im Append-Modus oder nicht
+        chartsTable.classList.remove('loading');
+        
+        if (!append) {
+          // Nicht im Append-Modus, Fade-Animationen verwenden
+          chartsTable.classList.add('fade-out');
+          
           setTimeout(() => {
+            // Füge alle Ergebnisse auf einmal hinzu
+            prepareResults(results);
+            
+            // Zweite Phase: Tabelle einblenden mit Animation
+            setTimeout(() => {
+              chartsTable.classList.remove('fade-out');
+              chartsTable.classList.add('fade-in');
+              
+              // Nach Ende der Animation den Klassen-Status zurücksetzen
+              setTimeout(() => {
+                chartsTable.classList.remove('fade-in');
+                loadingSpinner.classList.remove('visible');
+              }, 500);
+            }, 50);
+          }, 300);
+        } else {
+          // Im Append-Modus, nur die neuen Ergebnisse hinzufügen
+          results.forEach(chart => {
             const row = document.createElement('tr');
             row.style.cursor = 'pointer';
             row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
@@ -1245,20 +1302,19 @@
               this.style.backgroundColor = '';
             });
             
+            // Versteckt hinzufügen, wird später mit der Animation sichtbar
+            row.style.opacity = "0";
             chartsTableBody.appendChild(row);
-
-            // Füge die Zeile hinzu und mache sie nach kurzer Verzögerung sichtbar
-            requestAnimationFrame(() => {
+            
+            // Verzögert einblenden
+            setTimeout(() => {
+              row.style.opacity = "1";
               row.classList.add('visible');
-            });
-          }, index * 30); // Gestaffelte Verzögerung für jede Zeile
-        });
-
-        // Entferne Loading-Status
-        setTimeout(() => {
-          chartsTable.classList.remove('loading');
+            }, 20);
+          });
+          
           loadingSpinner.classList.remove('visible');
-        }, 300);
+        }
       }
 
       // Funktion zum Formatieren des Datums
@@ -1360,10 +1416,10 @@
             
             chartsTableBody.appendChild(row);
 
-            // Verzögertes Einblenden der Zeilen
-            setTimeout(() => {
+            // Füge die Zeile hinzu und mache sie nach kurzer Verzögerung sichtbar
+            requestAnimationFrame(() => {
               row.classList.add('visible');
-            }, index * 50);
+            });
           });
 
           currentTablePage++;
@@ -1385,45 +1441,83 @@
         const chartsTableBody = document.getElementById("charts-table-body");
         const loadingSpinner = document.getElementById("loading-spinner");
         
-        // Setze Loading-Status
-        chartsTable.classList.add('loading');
+        // Zeige den Lade-Spinner an
         loadingSpinner.classList.add('visible');
         
-        fetch("/chart-search/?q=" + encodeURIComponent(searchTerms))
-          .then(response => response.json())
-          .then(data => {
-            // Cache die Ergebnisse
-            topicCachedResults = [...data.results];
-            debugLog(`${topicCachedResults.length} Ergebnisse für Themenkachel gefunden`);
-            
-            currentSearchResults = data.results;
-            totalResults = data.results.length;
-            
-            // Aktualisiere die Überschrift
-            const headerText = document.querySelector('.charts-table-container h2');
-            
-            if (totalResults === 0) {
-              headerText.textContent = `Keine Grafiken aus dem Bereich ${currentTopicTitle} gefunden`;
-              chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
-            } else {
-              headerText.textContent = `${totalResults} Grafiken aus dem Bereich ${currentTopicTitle} gefunden`;
+        // Erste Phase: Tabelle ausblenden mit Animation
+        chartsTable.classList.add('fade-out');
+        
+        // Warte auf Ende der Ausblendanimation
+        setTimeout(() => {
+          // Setze Loading-Status
+          chartsTable.classList.add('loading');
+          
+          // Leere die Tabelle vor der Suche
+          chartsTableBody.innerHTML = "";
+          
+          // Deaktiviere das automatische Laden bevor der Fetch-Aufruf
+          hasMoreCharts = false;
+          
+          // Füge Limit-Parameter hinzu, aber verwende OR für Themenkacheln, damit mehr Ergebnisse gefunden werden
+          fetch("/chart-search/?q=" + encodeURIComponent(searchTerms) + "&limit=25")
+            .then(response => response.json())
+            .then(data => {
+              // Cache die Ergebnisse, die wir bereits geladen haben
+              topicCachedResults = [...data.results];
               
-              // Leere die Tabelle
-              chartsTableBody.innerHTML = "";
+              // Setze die aktuelle Suche
+              currentSearchResults = data.results;
+              totalResults = data.total_count; // Verwende total_count statt data.results.length
+              searchQuery = searchTerms; // Setze die aktuelle Suchanfrage
               
-              // Füge die Ergebnisse hinzu
-              renderResults(data.results);
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching search results:', error);
-            chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
-          })
-          .finally(() => {
-            // Entferne Loading-Status
-            chartsTable.classList.remove('loading');
-            loadingSpinner.classList.remove('visible');
-          });
+              debugLog(`${totalResults} Ergebnisse für Themenkachel gefunden, davon ${data.results.length} geladen`);
+              
+              // Aktualisiere die Überschrift
+              const headerText = document.querySelector('.charts-table-container h2');
+              
+              if (totalResults === 0) {
+                headerText.textContent = `Keine Grafiken aus dem Bereich ${currentTopicTitle} gefunden`;
+                chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
+              } else {
+                headerText.textContent = `${totalResults} Grafiken aus dem Bereich ${currentTopicTitle} gefunden`;
+                
+                // Bereite alle Zeilen vor, rendere aber noch nicht sichtbar
+                prepareResults(data.results);
+                
+                // Aktiviere Lazy-Loading für weitere Ergebnisse beim Scrollen
+                if (data.has_more) {
+                  currentSearchPage = 1; // Erste Seite wurde geladen
+                  hasMoreSearchResults = true; // Es gibt weitere Ergebnisse
+                } else {
+                  hasMoreSearchResults = false;
+                }
+              }
+              
+              // Entferne Loading-Status
+              chartsTable.classList.remove('loading');
+              
+              // Zweite Phase: Tabelle einblenden mit Animation
+              setTimeout(() => {
+                chartsTable.classList.remove('fade-out');
+                chartsTable.classList.add('fade-in');
+                
+                // Nach Ende der Animation den Klassen-Status zurücksetzen
+                setTimeout(() => {
+                  chartsTable.classList.remove('fade-in');
+                  loadingSpinner.classList.remove('visible');
+                }, 500);
+              }, 50); // Kurze Verzögerung für bessere Animation
+            })
+            .catch(error => {
+              console.error('Error fetching search results:', error);
+              chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
+              
+              // Entferne Loading-Status bei Fehler
+              chartsTable.classList.remove('loading');
+              chartsTable.classList.remove('fade-out');
+              loadingSpinner.classList.remove('visible');
+            });
+        }, 300); // Dauer der Ausblendanimation
       }
 
       // Funktion zum Suchen innerhalb der Themenkachel-Ergebnisse
@@ -1431,60 +1525,225 @@
         debugLog(`Suche innerhalb der Themenkachel-Ergebnisse nach: ${query}`);
         debugLog(`Cache hat ${topicCachedResults.length} Einträge`);
         
-        if (topicCachedResults.length === 0) {
-          debugLog("Keine gecachten Ergebnisse gefunden, führe normale Suche durch");
-          // Wenn keine gecachten Ergebnisse vorhanden sind, führe normale Suche durch
-          normalSearch(query);
+        // Wenn wir ausreichend Ergebnisse im Cache haben, filtern wir lokal
+        if (topicCachedResults.length > 0) {
+          debugLog("Verwende Cache und lokale Filterung");
+          filterCachedResults(query);
           return;
         }
+        
+        // Falls keine gecachten Ergebnisse vorhanden sind, führe API-Suche durch
+        debugLog("Keine gecachten Ergebnisse, führe kombinierte API-Suche durch");
         
         const chartsTable = document.querySelector('.charts-table-container');
         const chartsTableBody = document.getElementById("charts-table-body");
         const loadingSpinner = document.getElementById("loading-spinner");
         
-        // Setze Loading-Status
-        chartsTable.classList.add('loading');
+        // Zeige den Lade-Spinner an
         loadingSpinner.classList.add('visible');
         
-        // Konvertiere Query in Kleinbuchstaben für die Suche
-        const queryLower = query.toLowerCase();
+        // Erste Phase: Tabelle ausblenden mit Animation
+        chartsTable.classList.add('fade-out');
         
-        // Filtere die gecachten Ergebnisse
-        const filteredResults = topicCachedResults.filter(chart => {
-          return (
-            (chart.title && chart.title.toLowerCase().includes(queryLower)) ||
-            (chart.description && chart.description.toLowerCase().includes(queryLower)) ||
-            (chart.chart_id && chart.chart_id.toLowerCase().includes(queryLower)) ||
-            (chart.notes && chart.notes && chart.notes.toLowerCase().includes(queryLower)) ||
-            (chart.tags && chart.tags.toLowerCase().includes(queryLower))
-          );
-        });
+        // Warte auf Ende der Ausblendanimation
+        setTimeout(() => {
+          // Setze Loading-Status
+          chartsTable.classList.add('loading');
+          
+          // Leere die Tabelle vor der Suche
+          chartsTableBody.innerHTML = "";
+          
+          // Kombiniere die Themenkachel-Suchbegriffe mit dem neuen Suchbegriff
+          const combinedQuery = lastSearchTerms 
+            ? `${lastSearchTerms} ${query}` 
+            : query;
+          
+          debugLog(`Kombinierte Suche: "${combinedQuery}"`);
+          
+          // Führe API-Suche durch, ohne logical_op für mehr Ergebnisse
+          fetch(`/chart-search/?q=${encodeURIComponent(combinedQuery)}&limit=25`)
+            .then(response => response.json())
+            .then(data => {
+              currentSearchResults = data.results;
+              totalResults = data.total_count;
+              searchQuery = combinedQuery; // Setze die aktuelle Suchanfrage
+              
+              // Aktualisiere die Überschrift
+              const headerText = document.querySelector('.charts-table-container h2');
+              
+              if (totalResults === 0) {
+                headerText.textContent = `Keine Grafiken für "${query}" im Bereich ${currentTopicTitle} gefunden`;
+                chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
+              } else {
+                headerText.textContent = `${totalResults} Grafiken für "${query}" im Bereich ${currentTopicTitle} gefunden`;
+                
+                // Bereite alle Zeilen vor, rendere aber noch nicht sichtbar
+                prepareResults(data.results);
+                
+                // Aktiviere Lazy-Loading für weitere Ergebnisse beim Scrollen
+                if (data.has_more) {
+                  currentSearchPage = 1; // Erste Seite wurde geladen
+                  hasMoreSearchResults = true; // Es gibt weitere Ergebnisse
+                } else {
+                  hasMoreSearchResults = false;
+                }
+              }
+              
+              // Entferne Loading-Status
+              chartsTable.classList.remove('loading');
+              
+              // Zweite Phase: Tabelle einblenden mit Animation
+              setTimeout(() => {
+                chartsTable.classList.remove('fade-out');
+                chartsTable.classList.add('fade-in');
+                
+                // Nach Ende der Animation den Klassen-Status zurücksetzen
+                setTimeout(() => {
+                  chartsTable.classList.remove('fade-in');
+                  loadingSpinner.classList.remove('visible');
+                }, 500);
+              }, 50); // Kurze Verzögerung für bessere Animation
+            })
+            .catch(error => {
+              console.error('Error fetching search results:', error);
+              chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
+              
+              // Entferne Loading-Status bei Fehler
+              chartsTable.classList.remove('loading');
+              chartsTable.classList.remove('fade-out');
+              loadingSpinner.classList.remove('visible');
+            });
+        }, 300); // Dauer der Ausblendanimation
+      }
+
+      // Funktion zum Filtern der gecachten Ergebnisse basierend auf dem Suchbegriff
+      function filterCachedResults(query) {
+        if (!topicCachedResults.length) return;
         
-        debugLog(`${filteredResults.length} gefilterte Ergebnisse für "${query}" innerhalb von ${currentTopicTitle}`);
+        const chartsTable = document.querySelector('.charts-table-container');
+        const chartsTableBody = document.getElementById("charts-table-body");
+        const loadingSpinner = document.getElementById("loading-spinner");
         
-        // Aktualisiere die Ergebnisse
-        currentSearchResults = filteredResults;
-        totalResults = filteredResults.length;
+        // Zeige den Lade-Spinner an
+        loadingSpinner.classList.add('visible');
         
-        // Aktualisiere die Überschrift
-        const headerText = document.querySelector('.charts-table-container h2');
+        // Erste Phase: Tabelle ausblenden mit Animation
+        chartsTable.classList.add('fade-out');
         
-        if (totalResults === 0) {
-          headerText.textContent = `Keine Grafiken für "${query}" im Bereich ${currentTopicTitle} gefunden`;
-          chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
-        } else {
-          headerText.textContent = `${totalResults} Grafiken für "${query}" im Bereich ${currentTopicTitle} gefunden`;
+        // Warte auf Ende der Ausblendanimation
+        setTimeout(() => {
+          // Setze Loading-Status
+          chartsTable.classList.add('loading');
+          
+          // Filtere die gecachten Ergebnisse nach dem Suchbegriff
+          const searchTerms = query.toLowerCase().split(' ').filter(term => term.length >= 2);
+          
+          if (searchTerms.length === 0) {
+            // Keine gültigen Suchbegriffe, zeige alle Ergebnisse
+            displayCachedResults();
+            return;
+          }
+          
+          // Filtere die Ergebnisse - UND-Verknüpfung für mehrere Suchbegriffe
+          const filteredResults = topicCachedResults.filter(chart => {
+            // Prüfe, ob ALLE Suchbegriffe im Chart vorkommen (UND-Verknüpfung)
+            return searchTerms.every(term => {
+              return (
+                (chart.title && chart.title.toLowerCase().includes(term)) ||
+                (chart.description && chart.description.toLowerCase().includes(term)) ||
+                (chart.chart_id && chart.chart_id.toLowerCase().includes(term)) ||
+                (chart.notes && chart.notes.toLowerCase().includes(term)) ||
+                (chart.tags && chart.tags.toLowerCase().includes(term))
+              );
+            });
+          });
+          
+          // Aktualisiere die aktuelle Ergebnisliste
+          currentSearchResults = filteredResults;
+          totalResults = filteredResults.length;
+          
+          // Aktualisiere die Überschrift
+          const headerText = document.querySelector('.charts-table-container h2');
+          
+          if (totalResults === 0) {
+            headerText.textContent = `Keine Grafiken für "${query}" im Bereich ${currentTopicTitle} gefunden`;
+            chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
+          } else {
+            // Zeige die angepasste Überschrift
+            headerText.textContent = `${totalResults} Grafiken für "${query}" im Bereich ${currentTopicTitle} gefunden`;
+            
+            // Leere die Tabelle
+            chartsTableBody.innerHTML = "";
+            
+            // Zeige die gefilterten Ergebnisse an
+            prepareResults(filteredResults);
+          }
+          
+          // Deaktiviere Lazy-Loading für lokale Filterung
+          hasMoreSearchResults = false;
+          
+          // Entferne Loading-Status
+          chartsTable.classList.remove('loading');
+          
+          // Zweite Phase: Tabelle einblenden mit Animation
+          setTimeout(() => {
+            chartsTable.classList.remove('fade-out');
+            chartsTable.classList.add('fade-in');
+            
+            // Nach Ende der Animation den Klassen-Status zurücksetzen
+            setTimeout(() => {
+              chartsTable.classList.remove('fade-in');
+              loadingSpinner.classList.remove('visible');
+            }, 500);
+          }, 50); // Kurze Verzögerung für bessere Animation
+        }, 300); // Dauer der Ausblendanimation
+      }
+      
+      // Funktion zum Anzeigen der gecachten Ergebnisse
+      function displayCachedResults() {
+        const chartsTable = document.querySelector('.charts-table-container');
+        const chartsTableBody = document.getElementById("charts-table-body");
+        const loadingSpinner = document.getElementById("loading-spinner");
+        
+        // Zeige den Lade-Spinner an
+        loadingSpinner.classList.add('visible');
+        
+        // Erste Phase: Tabelle ausblenden mit Animation
+        chartsTable.classList.add('fade-out');
+        
+        // Warte auf Ende der Ausblendanimation
+        setTimeout(() => {
+          currentSearchResults = topicCachedResults;
+          totalResults = topicCachedResults.length;
+          
+          // Aktualisiere die Überschrift
+          const headerText = document.querySelector('.charts-table-container h2');
+          headerText.textContent = `${totalResults} Grafiken aus dem Bereich ${currentTopicTitle} gefunden`;
           
           // Leere die Tabelle
           chartsTableBody.innerHTML = "";
           
-          // Füge die Ergebnisse hinzu
-          renderResults(filteredResults);
-        }
-        
-        // Entferne Loading-Status
-        chartsTable.classList.remove('loading');
-        loadingSpinner.classList.remove('visible');
+          // Zeige die Ergebnisse an
+          prepareResults(topicCachedResults);
+          
+          // Deaktiviere Lazy-Loading für lokale Filterung
+          hasMoreSearchResults = false;
+          
+          // Entferne Loading-Status
+          chartsTable.classList.remove('loading');
+          
+          // Zweite Phase: Tabelle einblenden mit Animation
+          setTimeout(() => {
+            chartsTable.classList.remove('fade-out');
+            chartsTable.classList.add('fade-in');
+            
+            // Nach Ende der Animation den Klassen-Status zurücksetzen
+            setTimeout(() => {
+              chartsTable.classList.remove('fade-in');
+              loadingSpinner.classList.remove('visible');
+            }, 500);
+          }, 50); // Kurze Verzögerung für bessere Animation
+        }, 300); // Dauer der Ausblendanimation
       }
 
       // Funktion zum Anzeigen aller Themenkachel-Ergebnisse
@@ -1493,18 +1752,43 @@
         
         const chartsTable = document.querySelector('.charts-table-container');
         const chartsTableBody = document.getElementById("charts-table-body");
+        const loadingSpinner = document.getElementById("loading-spinner");
         
-        // Aktualisiere die Überschrift
-        const headerText = document.querySelector('.charts-table-container h2');
-        headerText.textContent = `${topicCachedResults.length} Grafiken aus dem Bereich ${currentTopicTitle} gefunden`;
+        // Zeige den Lade-Spinner an
+        loadingSpinner.classList.add('visible');
         
-        // Leere die Tabelle
-        chartsTableBody.innerHTML = "";
+        // Erste Phase: Tabelle ausblenden mit Animation
+        chartsTable.classList.add('fade-out');
         
-        // Füge die Ergebnisse hinzu
-        renderResults(topicCachedResults);
+        // Warte auf Ende der Ausblendanimation
+        setTimeout(() => {
+          // Aktualisiere die Überschrift
+          const headerText = document.querySelector('.charts-table-container h2');
+          headerText.textContent = `${topicCachedResults.length} Grafiken aus dem Bereich ${currentTopicTitle} gefunden`;
+          
+          // Leere die Tabelle
+          chartsTableBody.innerHTML = "";
+          
+          // Füge die Ergebnisse hinzu
+          prepareResults(topicCachedResults);
+          
+          // Entferne Loading-Status
+          chartsTable.classList.remove('loading');
+          
+          // Zweite Phase: Tabelle einblenden mit Animation
+          setTimeout(() => {
+            chartsTable.classList.remove('fade-out');
+            chartsTable.classList.add('fade-in');
+            
+            // Nach Ende der Animation den Klassen-Status zurücksetzen
+            setTimeout(() => {
+              chartsTable.classList.remove('fade-in');
+              loadingSpinner.classList.remove('visible');
+            }, 500);
+          }, 50); // Kurze Verzögerung für bessere Animation
+        }, 300); // Dauer der Ausblendanimation
       }
-
+      
       // Funktion für normale Suche ohne Themenfilter
       function normalSearch(query) {
         debugLog(`Normale Suche nach: ${query}`);
@@ -1513,125 +1797,166 @@
         const chartsTableBody = document.getElementById("charts-table-body");
         const loadingSpinner = document.getElementById("loading-spinner");
         
-        // Setze Loading-Status
-        chartsTable.classList.add('loading');
+        // Zeige den Lade-Spinner an
         loadingSpinner.classList.add('visible');
         
-        // Leere die Tabelle vor der Suche
-        chartsTableBody.innerHTML = "";
+        // Erste Phase: Tabelle ausblenden mit Animation
+        chartsTable.classList.add('fade-out');
         
-        // Deaktiviere das automatische Laden bevor der Fetch-Aufruf
-        hasMoreCharts = false;
-        
-        fetch("/chart-search/?q=" + encodeURIComponent(query))
-          .then(response => response.json())
-          .then(data => {
-            currentSearchResults = data.results;
-            totalResults = data.results.length;
-            
-            // Aktualisiere die Überschrift
-            const headerText = document.querySelector('.charts-table-container h2');
-            
-            if (totalResults === 0) {
-              headerText.textContent = `Keine Grafiken für "${query}" gefunden`;
-              chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
-            } else {
-              headerText.textContent = `${totalResults} Grafiken für "${query}" gefunden`;
+        // Warte auf Ende der Ausblendanimation
+        setTimeout(() => {
+          // Setze Loading-Status
+          chartsTable.classList.add('loading');
+          
+          // Leere die Tabelle vor der Suche
+          chartsTableBody.innerHTML = "";
+          
+          // Deaktiviere das automatische Laden bevor der Fetch-Aufruf
+          hasMoreCharts = false;
+          
+          // Variable für die Daten vom Server
+          let serverData = null;
+          
+          // Füge logical_op=AND Parameter hinzu
+          fetch("/chart-search/?q=" + encodeURIComponent(query) + "&limit=50&logical_op=AND")
+            .then(response => response.json())
+            .then(data => {
+              // Speichere die Daten in der äußeren Variable
+              serverData = data;
               
-              // Leere die Tabelle nochmals zur Sicherheit
-              chartsTableBody.innerHTML = "";
+              currentSearchResults = data.results;
+              totalResults = data.total_count; // Verwende total_count statt data.results.length
               
-              // Füge die Ergebnisse hinzu
-              renderResults(data.results);
-            }
-            
-            // Deaktiviere das automatische Laden weiterer Daten (beibehalten zur Sicherheit)
-            hasMoreCharts = false;
-          })
-          .catch(error => {
-            console.error('Error fetching search results:', error);
-            chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
-          })
-          .finally(() => {
-            // Entferne Loading-Status
-            chartsTable.classList.remove('loading');
-            loadingSpinner.classList.remove('visible');
-          });
+              // Aktualisiere die Überschrift
+              const headerText = document.querySelector('.charts-table-container h2');
+              
+              if (totalResults === 0) {
+                headerText.textContent = `Keine Grafiken für "${query}" gefunden`;
+                chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
+              } else {
+                headerText.textContent = `${totalResults} Grafiken für "${query}" gefunden`;
+                
+                // Bereite alle Zeilen vor, rendere aber noch nicht sichtbar
+                prepareResults(data.results);
+                
+                // Aktiviere Lazy-Loading für weitere Ergebnisse beim Scrollen
+                if (data.has_more) {
+                  currentSearchPage = 1; // Erste Seite wurde geladen
+                  searchQuery = query; // Speichere die aktuelle Suchanfrage
+                  hasMoreSearchResults = true; // Es gibt weitere Ergebnisse
+                } else {
+                  hasMoreSearchResults = false;
+                }
+              }
+              
+              // Deaktiviere das automatische Laden weiterer Daten
+              hasMoreCharts = false;
+              
+              // Entferne Loading-Status
+              chartsTable.classList.remove('loading');
+              
+              // Zweite Phase: Tabelle einblenden mit Animation
+              setTimeout(() => {
+                chartsTable.classList.remove('fade-out');
+                chartsTable.classList.add('fade-in');
+                
+                // Nach Ende der Animation den Klassen-Status zurücksetzen
+                setTimeout(() => {
+                  chartsTable.classList.remove('fade-in');
+                  loadingSpinner.classList.remove('visible');
+                }, 500);
+              }, 50); // Kurze Verzögerung für bessere Animation
+            })
+            .catch(error => {
+              console.error('Error fetching search results:', error);
+              chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
+              
+              // Entferne Loading-Status bei Fehler
+              chartsTable.classList.remove('loading');
+              chartsTable.classList.remove('fade-out');
+              loadingSpinner.classList.remove('visible');
+            });
+        }, 300); // Dauer der Ausblendanimation
       }
-
-      // Funktion zum Rendern der Ergebnisse
-      function renderResults(results) {
-        debugLog(`Rendere ${results.length} Ergebnisse`);
-        
+      
+      // Neue Funktion zum Vorbereiten aller Ergebnisse auf einmal
+      function prepareResults(results) {
         const chartsTableBody = document.getElementById("charts-table-body");
         
-        // Füge die Ergebnisse mit Verzögerung hinzu
-        results.forEach((chart, index) => {
-          setTimeout(() => {
-            const row = document.createElement('tr');
-            row.style.cursor = 'pointer';
-            row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
-            
-            // Generiere die Flags für die Tabelle
-            let flagsHTML = '';
-            if (chart.regional || chart.evergreen || chart.patch) {
-              flagsHTML = '<div class="table-flags">';
-              if (chart.regional) {
-                flagsHTML += '<span class="table-flag regional">regional</span>';
-              }
-              if (chart.evergreen) {
-                flagsHTML += '<span class="table-flag evergreen">evergreen</span>';
-              }
-              if (chart.patch) {
-                flagsHTML += '<span class="table-flag patch">patch</span>';
-              }
-              flagsHTML += '</div>';
+        // Leere die Tabelle
+        chartsTableBody.innerHTML = "";
+        
+        // Erstelle alle Zeilen gleichzeitig
+        results.forEach(chart => {
+          const row = document.createElement('tr');
+          row.style.cursor = 'pointer';
+          row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
+          
+          // Generiere die Flags für die Tabelle
+          let flagsHTML = '';
+          if (chart.regional || chart.evergreen || chart.patch) {
+            flagsHTML = '<div class="table-flags">';
+            if (chart.regional) {
+              flagsHTML += '<span class="table-flag regional">regional</span>';
             }
-            
-            // Generiere Tags-HTML für die formatierte Anzeige
-            let tagsHTML = '';
-            if (chart.tags && chart.tags.length > 0) {
-              const tagsList = chart.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-              if (tagsList.length > 0) {
-                tagsHTML = `<div class="tags-container">` + 
-                  tagsList.map(tag => `<span class="tag">${tag}</span>`).join('') +
-                  `</div>`;
-              }
+            if (chart.evergreen) {
+              flagsHTML += '<span class="table-flag evergreen">evergreen</span>';
             }
-            
-            const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
-            row.innerHTML = `
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formattedDate}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
-                <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                  <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
-                </div>
-              </td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${chart.title}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${chart.description || ''}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
-            `;
-            
-            row.style.cursor = 'pointer';
-            row.style.transition = 'background-color 0.2s ease';
-            
-            row.addEventListener('mouseover', function() {
-              this.style.backgroundColor = '#f8f9ff';
-            });
-            
-            row.addEventListener('mouseout', function() {
-              this.style.backgroundColor = '';
-            });
-            
-            chartsTableBody.appendChild(row);
-
-            // Füge die Zeile hinzu und mache sie nach kurzer Verzögerung sichtbar
-            requestAnimationFrame(() => {
-              row.classList.add('visible');
-            });
-          }, index * 30); // Gestaffelte Verzögerung für jede Zeile
+            if (chart.patch) {
+              flagsHTML += '<span class="table-flag patch">patch</span>';
+            }
+            flagsHTML += '</div>';
+          }
+          
+          // Generiere Tags-HTML für die formatierte Anzeige
+          let tagsHTML = '';
+          if (chart.tags && chart.tags.length > 0) {
+            const tagsList = chart.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+            if (tagsList.length > 0) {
+              tagsHTML = `<div class="tags-container">` + 
+                tagsList.map(tag => `<span class="tag">${tag}</span>`).join('') +
+                `</div>`;
+            }
+          }
+          
+          const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
+          row.innerHTML = `
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formattedDate}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
+              <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
+              </div>
+            </td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${chart.title}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${chart.description || ''}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
+            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
+          `;
+          
+          row.style.cursor = 'pointer';
+          row.style.transition = 'background-color 0.2s ease';
+          
+          row.addEventListener('mouseover', function() {
+            this.style.backgroundColor = '#f8f9ff';
+          });
+          
+          row.addEventListener('mouseout', function() {
+            this.style.backgroundColor = '';
+          });
+          
+          // Versteckt hinzufügen, wird später mit der Animation sichtbar
+          row.style.opacity = "0";
+          chartsTableBody.appendChild(row);
+        });
+        
+        // Alle Zeilen auf einmal sichtbar machen
+        requestAnimationFrame(() => {
+          const rows = chartsTableBody.querySelectorAll('tr');
+          rows.forEach(row => {
+            row.style.opacity = "1";
+            row.classList.add('visible');
+          });
         });
       }
     });
