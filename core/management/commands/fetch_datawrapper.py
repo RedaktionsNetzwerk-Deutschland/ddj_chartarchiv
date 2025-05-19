@@ -83,7 +83,7 @@ class Command(BaseCommand):
         # Prüfen, ob es 4 Uhr morgens ist (zwischen 4:00 und 4:15)
         now = datetime.now()
         is_target_time = now.hour == 4 and now.minute < 15
-        
+
         # Prüfen, ob heute schon eine vollständige Synchronisierung durchgeführt wurde
         if os.path.exists(self.last_full_sync_file):
             try:
@@ -123,7 +123,8 @@ class Command(BaseCommand):
         current_chart_ids = set(charts_df["chart_id"].values)
         # Chart-IDs aus dem Cache
         cached_chart_ids = set(self.charts_cache.keys())
-        
+        print(f"Gefundene Chart-IDs: {len(current_chart_ids)}")
+        print(f"Gefundene Chart-IDs aus dem Cache: {len(cached_chart_ids)}")
         # Identifiziere neue, gelöschte und potentiell geänderte Grafiken
         new_chart_ids = current_chart_ids - cached_chart_ids
         deleted_chart_ids = cached_chart_ids - current_chart_ids
@@ -158,8 +159,29 @@ class Command(BaseCommand):
         """
         Verarbeitet die angegebenen Grafiken (Abrufen von Details, Speichern in DB).
         """
+        # Vorhandene Chart-IDs aus der Datenbank abrufen
+        existing_charts = {c.chart_id: c for c in Chart.objects.filter(chart_id__in=chart_ids)}
+        print(existing_charts)
+        print("-------------")
         for chart_id in chart_ids:
             logger.debug(f"Verarbeite Chart ID: {chart_id}")
+            print(f"Verarbeite Chart ID: {chart_id}")
+            # Prüfen, ob Chart bereits existiert
+            chart_exists = chart_id in existing_charts
+            
+            # Für bestehende Charts: Prüfen, ob Update nötig ist (aus dem charts_df)
+            if chart_exists:
+                # Chart existiert bereits, aber wir prüfen nur, ob sie in die API-Anfrage muss
+                chart_row = charts_df[charts_df["chart_id"] == chart_id]
+                if not chart_row.empty and 'lastModifiedAt' in chart_row.columns:
+                    last_modified_str = str(chart_row['lastModifiedAt'].iloc[0]) if pd.notna(chart_row['lastModifiedAt'].iloc[0]) else ''
+                    chart_obj = existing_charts[chart_id]
+                    
+                    # Wenn last_modified_date in DB existiert und neuer/gleich der API-Angabe ist, überspringen
+                    if chart_obj.last_modified_date and chart_obj.last_modified_date.isoformat() >= last_modified_str:
+                        logger.debug(f"Chart {chart_id} ist bereits aktuell, überspringe...")
+                        continue
+            
             try:
                 # Chart-Details abrufen
                 chart_details_url = f"https://api.datawrapper.de/v3/charts/{chart_id}?expand=true"
@@ -261,43 +283,47 @@ class Command(BaseCommand):
 
                 # Chart in der Datenbank speichern
                 try:
-                    # Prüfe, ob die Chart bereits existiert
-                    chart_obj = Chart.objects.get(chart_id=chart_id)
-                    
-                    # Aktualisiere die bestehende Chart
-                    chart_obj.published_date = published_date
-                    chart_obj.title = title
-                    chart_obj.description = description
-                    chart_obj.notes = notes
-                    chart_obj.comments = comments
-                    chart_obj.tags = tags
-                    chart_obj.patch = True if patch.lower() == 'true' else False
-                    chart_obj.evergreen = True if evergreen.lower() == 'true' else False
-                    chart_obj.regional = True if regional.lower() == 'true' else False
-                    chart_obj.last_modified_date = last_modified_date
-                    chart_obj.iframe_url = iframe_url or ''
-                    chart_obj.embed_js = embed_js
-                    chart_obj.save()
-                    
-                    logger.info(f"Bestehendes Chart aktualisiert: {title} (ID: {chart_id})")
-                except Chart.DoesNotExist:
-                    # Erstelle eine neue Chart
-                    chart_obj = Chart.objects.create(
-                        published_date=published_date,
-                        chart_id=chart_id,
-                        title=title,
-                        description=description,
-                        notes=notes,
-                        comments=comments,
-                        tags=tags,
-                        patch=True if patch.lower() == 'true' else False,
-                        evergreen=True if evergreen.lower() == 'true' else False,
-                        regional=True if regional.lower() == 'true' else False,
-                        last_modified_date=last_modified_date,
-                        iframe_url=iframe_url or '',
-                        embed_js=embed_js,
-                    )
-                    logger.info(f"Neues Chart gespeichert: {title} (ID: {chart_id})")
+                    # Verwende die bereits geladene Chart-Instanz, wenn sie existiert
+                    if chart_exists:
+                        chart_obj = existing_charts[chart_id]
+                        
+                        # Aktualisiere die bestehende Chart
+                        chart_obj.published_date = published_date
+                        chart_obj.title = title
+                        chart_obj.description = description
+                        chart_obj.notes = notes
+                        chart_obj.comments = comments
+                        chart_obj.tags = tags
+                        chart_obj.patch = True if patch.lower() == 'true' else False
+                        chart_obj.evergreen = True if evergreen.lower() == 'true' else False
+                        chart_obj.regional = True if regional.lower() == 'true' else False
+                        chart_obj.last_modified_date = last_modified_date
+                        chart_obj.iframe_url = iframe_url or ''
+                        chart_obj.embed_js = embed_js
+                        chart_obj.save()
+                        
+                        logger.info(f"Bestehendes Chart aktualisiert: {title} (ID: {chart_id})")
+                    else:
+                        # Erstelle eine neue Chart
+                        chart_obj = Chart.objects.create(
+                            published_date=published_date,
+                            chart_id=chart_id,
+                            title=title,
+                            description=description,
+                            notes=notes,
+                            comments=comments,
+                            tags=tags,
+                            patch=True if patch.lower() == 'true' else False,
+                            evergreen=True if evergreen.lower() == 'true' else False,
+                            regional=True if regional.lower() == 'true' else False,
+                            last_modified_date=last_modified_date,
+                            iframe_url=iframe_url or '',
+                            embed_js=embed_js,
+                        )
+                        logger.info(f"Neues Chart gespeichert: {title} (ID: {chart_id})")
+                except Exception as e:
+                    logger.error(f"Fehler beim Speichern des Charts {chart_id}: {e}")
+                    continue
 
                 # Thumbnail erstellen, wenn URL vorhanden
                 if iframe_url:
@@ -685,7 +711,9 @@ class Command(BaseCommand):
             logger.info(f'Gefundene Ordner: {len(folders_df)}')
             logger.info(f'Gefundene Charts: {len(charts_df)}')
             logger.info(f'Gefilterte Charts: {len(filtered_charts)}')
-            
+            print(f"Gefundene Ordner printexport: {len(folders_df)}")
+            print(f"Gefundene Charts printexport: {len(charts_df)}")
+            print(f"Gefilterte Charts printexport: {len(filtered_charts)}")
             # Prüfen ob vollständige Synchronisierung nötig ist
             if self.should_perform_full_sync():
                 logger.info("Führe vollständige Synchronisierung durch...")

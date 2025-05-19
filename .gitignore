@@ -67,5 +67,11 @@ github_actions_key.pub
 *_key.pub
 *.pem
 *.key
+
+# Statische Dateien
 static_data/
 media/
+
+# Datawrapper-Cache
+datawrapper_cache/*
+
