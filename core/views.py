@@ -294,14 +294,17 @@ def chart_search(request):
     page = int(request.GET.get('page', 0))
     items_per_page = 25  # Anzahl der Items pro Seite
     
-    print(f"Debug: Suche nach '{q}' auf Seite {page}")
+    print(f"DEBUG[SERVER]: Suchanfrage erhalten - Suchbegriff: '{q}', Seite: {page}")
+    print(f"DEBUG[SERVER]: Alle Request-Parameter: {dict(request.GET.items())}")
     
     # Hole blacklisted Chart-IDs einmal, um sie von allen Suchergebnissen auszuschließen
     blacklisted_chart_ids = ChartBlacklist.objects.values_list('chart_id', flat=True)
+    print(f"DEBUG[SERVER]: Anzahl der Blacklist-Einträge: {len(blacklisted_chart_ids)}")
     
     if q:
         # Teile die Suchanfrage in einzelne Wörter auf
         search_terms = q.strip().split()
+        print(f"DEBUG[SERVER]: Suchbegriffe aufgeteilt: {search_terms}")
         
         if len(search_terms) > 1:
             # Bei mehreren Suchbegriffen OR-Verknüpfung verwenden (statt AND)
@@ -332,9 +335,24 @@ def chart_search(request):
                 charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
             
             total_count = charts_queryset.count()
-            print(f"Debug: Gefundene Ergebnisse bei ODER-Suche: {total_count}")
+            print(f"DEBUG[SERVER]: Gefundene Ergebnisse bei ODER-Suche: {total_count}")
+            
+            # SQL-Abfrage loggen vor der Sortierung
+            print(f"DEBUG[SERVER]: SQL vor Sortierung: {charts_queryset.query}")
+            
             # Paginierte Ergebnisse
-            charts = charts_queryset.order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
+            charts_queryset = charts_queryset.order_by('-published_date')
+            
+            # SQL-Abfrage loggen nach der Sortierung
+            print(f"DEBUG[SERVER]: SQL nach Sortierung: {charts_queryset.query}")
+            
+            # Überprüfe, ob Sorting korrekt angewendet wird
+            if charts_queryset.exists():
+                first_date = charts_queryset.first().published_date if charts_queryset.first().published_date else None
+                last_date = charts_queryset.last().published_date if charts_queryset.last().published_date else None
+                print(f"DEBUG[SERVER]: Erste Sortier-Datum: {first_date}, Letztes Sortier-Datum: {last_date}")
+            
+            charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
         else:
             # Bei einem einzelnen Suchbegriff OR-Verknüpfung verwenden (wie bisher)
             query = Q(chart_id__icontains=q) | \
@@ -354,9 +372,24 @@ def chart_search(request):
                 charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
             
             total_count = charts_queryset.count()
-            print(f"Debug: Gefundene Ergebnisse bei ODER-Suche nach Ausschluss: {total_count}")
+            print(f"DEBUG[SERVER]: Gefundene Ergebnisse bei ODER-Suche nach Ausschluss: {total_count}")
+            
+            # SQL-Abfrage loggen vor der Sortierung
+            print(f"DEBUG[SERVER]: SQL vor Sortierung: {charts_queryset.query}")
+            
             # Paginierte Ergebnisse
-            charts = charts_queryset.order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
+            charts_queryset = charts_queryset.order_by('-published_date')
+            
+            # SQL-Abfrage loggen nach der Sortierung
+            print(f"DEBUG[SERVER]: SQL nach Sortierung: {charts_queryset.query}")
+            
+            # Überprüfe, ob Sorting korrekt angewendet wird
+            if charts_queryset.exists():
+                first_date = charts_queryset.first().published_date if charts_queryset.first().published_date else None
+                last_date = charts_queryset.last().published_date if charts_queryset.last().published_date else None
+                print(f"DEBUG[SERVER]: Erste Sortier-Datum: {first_date}, Letztes Sortier-Datum: {last_date}")
+            
+            charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
     else:
         # Alle Grafiken, aber ohne "Tägliche Updates"
         charts_queryset = Chart.objects.all().exclude(tags__icontains="Tägliche Updates")
@@ -366,11 +399,28 @@ def chart_search(request):
             charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
             
         total_count = charts_queryset.count()
-        print(f"Debug: Gesamtanzahl aller Charts nach Ausschluss: {total_count}")
+        print(f"DEBUG[SERVER]: Gesamtanzahl aller Charts nach Ausschluss: {total_count}")
+        
+        # SQL-Abfrage loggen vor der Sortierung
+        print(f"DEBUG[SERVER]: SQL vor Sortierung: {charts_queryset.query}")
+        
         # Paginierte Ergebnisse
-        charts = charts_queryset.order_by('-published_date')[page*items_per_page:(page+1)*items_per_page]
+        charts_queryset = charts_queryset.order_by('-published_date')
+        
+        # SQL-Abfrage loggen nach der Sortierung
+        print(f"DEBUG[SERVER]: SQL nach Sortierung: {charts_queryset.query}")
+        
+        # Überprüfe, ob Sorting korrekt angewendet wird
+        if charts_queryset.exists():
+            first_date = charts_queryset.first().published_date if charts_queryset.first().published_date else None
+            last_date = charts_queryset.last().published_date if charts_queryset.last().published_date else None
+            print(f"DEBUG[SERVER]: Erste Sortier-Datum: {first_date}, Letztes Sortier-Datum: {last_date}")
+        
+        charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
     
-    print(f"Debug: Anzahl der Charts in dieser Seite: {len(charts)}")
+    print(f"DEBUG[SERVER]: Anzahl der Charts in dieser Seite: {len(charts)}")
+    if charts:
+        print(f"DEBUG[SERVER]: Beispiel eines Chart-Objekts - Titel: '{charts[0].title}', Datum: {charts[0].published_date}")
     
     results = []
     for chart in charts:
@@ -393,7 +443,7 @@ def chart_search(request):
         'total_count': total_count,
         'has_more': (page + 1) * items_per_page < total_count
     }
-    print(f"Debug: Sende {len(results)} Ergebnisse zurück")
+    print(f"DEBUG[SERVER]: Sende {len(results)} Ergebnisse zurück")
     return JsonResponse(data)
 
 @custom_login_required(login_url='index')
