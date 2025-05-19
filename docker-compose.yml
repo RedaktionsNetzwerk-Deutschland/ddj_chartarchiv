@@ -33,7 +33,7 @@ services:
           - haproxy
 
   fetch_datawrapper:
-    profiles: ["manual"]
+    # profiles: ["manual"]
     build: .
     command: python manage.py fetch_datawrapper
     volumes:
