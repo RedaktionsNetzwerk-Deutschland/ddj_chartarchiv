@@ -946,8 +946,8 @@
       // Verbessere den Intersection Observer für die Tabelle
       const tableObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-          // Lade nur mehr Daten, wenn keine Themenfilterung aktiv ist
-          if (entry.isIntersecting && !isLoadingTable && hasMoreCharts && !isThemeFilterActive) {
+          // Lade nur mehr Daten, wenn keine Themenfilterung oder Suche aktiv ist
+          if (entry.isIntersecting && !isLoadingTable && hasMoreCharts && !isThemeFilterActive && !searchInput.value.trim()) {
             loadChartData();
           }
         });
@@ -964,8 +964,8 @@
       window.addEventListener('scroll', function() {
         // Prüfen, ob der Nutzer nahe am Ende der Seite ist
         if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
-          // Lade nur mehr Daten, wenn keine Themenfilterung aktiv ist
-          if (!isLoadingTable && hasMoreCharts && !isThemeFilterActive) {
+          // Lade nur mehr Daten, wenn keine Themenfilterung oder Suche aktiv ist
+          if (!isLoadingTable && hasMoreCharts && !isThemeFilterActive && !searchInput.value.trim()) {
             loadChartData();
           }
         }
@@ -1520,6 +1520,9 @@
         // Leere die Tabelle vor der Suche
         chartsTableBody.innerHTML = "";
         
+        // Deaktiviere das automatische Laden bevor der Fetch-Aufruf
+        hasMoreCharts = false;
+        
         fetch("/chart-search/?q=" + encodeURIComponent(query))
           .then(response => response.json())
           .then(data => {
@@ -1542,7 +1545,7 @@
               renderResults(data.results);
             }
             
-            // Deaktiviere das automatische Laden weiterer Daten
+            // Deaktiviere das automatische Laden weiterer Daten (beibehalten zur Sicherheit)
             hasMoreCharts = false;
           })
           .catch(error => {
