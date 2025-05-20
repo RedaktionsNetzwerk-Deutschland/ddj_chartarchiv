@@ -9,6 +9,7 @@ hinzugefügt wurden.
 import time
 import requests
 import os
+import pandas as pd
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from core.models import Chart
@@ -38,6 +39,90 @@ class Command(BaseCommand):
             type=str,
             help='Einzelne Chart-ID aktualisieren (optional)'
         )
+        parser.add_argument(
+            '--skip-folders',
+            action='store_true',
+            help='Ordnerinformationen nicht aktualisieren (schnellere Ausführung)'
+        )
+
+    def get_all_folders(self, headers):
+        """
+        Holt alle Ordner von Datawrapper und erstellt ein chart_to_folders-Mapping.
+        
+        Args:
+            headers (dict): API-Request-Header mit Authorization
+            
+        Returns:
+            dict: Mapping von Chart-IDs zu Listen von Ordnernamen
+        """
+        self.stdout.write("Hole Ordnerinformationen von Datawrapper...")
+        
+        try:
+            # API-Anfrage für alle Ordner
+            url = "https://api.datawrapper.de/v3/folders"
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            folders_data = response.json()
+            
+            # Mapping von Chart-IDs zu Liste von Ordnernamen
+            chart_to_folders = {}
+            
+            # Rekursive Funktion zum Durchsuchen der Ordnerstruktur
+            def process_folder(folder, parent_path=None):
+                """
+                Verarbeitet rekursiv einen Ordner, seine Unterordner und Charts.
+                
+                Args:
+                    folder (dict): Ordnerdaten aus der API
+                    parent_path (str, optional): Pfad des übergeordneten Ordners
+                """
+                folder_id = folder.get('id')
+                folder_name = folder.get('name')
+                
+                if not folder_id or not folder_name:
+                    return
+                
+                # Aktuellen Ordnerpfad erstellen
+                current_path = folder_name
+                if parent_path:
+                    current_path = f"{parent_path}, {folder_name}"
+                
+                # Charts in diesem Ordner verarbeiten
+                if 'charts' in folder and folder.get('charts'):
+                    for chart in folder.get('charts'):
+                        if isinstance(chart, dict) and 'id' in chart:
+                            chart_id = chart.get('id')
+                            if chart_id:
+                                # Chart dem Ordnerpfad zuordnen
+                                if chart_id not in chart_to_folders:
+                                    chart_to_folders[chart_id] = []
+                                chart_to_folders[chart_id].append(current_path)
+                
+                # Rekursiv alle Unterordner durchgehen
+                if 'folders' in folder:
+                    for subfolder in folder.get('folders', []):
+                        process_folder(subfolder, current_path)
+            
+            # Alle Hauptordner verarbeiten
+            for item in folders_data.get('list', []):
+                # Nur Team-Ordner verarbeiten, User-Ordner ignorieren
+                if item.get('type') == 'team':
+                    process_folder(item)
+                    
+                    # Unterordner des Team-Ordners verarbeiten
+                    for subfolder in item.get('folders', []):
+                        process_folder(subfolder, item.get('name'))
+            
+            # Debug-Ausgabe
+            self.stdout.write(f"  {len(chart_to_folders)} Charts in Ordnern gefunden")
+            return chart_to_folders
+            
+        except requests.exceptions.RequestException as e:
+            self.stderr.write(self.style.ERROR(f'API-Fehler beim Abrufen der Ordner: {e}'))
+            return {}
+        except Exception as e:
+            self.stderr.write(self.style.ERROR(f'Allgemeiner Fehler beim Abrufen der Ordner: {e}'))
+            return {}
 
     def handle(self, *args, **options):
         # API-Key aus Umgebungsvariablen laden
@@ -56,6 +141,11 @@ class Command(BaseCommand):
         else:
             charts = Chart.objects.all()
             self.stdout.write(f"Aktualisiere {charts.count()} Charts")
+        
+        # Hole Ordnerinformationen, wenn nicht übersprungen
+        chart_to_folders = {}
+        if not options['skip_folders']:
+            chart_to_folders = self.get_all_folders(headers)
 
         # Aktualisiere die Charts in Batches
         batch_size = options['batch_size']
@@ -127,6 +217,10 @@ class Command(BaseCommand):
                         self.stdout.write(f"  Warnung: iframe_url für Chart {chart.chart_id} wurde gekürzt (Originallänge: {len(iframe_url)})")
                         iframe_url = iframe_url[:990]
                     
+                    # 7. Ordnerinformationen
+                    folder_paths = chart_to_folders.get(chart.chart_id, [])
+                    folder_string = ', '.join(folder_paths)
+                    
                     # Wenn URLs mit // beginnen, füge https: hinzu
                     if pic_url_full and pic_url_full.startswith('//'):
                         pic_url_full = f"https:{pic_url_full}"
@@ -142,6 +236,11 @@ class Command(BaseCommand):
                     chart.pic_url_small = pic_url_small
                     chart.archive = archive
                     chart.iframe_url = iframe_url
+                    
+                    # Nur Ordnerinformationen aktualisieren, wenn Ordner abgefragt wurden
+                    if not options['skip_folders']:
+                        chart.folder = folder_string
+                        
                     chart.save()
                     
                     updated_count += 1

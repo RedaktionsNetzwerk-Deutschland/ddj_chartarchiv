@@ -59,6 +59,88 @@
       color: #ccc;
     }
     
+    /* Neue Styles für die Filter-Pills */
+    .search-filters {
+      max-width: 1200px;
+      margin: 10px auto 0;
+      padding: 0 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      transition: all 0.3s ease;
+    }
+    
+    .filter-pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      background-color: #f0f0f0;
+      color: #666;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 2px solid transparent;
+      font-family: 'DINNextLTPro', sans-serif;
+    }
+    
+    .filter-pill:hover {
+      background-color: #e8e8e8;
+      transform: translateY(-1px);
+    }
+    
+    .filter-pill.active {
+      background-color: #e6eeff;
+      color: #4f80ff;
+      border-color: #4f80ff;
+    }
+    
+    .filter-pill .pill-icon {
+      font-size: 0.9em;
+    }
+    
+    .filter-pill.active .pill-icon.check {
+      display: inline-block;
+    }
+    
+    .filter-pill:not(.active) .pill-icon.check {
+      display: none;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-right: 16px;
+      align-items: center;
+    }
+    
+    .filter-divider {
+      width: 1px;
+      height: 20px;
+      background-color: #ddd;
+      margin: 0 8px;
+    }
+    
+    .filter-group-label {
+      font-size: 0.8em;
+      color: #999;
+      margin-right: 4px;
+      font-family: 'DINNextLTPro', sans-serif;
+    }
+    
+    .filter-all {
+      background-color: #f8f8f8;
+      border: 1px dashed #ccc;
+    }
+    
+    .filter-all.active {
+      background-color: #f0f7ff;
+      border: 1px solid #4f80ff;
+    }
+    
     /* Stil für den Bereichsanzeiger */
     .topic-indicator {
       max-width: 1200px;
@@ -426,6 +508,52 @@
     <input type="text" id="search-input" placeholder="Grafiken im Bereich '{{ parent_tile.title }}' durchsuchen...">
   </div>
   
+  <!-- Filter-Pills für die feldspezifische Suche -->
+  <div class="search-filters">
+    <div class="filter-group">
+      <button class="filter-pill filter-all active" data-field="all">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Alle Felder</span>
+      </button>
+    </div>
+    
+    <div class="filter-group">
+      <span class="filter-group-label">Inhalte:</span>
+      <button class="filter-pill" data-field="title">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Titel</span>
+      </button>
+      <button class="filter-pill" data-field="description">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Beschreibung</span>
+      </button>
+      <button class="filter-pill" data-field="notes">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Notizen</span>
+      </button>
+      <button class="filter-pill" data-field="comments">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Kommentare</span>
+      </button>
+    </div>
+    
+    <div class="filter-group">
+      <span class="filter-group-label">Metadaten:</span>
+      <button class="filter-pill" data-field="tags">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Tags</span>
+      </button>
+      <button class="filter-pill" data-field="chart_id">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Chart-ID</span>
+      </button>
+      <button class="filter-pill" data-field="author">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Autor</span>
+      </button>
+    </div>
+  </div>
+  
   <!-- Bereichsanzeiger für die ausgewählte Themenkachel -->
   <div class="topic-indicator">
     <h2 class="topic-title">Ausgewählter Bereich: <span>{{ parent_tile.title }}</span></h2>
@@ -496,6 +624,9 @@
       let searchQuery = '';
       let isLoadingMoreSearchResults = false;
       
+      // Neue Variable für die aktiven Suchfelder
+      var activeSearchFields = ['all'];
+      
       // Debug-Logger
       function debugLog(message) {
         console.log(`[DEBUG] ${message}`);
@@ -563,8 +694,8 @@
           loadingSpinner.classList.add('visible');
           
           // Bei Unterkacheln verwenden wir logical_op=AND, damit nur innerhalb der Elternergebnisse gefiltert wird
-          // Der Server versteht die Kommas als ODER-Verknüpfung, daher fügen wir explizit den AND-Parameter hinzu
-          const searchUrl = `/chart-search/?q=${encodeURIComponent(searchTerms)}&limit=50&logical_op=AND`;
+          // Anstatt eine eigene URL zu erstellen, verwenden wir createSearchUrl
+          const searchUrl = createSearchUrl(searchTerms, 50, 0, 'AND');
           
           debugLog(`Sende Unterkachel-Suchanfrage: ${searchUrl}`);
           
@@ -620,9 +751,16 @@
       function searchWithinResults(query) {
         debugLog(`Suche innerhalb der Ergebnisse nach: ${query}`);
         
-        // Hier verwenden wir logical_op=AND, da wir innerhalb der Ergebnisse filtern wollen
-        let combinedQuery = `${parentTile.searchTerms}, ${query}`;
-        const searchUrl = `/chart-search/?q=${encodeURIComponent(combinedQuery)}&limit=50&logical_op=AND`;
+        // Statt die Suchbegriffe zu kombinieren, verwenden wir nur den eingegebenen Suchbegriff
+        // und fügen einen parent_scope Parameter hinzu, um den Themenbereich zu spezifizieren
+        let url = `/chart-search/?q=${encodeURIComponent(query)}&limit=50&parent_scope=${parentTile.id}`;
+        
+        // Füge Suchfelder-Parameter hinzu, wenn spezifische Felder ausgewählt sind
+        if (!activeSearchFields.includes('all')) {
+          url += `&search_fields=${activeSearchFields.join(',')}`;
+        }
+        
+        debugLog(`Sende Themenbezogene Suchanfrage: ${url}`);
         
         // Erste Phase: Tabelle ausblenden mit Animation
         chartsTable.classList.add('fade-out');
@@ -631,10 +769,8 @@
         setTimeout(() => {
           loadingSpinner.classList.add('visible');
           
-          debugLog(`Sende kombinierte Suchanfrage: ${searchUrl}`);
-          
           // API-Anfrage durchführen
-          fetch(searchUrl)
+          fetch(url)
             .then(response => response.json())
             .then(data => {
               // Aktualisiere die Überschrift mit der Gesamtanzahl
@@ -651,7 +787,7 @@
                 // Speichere die Suchergebnisse
                 currentSearchResults = data.results;
                 hasMoreSearchResults = data.has_more;
-                searchQuery = combinedQuery;
+                searchQuery = query;
                 
                 // Leere die Tabelle
                 chartsTableBody.innerHTML = "";
@@ -694,9 +830,8 @@
           loadingSpinner.classList.add('visible');
           
           // API-Parameter vorbereiten
-          // Wichtig: Kein logical_op=AND für Themenkacheln, da dies zu streng filtert
-          // Bei Themenkacheln verwenden wir stattdessen standardmäßig OR
-          const searchUrl = `/chart-search/?q=${encodeURIComponent(searchTerms)}&limit=50`;
+          // Jetzt mit createSearchUrl, um die aktiven Suchfelder zu berücksichtigen
+          const searchUrl = createSearchUrl(searchTerms, 50, 0, 'OR');
           
           debugLog(`Sende Suchanfrage: ${searchUrl}`);
           
@@ -861,13 +996,83 @@
         if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
           // Wenn eine Suche aktiv ist und weitere Ergebnisse existieren
           if (hasMoreSearchResults && !isLoadingMoreSearchResults && searchQuery) {
-            loadMoreSearchResults();
+            loadMoreResults();
           }
         }
       });
       
+      // Event-Handler für die Filter-Pills
+      document.querySelectorAll('.filter-pill').forEach(pill => {
+        pill.addEventListener('click', function() {
+          const field = this.getAttribute('data-field');
+          
+          if (field === 'all') {
+            // Wenn "Alle Felder" geklickt wird
+            if (this.classList.contains('active')) {
+              // Wenn bereits aktiv, nicht deaktivieren
+              return;
+            } else {
+              // Wenn nicht aktiv, alle anderen Filter deaktivieren
+              document.querySelectorAll('.filter-pill').forEach(p => {
+                p.classList.remove('active');
+              });
+              this.classList.add('active');
+              activeSearchFields = ['all'];
+            }
+          } else {
+            // Wenn ein spezifisches Feld geklickt wird
+            
+            // "Alle Felder" deaktivieren
+            document.querySelector('.filter-pill[data-field="all"]').classList.remove('active');
+            
+            // Dieses Feld umschalten
+            this.classList.toggle('active');
+            
+            // Liste der aktiven Felder aktualisieren
+            if (this.classList.contains('active')) {
+              // Feld zur Liste hinzufügen, wenn es noch nicht drin ist
+              if (!activeSearchFields.includes(field)) {
+                activeSearchFields.push(field);
+              }
+              // "all" aus der Liste entfernen, falls vorhanden
+              activeSearchFields = activeSearchFields.filter(f => f !== 'all');
+            } else {
+              // Feld aus der Liste entfernen
+              activeSearchFields = activeSearchFields.filter(f => f !== field);
+            }
+            
+            // Wenn keine Felder mehr aktiv sind, "Alle Felder" wieder aktivieren
+            if (activeSearchFields.length === 0 || 
+                (activeSearchFields.length === 1 && activeSearchFields[0] === 'all')) {
+              document.querySelector('.filter-pill[data-field="all"]').classList.add('active');
+              activeSearchFields = ['all'];
+            }
+          }
+          
+          debugLog(`Aktive Suchfelder: ${activeSearchFields.join(', ')}`);
+          
+          // Suche erneut ausführen, wenn ein Suchbegriff vorhanden ist
+          if (searchInput.value.trim()) {
+            // Hier direkt searchWithinResults aufrufen mit dem aktuellen Suchbegriff
+            searchWithinResults(searchInput.value.trim());
+          }
+        });
+      });
+      
+      // Modifizierte Funktion zum Erstellen der Fetch-URL mit den aktiven Suchfeldern
+      function createSearchUrl(query, limit = 50, offset = 0, logicalOp = 'OR') {
+        let url = `/chart-search/?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}&logical_op=${logicalOp}`;
+        
+        // Füge Suchfelder-Parameter hinzu, wenn spezifische Felder ausgewählt sind
+        if (!activeSearchFields.includes('all')) {
+          url += `&search_fields=${activeSearchFields.join(',')}`;
+        }
+        
+        return url;
+      }
+      
       // Funktion zum Laden der nächsten Seite der Suchergebnisse
-      function loadMoreSearchResults() {
+      function loadMoreResults() {
         if (isLoadingMoreSearchResults || !hasMoreSearchResults) return;
         
         isLoadingMoreSearchResults = true;
@@ -876,27 +1081,15 @@
         // Neue Seite laden
         currentPage++;
         
-        // URL für die Suchabfrage vorbereiten
-        // Jetzt müssen wir verschiedene Szenarien unterscheiden:
-        // 1. Normale Themenkachel (Eltern) -> kein logical_op
-        // 2. Unterkachel -> logical_op=AND
-        // 3. Kombinierte Suche (Eltern + Suchbegriff) -> logical_op=AND
-        let fetchUrl = '';
+        // URL für die nächste Seite erstellen - immer mit parent_scope
+        let fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=50&offset=${currentPage * 50}&parent_scope=${parentTile.id}`;
         
-        // Überprüfen, ob es eine Unterkachel-Suche ist (wenn wir auf eine Unterkachel geklickt haben)
-        const isSubtopicSearch = document.querySelector('.topic-title span').textContent === parentTile.title && 
-                               searchQuery !== parentTile.searchTerms;
-                               
-        if (isSubtopicSearch || 
-            (searchQuery.includes(parentTile.searchTerms) && searchQuery.length > parentTile.searchTerms.length)) {
-          // Es ist eine Unterkachel oder kombinierte Suche - verwende AND
-          fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=50&offset=${currentPage * 50}&logical_op=AND`;
-          debugLog(`Lade mehr Ergebnisse mit AND-Verknüpfung: ${fetchUrl}`);
-        } else {
-          // Es ist eine einfache Elternkachel-Suche
-          fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=50&offset=${currentPage * 50}`;
-          debugLog(`Lade mehr Ergebnisse für Elternkachel: ${fetchUrl}`);
+        // Füge Suchfelder-Parameter hinzu, wenn spezifische Felder ausgewählt sind
+        if (!activeSearchFields.includes('all')) {
+          fetchUrl += `&search_fields=${activeSearchFields.join(',')}`;
         }
+        
+        debugLog(`Lade mehr Ergebnisse: ${fetchUrl}`);
         
         fetch(fetchUrl)
           .then(response => response.json())

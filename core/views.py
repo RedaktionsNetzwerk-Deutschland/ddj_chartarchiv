@@ -321,6 +321,23 @@ def chart_search(request):
     offset = int(request.GET.get('offset', 0))  # Optional offset Parameter
     logical_op = request.GET.get('logical_op', 'OR').upper()  # Default ist OR, kann auf AND gesetzt werden
     
+    # Neuer Parameter für die feldspezifische Suche
+    search_fields = request.GET.get('search_fields', '')
+    
+    # Neuer Parameter für die themenspezifische Suche
+    parent_scope = request.GET.get('parent_scope', None)
+    parent_search_terms = None
+    
+    # Bei Verwendung von parent_scope, lade die Themenkachel und ihre Suchbegriffe
+    if parent_scope:
+        try:
+            from core.models import TopicTile
+            parent_tile = TopicTile.objects.get(id=parent_scope)
+            parent_search_terms = parent_tile.search_terms
+            print(f"DEBUG[SERVER]: Suche innerhalb des Themenbereichs: {parent_tile.title} mit Suchbegriffen: {parent_search_terms}")
+        except Exception as e:
+            print(f"DEBUG[SERVER]: Fehler beim Laden der Themenkachel: {e}")
+    
     # Bei Verwendung von offset, berechnen wir die Seite entsprechend
     if offset > 0:
         page = offset // items_per_page
@@ -328,10 +345,47 @@ def chart_search(request):
     print(f"DEBUG[SERVER]: Suchanfrage erhalten - Suchbegriff: '{q}', Seite: {page}, Limit: {items_per_page}, Offset: {offset}, LogicalOp: {logical_op}")
     print(f"DEBUG[SERVER]: Alle Request-Parameter: {dict(request.GET.items())}")
     
+    # Bei aktiver Feldfilterung, bereite die Liste der zu durchsuchenden Felder vor
+    selected_fields = []
+    if search_fields:
+        selected_fields = [field.strip() for field in search_fields.split(',') if field.strip()]
+        print(f"DEBUG[SERVER]: Feldspezifische Suche in Feldern: {selected_fields}")
+    
     # Hole blacklisted Chart-IDs einmal, um sie von allen Suchergebnissen auszuschließen
     blacklisted_chart_ids = ChartBlacklist.objects.values_list('chart_id', flat=True)
     print(f"DEBUG[SERVER]: Anzahl der Blacklist-Einträge: {len(blacklisted_chart_ids)}")
     
+    # Erstelle eine Basisdatenbank-Abfrage für alle Grafiken
+    base_query = Chart.objects.all()
+    base_query = base_query.exclude(tags__icontains="Tägliche Updates")
+    
+    # Ausschluss von Grafiken auf der Blacklist
+    if blacklisted_chart_ids:
+        base_query = base_query.exclude(chart_id__in=blacklisted_chart_ids)
+    
+    # Wenn ein Themenbereich angegeben ist, wende zuerst einen Filter für die Themen-Suchbegriffe an
+    if parent_scope and parent_search_terms:
+        # Teile die Themensuchbegriffe in einzelne Wörter auf
+        parent_terms = parent_search_terms.strip().split()
+        
+        # Erstelle eine OR-Abfrage für die Themensuchbegriffe
+        parent_query = Q()
+        for term in parent_terms:
+            if len(term) > 2:  # Ignoriere sehr kurze Wörter
+                # Suche in allen Standardfeldern für Themenbegriffe
+                parent_query |= Q(chart_id__icontains=term) | \
+                               Q(title__icontains=term) | \
+                               Q(description__icontains=term) | \
+                               Q(notes__icontains=term) | \
+                               Q(comments__icontains=term) | \
+                               Q(embed_js__icontains=term) | \
+                               Q(tags__icontains=term)
+        
+        # Filtere die Basisdatenbank-Abfrage mit den Themensuchbegriffen
+        base_query = base_query.filter(parent_query)
+        print(f"DEBUG[SERVER]: Themenfilter angewendet, verbleibende Ergebnisse: {base_query.count()}")
+    
+    # Jetzt wende den benutzerdefinierten Suchbegriff an, wenn vorhanden
     if q:
         # Teile die Suchanfrage in einzelne Wörter auf
         search_terms = q.strip().split()
@@ -349,13 +403,8 @@ def chart_search(request):
                 # Jeder Suchbegriff wird mit AND hinzugefügt
                 for term in search_terms:
                     if len(term) > 2:  # Ignoriere sehr kurze Wörter
-                        term_query = Q(chart_id__icontains=term) | \
-                                   Q(title__icontains=term) | \
-                                   Q(description__icontains=term) | \
-                                   Q(notes__icontains=term) | \
-                                   Q(comments__icontains=term) | \
-                                   Q(embed_js__icontains=term) | \
-                                   Q(tags__icontains=term)
+                        # Erstelle eine Teil-Query abhängig von den ausgewählten Feldern
+                        term_query = create_field_query(term, selected_fields)
                         # Füge diesen Suchbegriff mit UND hinzu
                         query &= term_query
                 
@@ -365,27 +414,15 @@ def chart_search(request):
                 # Verknüpfe jeden Suchbegriff mit ODER
                 for term in search_terms:
                     if len(term) > 2:  # Ignoriere sehr kurze Wörter
-                        term_query = Q(chart_id__icontains=term) | \
-                                   Q(title__icontains=term) | \
-                                   Q(description__icontains=term) | \
-                                   Q(notes__icontains=term) | \
-                                   Q(comments__icontains=term) | \
-                                   Q(embed_js__icontains=term) | \
-                                   Q(tags__icontains=term)
+                        # Erstelle eine Teil-Query abhängig von den ausgewählten Feldern
+                        term_query = create_field_query(term, selected_fields)
                         # Füge diesen Suchbegriff mit ODER hinzu
                         query |= term_query
                 
                 print(f"DEBUG[SERVER]: Verwende ODER-Verknüpfung für mehrere Suchbegriffe")
             
-            # Anwenden der zusammengebauten Abfrage
-            charts_queryset = Chart.objects.filter(query)
-            
-            # Ausschluss von Grafiken mit dem Tag "Tägliche Updates"
-            charts_queryset = charts_queryset.exclude(tags__icontains="Tägliche Updates")
-            
-            # Ausschluss von Grafiken auf der Blacklist
-            if blacklisted_chart_ids:
-                charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
+            # Anwenden der zusammengebauten Abfrage auf die bereits gefilterte Basisdatenbank-Abfrage
+            charts_queryset = base_query.filter(query)
             
             total_count = charts_queryset.count()
             print(f"DEBUG[SERVER]: Gefundene Ergebnisse bei {logical_op}-Suche: {total_count}")
@@ -412,21 +449,11 @@ def chart_search(request):
                 charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
         else:
             # Bei einem einzelnen Suchbegriff OR-Verknüpfung verwenden (wie bisher)
-            query = Q(chart_id__icontains=q) | \
-                    Q(title__icontains=q) | \
-                    Q(description__icontains=q) | \
-                    Q(notes__icontains=q) | \
-                    Q(comments__icontains=q) | \
-                    Q(embed_js__icontains=q) | \
-                    Q(tags__icontains=q)
+            # Erstelle Query abhängig von den ausgewählten Feldern
+            query = create_field_query(q, selected_fields)
             
-            # Filter Ergebnisse, dann wende den Ausschluss an
-            charts_queryset = Chart.objects.filter(query)
-            charts_queryset = charts_queryset.exclude(tags__icontains="Tägliche Updates")
-            
-            # Ausschluss von Grafiken auf der Blacklist
-            if blacklisted_chart_ids:
-                charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
+            # Filter Ergebnisse auf der bereits gefilterten Basisdatenbank-Abfrage
+            charts_queryset = base_query.filter(query)
             
             total_count = charts_queryset.count()
             print(f"DEBUG[SERVER]: Gefundene Ergebnisse bei ODER-Suche nach Ausschluss: {total_count}")
@@ -452,12 +479,8 @@ def chart_search(request):
             else:
                 charts = charts_queryset[page*items_per_page:(page+1)*items_per_page]
     else:
-        # Alle Grafiken, aber ohne "Tägliche Updates"
-        charts_queryset = Chart.objects.all().exclude(tags__icontains="Tägliche Updates")
-        
-        # Ausschluss von Grafiken auf der Blacklist
-        if blacklisted_chart_ids:
-            charts_queryset = charts_queryset.exclude(chart_id__in=blacklisted_chart_ids)
+        # Wenn kein Suchbegriff angegeben ist, verwende die Basisdatenbank-Abfrage
+        charts_queryset = base_query
             
         total_count = charts_queryset.count()
         print(f"DEBUG[SERVER]: Gesamtanzahl aller Charts nach Ausschluss: {total_count}")
@@ -510,6 +533,52 @@ def chart_search(request):
     }
     print(f"DEBUG[SERVER]: Sende {len(results)} Ergebnisse zurück")
     return JsonResponse(data)
+
+# Hilfsfunktion zum Erstellen der Feldabfrage basierend auf den ausgewählten Feldern
+def create_field_query(term, selected_fields):
+    """
+    Erstellt eine Datenbankabfrage basierend auf dem Suchbegriff und den ausgewählten Feldern.
+    
+    Args:
+        term: Der Suchbegriff
+        selected_fields: Liste der Feldnamen, die durchsucht werden sollen
+    
+    Returns:
+        Django Q-Objekt für die Datenbankabfrage
+    """
+    # Wenn keine spezifischen Felder ausgewählt sind, suche in allen Standardfeldern
+    if not selected_fields:
+        return Q(chart_id__icontains=term) | \
+               Q(title__icontains=term) | \
+               Q(description__icontains=term) | \
+               Q(notes__icontains=term) | \
+               Q(comments__icontains=term) | \
+               Q(embed_js__icontains=term) | \
+               Q(tags__icontains=term)
+    
+    # Erstelle eine leere Q-Abfrage
+    query = Q()
+    
+    # Füge für jedes ausgewählte Feld eine OR-Bedingung hinzu
+    for field in selected_fields:
+        if field == 'chart_id':
+            query |= Q(chart_id__icontains=term)
+        elif field == 'title':
+            query |= Q(title__icontains=term)
+        elif field == 'description':
+            query |= Q(description__icontains=term)
+        elif field == 'notes':
+            query |= Q(notes__icontains=term)
+        elif field == 'comments':
+            query |= Q(comments__icontains=term)
+        elif field == 'tags':
+            query |= Q(tags__icontains=term)
+        elif field == 'embed_js':
+            query |= Q(embed_js__icontains=term)
+        elif field == 'author':
+            query |= Q(author__icontains=term)
+    
+    return query
 
 @custom_login_required(login_url='index')
 def chart_detail(request, chart_id):

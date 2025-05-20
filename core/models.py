@@ -27,6 +27,7 @@ class Chart(models.Model):
     preview_url = models.URLField(blank=True, verbose_name="Vorschau-URL", help_text="URL zur Vorschau der Grafik (publicUrl)")
     pic_url_full = models.URLField(blank=True, verbose_name="Bild-URL (Vollbild)", help_text="URL zum vollständigen Thumbnail-Bild")
     pic_url_small = models.URLField(blank=True, verbose_name="Bild-URL (Klein)", help_text="URL zum kleinen Thumbnail-Bild")
+    folder = models.TextField(blank=True, verbose_name="Ordner", help_text="Kommagetrennte Liste der Ordner und Unterordner, in denen die Grafik liegt")
 
     def __str__(self):
         return self.title

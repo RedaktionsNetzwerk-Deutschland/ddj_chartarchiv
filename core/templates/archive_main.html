@@ -88,6 +88,89 @@
       margin-left: 8px;
       font-size: 16px;
     }
+    
+    /* Neue Styles für die Filter-Pills */
+    .search-filters {
+      max-width: 1200px;
+      margin: 10px auto 0;
+      padding: 0 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      transition: all 0.3s ease;
+    }
+    
+    .filter-pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      background-color: #f0f0f0;
+      color: #666;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 2px solid transparent;
+      font-family: 'DINNextLTPro', sans-serif;
+    }
+    
+    .filter-pill:hover {
+      background-color: #e8e8e8;
+      transform: translateY(-1px);
+    }
+    
+    .filter-pill.active {
+      background-color: #e6eeff;
+      color: #4f80ff;
+      border-color: #4f80ff;
+    }
+    
+    .filter-pill .pill-icon {
+      font-size: 0.9em;
+    }
+    
+    .filter-pill.active .pill-icon.check {
+      display: inline-block;
+    }
+    
+    .filter-pill:not(.active) .pill-icon.check {
+      display: none;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-right: 16px;
+      align-items: center;
+    }
+    
+    .filter-divider {
+      width: 1px;
+      height: 20px;
+      background-color: #ddd;
+      margin: 0 8px;
+    }
+    
+    .filter-group-label {
+      font-size: 0.8em;
+      color: #999;
+      margin-right: 4px;
+      font-family: 'DINNextLTPro', sans-serif;
+    }
+    
+    .filter-all {
+      background-color: #f8f8f8;
+      border: 1px dashed #ccc;
+    }
+    
+    .filter-all.active {
+      background-color: #f0f7ff;
+      border: 1px solid #4f80ff;
+    }
+    
     #search-results {
       max-width: 1200px;
       width: calc(100% - 40px);
@@ -678,6 +761,53 @@
     <i class="search-icon fas fa-search"></i>
     <input type="text" id="search-input" placeholder="Grafiken durchsuchen...">
   </div>
+  
+  <!-- Filter-Pills für die feldspezifische Suche -->
+  <div class="search-filters">
+    <div class="filter-group">
+      <button class="filter-pill filter-all active" data-field="all">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Alle Felder</span>
+      </button>
+    </div>
+    
+    <div class="filter-group">
+      <span class="filter-group-label">Inhalte:</span>
+      <button class="filter-pill" data-field="title">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Titel</span>
+      </button>
+      <button class="filter-pill" data-field="description">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Beschreibung</span>
+      </button>
+      <button class="filter-pill" data-field="notes">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Notizen</span>
+      </button>
+      <button class="filter-pill" data-field="comments">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Kommentare</span>
+      </button>
+    </div>
+    
+    <div class="filter-group">
+      <span class="filter-group-label">Metadaten:</span>
+      <button class="filter-pill" data-field="tags">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Tags</span>
+      </button>
+      <button class="filter-pill" data-field="chart_id">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Chart-ID</span>
+      </button>
+      <button class="filter-pill" data-field="author">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Autor</span>
+      </button>
+    </div>
+  </div>
+  
   <div id="search-results"></div>
   
   <!-- Bereichsanzeiger für die ausgewählte Themenkachel -->
@@ -762,6 +892,9 @@
       var isThemeFilterActive = false; // Flag für aktive Themenfilterung
       var topicCachedResults = []; // Hier speichern wir alle Ergebnisse der Themenkachel
       
+      // Neue Variable für die aktiven Suchfelder
+      var activeSearchFields = ['all'];
+      
       // Elemente für den Bereichsanzeiger
       var topicIndicator = document.getElementById("topic-indicator");
       var selectedTopicName = document.getElementById("selected-topic-name");
@@ -771,6 +904,64 @@
       function debugLog(message) {
         console.log(`[DEBUG] ${message}`);
       }
+      
+      // Event-Handler für die Filter-Pills
+      document.querySelectorAll('.filter-pill').forEach(pill => {
+        pill.addEventListener('click', function() {
+          const field = this.getAttribute('data-field');
+          
+          if (field === 'all') {
+            // Wenn "Alle Felder" geklickt wird
+            if (this.classList.contains('active')) {
+              // Wenn bereits aktiv, nicht deaktivieren
+              return;
+            } else {
+              // Wenn nicht aktiv, alle anderen Filter deaktivieren
+              document.querySelectorAll('.filter-pill').forEach(p => {
+                p.classList.remove('active');
+              });
+              this.classList.add('active');
+              activeSearchFields = ['all'];
+            }
+          } else {
+            // Wenn ein spezifisches Feld geklickt wird
+            
+            // "Alle Felder" deaktivieren
+            document.querySelector('.filter-pill[data-field="all"]').classList.remove('active');
+            
+            // Dieses Feld umschalten
+            this.classList.toggle('active');
+            
+            // Liste der aktiven Felder aktualisieren
+            if (this.classList.contains('active')) {
+              // Feld zur Liste hinzufügen, wenn es noch nicht drin ist
+              if (!activeSearchFields.includes(field)) {
+                activeSearchFields.push(field);
+              }
+              // "all" aus der Liste entfernen, falls vorhanden
+              activeSearchFields = activeSearchFields.filter(f => f !== 'all');
+            } else {
+              // Feld aus der Liste entfernen
+              activeSearchFields = activeSearchFields.filter(f => f !== field);
+            }
+            
+            // Wenn keine Felder mehr aktiv sind, "Alle Felder" wieder aktivieren
+            if (activeSearchFields.length === 0 || 
+                (activeSearchFields.length === 1 && activeSearchFields[0] === 'all')) {
+              document.querySelector('.filter-pill[data-field="all"]').classList.add('active');
+              activeSearchFields = ['all'];
+            }
+          }
+          
+          debugLog(`Aktive Suchfelder: ${activeSearchFields.join(', ')}`);
+          
+          // Suche erneut ausführen, wenn ein Suchbegriff vorhanden ist
+          if (searchInput.value.trim()) {
+            // Hier debouncedSearch direkt aufrufen mit dem aktuellen Suchbegriff
+            debouncedSearch(searchInput.value.trim());
+          }
+        });
+      });
 
       // Event-Handler für den "Zurück zur Hauptansicht" Button
       backToMainButton.addEventListener('click', function() {
@@ -884,24 +1075,10 @@
         };
       }
 
-      // Stelle sicher, dass die Kacheln mit der Fade-In-Animation angezeigt werden
-      if (!searchInput.value) {
-        defaultTiles.classList.add('fade-in');
-      }
-      
-      // Zeige die Tabelle standardmäßig an
-      const chartsTable = document.querySelector('.charts-table-container');
-      chartsTable.style.display = "block";
-      
-      // Lade die initialen Daten nur, wenn keine Themenfilterung aktiv ist
-      if (!searchInput.value && !isThemeFilterActive) {
-        loadChartData();
-      }
-      
       // Modifizierte Event Listener für die Suche mit Debouncing
       if (searchInput) {
         const debouncedSearch = debounce(function(query) {
-          debugLog(`Suche nach: "${query}"`);
+          debugLog(`Suche nach: "${query}" in Feldern: ${activeSearchFields.join(', ')}`);
           
           // Wenn ein Themenfilter aktiv ist und der Suchbegriff nicht leer ist
           if (isThemeFilterActive && currentTopicTitle && query.trim() !== '') {
@@ -1113,6 +1290,19 @@
         searchResults.insertBefore(resultsInfo, searchResults.firstChild);
       }
 
+      // Modifizierte Funktion zum Erstellen der Fetch-URL mit den aktiven Suchfeldern
+      function createSearchUrl(query, limit = 50, offset = 0, logicalOp = 'AND') {
+        let url = `/chart-search/?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}&logical_op=${logicalOp}`;
+        
+        // Füge Suchfelder-Parameter hinzu, wenn spezifische Felder ausgewählt sind
+        if (!activeSearchFields.includes('all')) {
+          url += `&search_fields=${activeSearchFields.join(',')}`;
+        }
+        
+        return url;
+      }
+
+      // Modifizierte Funktion zum Fetchen der Ergebnisse
       function fetchResults(query) {
         const chartsTable = document.querySelector('.charts-table-container');
         const chartsTableBody = document.getElementById("charts-table-body");
@@ -1122,8 +1312,12 @@
         chartsTable.classList.add('loading');
         loadingSpinner.classList.add('visible');
         
-        // Füge den Parameter logical_op=AND hinzu, um UND-Verknüpfung für mehrere Suchbegriffe zu erzwingen
-        fetch("/chart-search/?q=" + encodeURIComponent(query) + "&limit=50&logical_op=AND")
+        // Erstelle die URL mit den aktiven Suchfeldern
+        const fetchUrl = createSearchUrl(query);
+        debugLog(`Fetch-URL: ${fetchUrl}`);
+        
+        // Führe die API-Anfrage aus
+        fetch(fetchUrl)
           .then(response => response.json())
           .then(data => {
             // Anstatt die Ergebnislänge zu verwenden, nehmen wir total_count vom Server
@@ -1188,13 +1382,7 @@
           });
       }
 
-      // Variablen für die Suchpaginierung
-      let currentSearchPage = 0;
-      let hasMoreSearchResults = false;
-      let searchQuery = '';
-      let isLoadingMoreSearchResults = false;
-
-      // Funktion zum Laden der nächsten Seite der Suchergebnisse
+      // Modifizierte Funktion zum Laden weiterer Suchergebnisse
       function loadMoreSearchResults() {
         if (isLoadingMoreSearchResults || !hasMoreSearchResults) return;
         
@@ -1207,17 +1395,17 @@
         spinnerAtBottom.innerHTML = '<div class="spinner" style="width: 30px; height: 30px;"></div>';
         document.getElementById("charts-table-body").appendChild(spinnerAtBottom);
         
-        // URL für die Suchabfrage vorbereiten
+        // Erstelle die URL mit den aktiven Suchfeldern
         let fetchUrl = "";
         
         // Prüfen, ob es sich um eine Themenkachel-Suche oder eine normale Suche handelt
         if (isThemeFilterActive && currentTopicTitle) {
           // Bei Themenkachel-Suche, kein logical_op hinzufügen
-          fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=25&offset=${currentSearchPage * 25}`;
+          fetchUrl = createSearchUrl(searchQuery, 25, currentSearchPage * 25, 'OR');
           debugLog(`Lade mehr Themenkachel-Ergebnisse: ${fetchUrl}`);
         } else {
           // Bei normaler Suche
-          fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=50&offset=${currentSearchPage * 50}&logical_op=AND`;
+          fetchUrl = createSearchUrl(searchQuery, 50, currentSearchPage * 50, 'AND');
           debugLog(`Lade mehr normale Suchergebnisse: ${fetchUrl}`);
         }
         
@@ -1561,9 +1749,9 @@
         }, 300); // Dauer der Ausblendanimation
       }
 
-      // Funktion zum Suchen innerhalb der Themenkachel-Ergebnisse
+      // Funktion zum Suchen innerhalb der Themenkachel-Ergebnisse (modifiziert)
       function searchWithinTopicResults(query) {
-        debugLog(`Suche innerhalb der Themenkachel-Ergebnisse nach: ${query}`);
+        debugLog(`Suche innerhalb der Themenkachel-Ergebnisse nach: ${query} in Feldern: ${activeSearchFields.join(', ')}`);
         debugLog(`Cache hat ${topicCachedResults.length} Einträge`);
         
         // Wenn wir ausreichend Ergebnisse im Cache haben, filtern wir lokal
@@ -1601,8 +1789,11 @@
           
           debugLog(`Kombinierte Suche: "${combinedQuery}"`);
           
-          // Führe API-Suche durch, ohne logical_op für mehr Ergebnisse
-          fetch(`/chart-search/?q=${encodeURIComponent(combinedQuery)}&limit=25`)
+          // Erstelle die URL mit den aktiven Suchfeldern
+          const fetchUrl = createSearchUrl(combinedQuery, 25, 0, 'OR');
+          
+          // Führe API-Suche durch
+          fetch(fetchUrl)
             .then(response => response.json())
             .then(data => {
               currentSearchResults = data.results;
@@ -1657,7 +1848,7 @@
         }, 300); // Dauer der Ausblendanimation
       }
 
-      // Funktion zum Filtern der gecachten Ergebnisse basierend auf dem Suchbegriff
+      // Modifizierte Funktion zum Filtern der gecachten Ergebnisse unter Berücksichtigung der aktiven Felder
       function filterCachedResults(query) {
         if (!topicCachedResults.length) return;
         
@@ -1832,7 +2023,7 @@
       
       // Funktion für normale Suche ohne Themenfilter
       function normalSearch(query) {
-        debugLog(`Normale Suche nach: ${query}`);
+        debugLog(`Normale Suche nach: ${query} in Feldern: ${activeSearchFields.join(', ')}`);
         
         const chartsTable = document.querySelector('.charts-table-container');
         const chartsTableBody = document.getElementById("charts-table-body");
@@ -1858,8 +2049,11 @@
           // Variable für die Daten vom Server
           let serverData = null;
           
-          // Füge logical_op=AND Parameter hinzu
-          fetch("/chart-search/?q=" + encodeURIComponent(query) + "&limit=50&logical_op=AND")
+          // Erstelle die URL mit den aktiven Suchfeldern
+          const fetchUrl = createSearchUrl(query);
+          
+          // Führe die API-Anfrage aus
+          fetch(fetchUrl)
             .then(response => response.json())
             .then(data => {
               // Speichere die Daten in der äußeren Variable

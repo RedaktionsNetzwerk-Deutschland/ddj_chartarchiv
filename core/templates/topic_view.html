@@ -59,6 +59,88 @@
       color: #ccc;
     }
     
+    /* Neue Styles für die Filter-Pills */
+    .search-filters {
+      max-width: 1200px;
+      margin: 0 auto 20px;
+      padding: 0 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      transition: all 0.3s ease;
+    }
+    
+    .filter-pill {
+      padding: 6px 14px;
+      border-radius: 20px;
+      background-color: #f0f0f0;
+      color: #666;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 2px solid transparent;
+      font-family: 'DINNextLTPro', sans-serif;
+    }
+    
+    .filter-pill:hover {
+      background-color: #e8e8e8;
+      transform: translateY(-1px);
+    }
+    
+    .filter-pill.active {
+      background-color: #e6eeff;
+      color: #4f80ff;
+      border-color: #4f80ff;
+    }
+    
+    .filter-pill .pill-icon {
+      font-size: 0.9em;
+    }
+    
+    .filter-pill.active .pill-icon.check {
+      display: inline-block;
+    }
+    
+    .filter-pill:not(.active) .pill-icon.check {
+      display: none;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-right: 16px;
+      align-items: center;
+    }
+    
+    .filter-divider {
+      width: 1px;
+      height: 20px;
+      background-color: #ddd;
+      margin: 0 8px;
+    }
+    
+    .filter-group-label {
+      font-size: 0.8em;
+      color: #999;
+      margin-right: 4px;
+      font-family: 'DINNextLTPro', sans-serif;
+    }
+    
+    .filter-all {
+      background-color: #f8f8f8;
+      border: 1px dashed #ccc;
+    }
+    
+    .filter-all.active {
+      background-color: #f0f7ff;
+      border: 1px solid #4f80ff;
+    }
+    
     .topic-header {
       margin: 30px auto;
       max-width: 1200px;
@@ -250,15 +332,63 @@
       <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
     </a>
     <h1>{{ topic_display }}</h1>
-    <p>Alle Grafiken zum Thema {{ topic_display }}</p>
+    <p>Hier findest du alle Grafiken zum Thema {{ topic_display }}</p>
   </div>
-
+  
   <div class="search-container">
     <i class="search-icon fas fa-search"></i>
-    <input type="text" id="search-input" placeholder="Innerhalb des Themas {{ topic_display }} suchen...">
+    <input type="text" id="search-input" placeholder="Grafiken im Bereich '{{ topic_display }}' durchsuchen..." value="{{ initial_search }}">
   </div>
+  
+  <!-- Filter-Pills für die feldspezifische Suche -->
+  <div class="search-filters">
+    <div class="filter-group">
+      <button class="filter-pill filter-all active" data-field="all">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Alle Felder</span>
+      </button>
+    </div>
+    
+    <div class="filter-group">
+      <span class="filter-group-label">Inhalte:</span>
+      <button class="filter-pill" data-field="title">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Titel</span>
+      </button>
+      <button class="filter-pill" data-field="description">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Beschreibung</span>
+      </button>
+      <button class="filter-pill" data-field="notes">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Notizen</span>
+      </button>
+      <button class="filter-pill" data-field="comments">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Kommentare</span>
+      </button>
+    </div>
+    
+    <div class="filter-group">
+      <span class="filter-group-label">Metadaten:</span>
+      <button class="filter-pill" data-field="tags">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Tags</span>
+      </button>
+      <button class="filter-pill" data-field="chart_id">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Chart-ID</span>
+      </button>
+      <button class="filter-pill" data-field="author">
+        <i class="fas fa-check-circle pill-icon check"></i>
+        <span>Autor</span>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Suche Ergebnisse Container -->
   <div id="search-results"></div>
-
+  
   <div class="charts-table-container">
     <h2 style="font-family: 'DINNextLTPro', sans-serif; color: #333; margin-bottom: 20px;">Grafiken werden geladen...</h2>
     <table>
@@ -284,193 +414,206 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", function() {
+      // Variablen für die Suche
       var searchInput = document.getElementById("search-input");
       var searchResults = document.getElementById("search-results");
       var chartsTableBody = document.getElementById("charts-table-body");
       var loadingSpinner = document.getElementById("loading-spinner");
-      var currentSearchResults = [];
-      var currentTablePage = 0;
-      var isLoadingTable = false;
-      var hasMoreCharts = true;
+      var currentPage = 0;
+      var hasMoreResults = false;
+      var isLoadingResults = false;
+      var currentSearchTerm = "{{ initial_search }}";
+      var isFirstLoad = true;
       
-      // Setze den anfänglichen Suchbegriff, aber das Suchfeld bleibt leer
-      const initialSearchTerm = "{{ initial_search }}";
+      // Neue Variable für die aktiven Suchfelder
+      var activeSearchFields = ['all'];
       
-      // Prüfe, ob ein zusätzlicher Suchbegriff im LocalStorage gespeichert ist
-      const storedSearchQuery = localStorage.getItem('archiveSearchQuery');
-      if (storedSearchQuery) {
-        // Setze den gespeicherten Suchbegriff in das Suchfeld
-        searchInput.value = storedSearchQuery;
-        
-        // Führe die Suche mit dem kombinierten Begriff durch
-        fetchResults(initialSearchTerm + " " + storedSearchQuery);
-      } else {
-        // Führe die Suche nur mit dem Themenbegriff durch
-        fetchResults(initialSearchTerm);
+      // Debug-Logger
+      function debugLog(message) {
+        console.log(`[DEBUG] ${message}`);
       }
       
-      // Event Listener für die Suche
-      if (searchInput) {
-        searchInput.addEventListener("input", function() {
-          var query = searchInput.value.trim();
+      // Event-Handler für die Filter-Pills
+      document.querySelectorAll('.filter-pill').forEach(pill => {
+        pill.addEventListener('click', function() {
+          const field = this.getAttribute('data-field');
           
-          // Speichere den Suchbegriff im LocalStorage
-          if (query) {
-            localStorage.setItem('archiveSearchQuery', query);
+          if (field === 'all') {
+            // Wenn "Alle Felder" geklickt wird
+            if (this.classList.contains('active')) {
+              // Wenn bereits aktiv, nicht deaktivieren
+              return;
+            } else {
+              // Wenn nicht aktiv, alle anderen Filter deaktivieren
+              document.querySelectorAll('.filter-pill').forEach(p => {
+                p.classList.remove('active');
+              });
+              this.classList.add('active');
+              activeSearchFields = ['all'];
+            }
           } else {
-            localStorage.removeItem('archiveSearchQuery');
+            // Wenn ein spezifisches Feld geklickt wird
+            
+            // "Alle Felder" deaktivieren
+            document.querySelector('.filter-pill[data-field="all"]').classList.remove('active');
+            
+            // Dieses Feld umschalten
+            this.classList.toggle('active');
+            
+            // Liste der aktiven Felder aktualisieren
+            if (this.classList.contains('active')) {
+              // Feld zur Liste hinzufügen, wenn es noch nicht drin ist
+              if (!activeSearchFields.includes(field)) {
+                activeSearchFields.push(field);
+              }
+              // "all" aus der Liste entfernen, falls vorhanden
+              activeSearchFields = activeSearchFields.filter(f => f !== 'all');
+            } else {
+              // Feld aus der Liste entfernen
+              activeSearchFields = activeSearchFields.filter(f => f !== field);
+            }
+            
+            // Wenn keine Felder mehr aktiv sind, "Alle Felder" wieder aktivieren
+            if (activeSearchFields.length === 0 || 
+                (activeSearchFields.length === 1 && activeSearchFields[0] === 'all')) {
+              document.querySelector('.filter-pill[data-field="all"]').classList.add('active');
+              activeSearchFields = ['all'];
+            }
           }
           
-          // Führe die kombinierte Suche durch (Thema + neuer Suchbegriff)
-          if (query.length > 0) {
-            // Füge den Themenbegriff immer hinzu
-            fetchResults(initialSearchTerm + " " + query);
-          } else {
-            // Wenn das Suchfeld leer ist, verwende nur den Themenbegriff
-            fetchResults(initialSearchTerm);
+          debugLog(`Aktive Suchfelder: ${activeSearchFields.join(', ')}`);
+          
+          // Suche erneut ausführen, wenn ein Suchbegriff vorhanden ist
+          if (searchInput.value.trim()) {
+            // Suche mit den neuen Filtereinstellungen ausführen
+            performSearch(searchInput.value.trim());
+          } else if (currentSearchTerm) {
+            // Wenn ein initialer Suchbegriff gesetzt wurde
+            performSearch(currentSearchTerm);
           }
         });
+      });
+      
+      // Funktion zum Erstellen der Fetch-URL mit den aktiven Suchfeldern
+      function createSearchUrl(query, limit = 50, offset = 0) {
+        let url = `/chart-search/?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}&logical_op=AND`;
+        
+        // Füge Suchfelder-Parameter hinzu, wenn spezifische Felder ausgewählt sind
+        if (!activeSearchFields.includes('all')) {
+          url += `&search_fields=${activeSearchFields.join(',')}`;
+        }
+        
+        return url;
       }
       
-      function fetchResults(query) {
-        // Leere die Tabelle sofort, wenn eine Suche beginnt
-        chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Suche läuft...</td></tr>";
+      // Funktion für die Suche
+      function performSearch(query) {
+        if (isLoadingResults) return;
         
-        // Deaktiviere das automatische Laden weiterer Daten während der Suche
-        hasMoreCharts = false;
-        currentTablePage = 0;
+        isLoadingResults = true;
+        loadingSpinner.style.display = "block";
+        chartsTableBody.innerHTML = "";
         
-        // Zeige den Spinner bei Suche
-        loadingSpinner.style.display = 'block';
+        // URL für die Suche erstellen
+        const fetchUrl = createSearchUrl(query);
+        debugLog(`Suche: ${fetchUrl}`);
         
-        fetch("/chart-search/?q=" + encodeURIComponent(query))
+        // Suche ausführen
+        fetch(fetchUrl)
           .then(response => response.json())
           .then(data => {
-            currentSearchResults = data.results;
-            const totalResults = data.results.length;
+            isLoadingResults = false;
+            currentPage = 0;
+            hasMoreResults = data.has_more;
             
-            // Aktualisiere die Tabelle
+            // Überschrift anpassen
+            const headerText = document.querySelector('.topic-header h1');
+            const resultCount = data.total_count || 0;
+            
+            if (isFirstLoad) {
+              headerText.textContent = `${resultCount} Grafiken zum Thema "{{ topic_display }}"`;
+              isFirstLoad = false;
+            } else {
+              headerText.textContent = `${resultCount} Grafiken für "${query}" in "{{ topic_display }}"`;
+            }
+            
+            // Tabelle leeren
             chartsTableBody.innerHTML = "";
             
-            // Aktualisiere die Überschrift mit der Anzahl der gefundenen Grafiken
-            const headerText = document.querySelector('.charts-table-container h2');
-            
-            if (totalResults === 0) {
-              if (query === initialSearchTerm) {
-                headerText.textContent = `Keine Grafiken zum Thema ${initialSearchTerm} gefunden`;
-              } else {
-                headerText.textContent = `Keine Grafiken zum Thema ${initialSearchTerm} mit Filter "${query.replace(initialSearchTerm, '').trim()}" gefunden`;
-              }
-              chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Keine Ergebnisse gefunden</td></tr>";
-              loadingSpinner.style.display = 'none';
-              return;
-            }
-            
-            if (query === initialSearchTerm) {
-              headerText.textContent = `${totalResults} Grafiken zum Thema ${initialSearchTerm}`;
+            if (data.results.length === 0) {
+              chartsTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px;">Keine Ergebnisse gefunden</td></tr>`;
             } else {
-              const additionalSearchTerm = query.replace(initialSearchTerm, '').trim();
-              headerText.textContent = `${totalResults} Grafiken zum Thema ${initialSearchTerm} mit Filter "${additionalSearchTerm}"`;
+              // Ergebnisse anzeigen
+              data.results.forEach(chart => renderChartRow(chart));
             }
             
-            // Funktion zum Hervorheben des Suchbegriffs
-            function highlightText(text, searchTerm) {
-              if (!text || typeof text !== 'string') return '';
-              
-              // Unterstütze auch die Hervorhebung mehrerer Suchbegriffe
-              if (searchTerm.includes(' ')) {
-                const terms = searchTerm.split(' ').filter(term => term.length > 2);
-                let highlightedText = text;
-                
-                terms.forEach(term => {
-                  const regex = new RegExp(term, 'gi');
-                  highlightedText = highlightedText.replace(regex, match => `<span class="highlight">${match}</span>`);
-                });
-                
-                return highlightedText;
-              }
-              
-              // Fallback für einzelnen Suchbegriff
-              const regex = new RegExp(searchTerm, 'gi');
-              return text.replace(regex, match => `<span class="highlight">${match}</span>`);
-            }
+            // Lade-Spinner ausblenden
+            loadingSpinner.style.display = "none";
             
-            // Zeige die Ergebnisse in der Tabelle an
-            data.results.forEach((chart, index) => {
-              const row = document.createElement('tr');
-              row.style.cursor = 'pointer';
-              row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
-              
-              // Generiere die Flags für die Tabelle
-              let flagsHTML = '';
-              if (chart.regional || chart.evergreen || chart.patch) {
-                flagsHTML = '<div class="table-flags">';
-                if (chart.regional) {
-                  flagsHTML += '<span class="table-flag regional">regional</span>';
-                }
-                if (chart.evergreen) {
-                  flagsHTML += '<span class="table-flag evergreen">evergreen</span>';
-                }
-                if (chart.patch) {
-                  flagsHTML += '<span class="table-flag patch">patch</span>';
-                }
-                flagsHTML += '</div>';
-              }
-              
-              // Generiere Tags-HTML für die formatierte Anzeige
-              let tagsHTML = '';
-              if (chart.tags && chart.tags.length > 0) {
-                const tagsList = chart.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-                if (tagsList.length > 0) {
-                  tagsHTML = `<div class="tags-container">` + 
-                    tagsList.map(tag => `<span class="tag">${highlightText(tag, query)}</span>`).join('') +
-                    `</div>`;
-                }
-              }
-              
-              const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
-              row.innerHTML = `
-                <td>${formattedDate}</td>
-                <td>
-                  <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
-                  </div>
-                </td>
-                <td style="font-weight: 500;">${highlightText(chart.title, query)}</td>
-                <td style="color: #666; font-family: monospace; font-size: 0.9em;">${highlightText(chart.chart_id, query)}</td>
-                <td style="color: #666;">${highlightText(chart.description || '', query)}</td>
-                <td>${tagsHTML}</td>
-                <td>${flagsHTML}</td>
-              `;
-              
-              row.style.transition = 'background-color 0.2s ease';
-              
-              row.addEventListener('mouseover', function() {
-                this.style.backgroundColor = '#f8f9ff';
-              });
-              
-              row.addEventListener('mouseout', function() {
-                this.style.backgroundColor = '';
-              });
-              
-              chartsTableBody.appendChild(row);
-
-              // Verzögertes Einblenden der Zeilen
-              setTimeout(() => {
-                row.classList.add('visible');
-              }, index * 50);
-            });
-            
-            // Verstecke den Spinner nach dem Laden
-            loadingSpinner.style.display = 'none';
+            // Aktuelle Suchanfrage speichern
+            currentSearchTerm = query;
           })
           .catch(error => {
-            console.error('Error fetching search results:', error);
-            chartsTableBody.innerHTML = "<tr><td colspan='7' style='text-align: center; padding: 20px; color: #666;'>Ein Fehler ist aufgetreten</td></tr>";
-            loadingSpinner.style.display = 'none';
+            console.error("Fehler bei der Suche:", error);
+            chartsTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px;">Ein Fehler ist aufgetreten</td></tr>`;
+            isLoadingResults = false;
+            loadingSpinner.style.display = "none";
           });
       }
-
+      
+      // Funktion zum Rendern einer Tabellenzeile
+      function renderChartRow(chart) {
+        const row = document.createElement('tr');
+        row.style.cursor = 'pointer';
+        row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
+        
+        // Generiere die Flags für die Tabelle
+        let flagsHTML = '';
+        if (chart.regional || chart.evergreen || chart.patch) {
+          flagsHTML = '<div class="table-flags">';
+          if (chart.regional) {
+            flagsHTML += '<span class="table-flag regional">regional</span>';
+          }
+          if (chart.evergreen) {
+            flagsHTML += '<span class="table-flag evergreen">evergreen</span>';
+          }
+          if (chart.patch) {
+            flagsHTML += '<span class="table-flag patch">patch</span>';
+          }
+          flagsHTML += '</div>';
+        }
+        
+        // Generiere Tags-HTML für die formatierte Anzeige
+        let tagsHTML = '';
+        if (chart.tags && chart.tags.length > 0) {
+          const tagsList = chart.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+          if (tagsList.length > 0) {
+            tagsHTML = `<div class="tags-container">` + 
+              tagsList.map(tag => `<span class="tag">${tag}</span>`).join('') +
+              `</div>`;
+          }
+        }
+        
+        // Formatiere das Datum
+        const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
+        
+        row.innerHTML = `
+          <td>${formattedDate}</td>
+          <td>
+            <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
+            </div>
+          </td>
+          <td style="font-weight: 500;">${chart.title}</td>
+          <td style="font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
+          <td>${chart.description || ''}</td>
+          <td>${tagsHTML}</td>
+          <td>${flagsHTML}</td>
+        `;
+        
+        chartsTableBody.appendChild(row);
+      }
+      
       // Funktion zum Formatieren des Datums
       function formatDate(dateString) {
         if (!dateString) return '';
@@ -480,6 +623,74 @@
           month: '2-digit',
           year: 'numeric'
         });
+      }
+      
+      // Debounce-Funktion für die Suche
+      function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+      }
+      
+      // Eventlistener für die Suche
+      if (searchInput) {
+        searchInput.addEventListener("input", debounce(function() {
+          const query = this.value.trim();
+          if (query.length > 2) {
+            performSearch(query);
+          } else if (query.length === 0 && currentSearchTerm) {
+            // Wenn das Suchfeld geleert wird, führe die ursprüngliche Suche erneut aus
+            performSearch("{{ initial_search }}");
+          }
+        }, 300));
+      }
+      
+      // Führe die initiale Suche durch
+      performSearch("{{ initial_search }}");
+      
+      // Event-Listener für Scroll hinzufügen (für Lazy Loading)
+      window.addEventListener('scroll', function() {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+          if (hasMoreResults && !isLoadingResults) {
+            loadMoreResults();
+          }
+        }
+      });
+      
+      // Funktion zum Laden weiterer Ergebnisse
+      function loadMoreResults() {
+        if (isLoadingResults || !hasMoreResults) return;
+        
+        isLoadingResults = true;
+        loadingSpinner.style.display = "block";
+        
+        // Nächste Seite laden
+        currentPage++;
+        
+        // URL für die nächste Seite erstellen
+        const fetchUrl = createSearchUrl(currentSearchTerm, 50, currentPage * 50);
+        debugLog(`Lade mehr Ergebnisse: ${fetchUrl}`);
+        
+        // Weitere Ergebnisse abrufen
+        fetch(fetchUrl)
+          .then(response => response.json())
+          .then(data => {
+            isLoadingResults = false;
+            hasMoreResults = data.has_more;
+            
+            // Ergebnisse anzeigen
+            data.results.forEach(chart => renderChartRow(chart));
+            
+            // Lade-Spinner ausblenden
+            loadingSpinner.style.display = "none";
+          })
+          .catch(error => {
+            console.error("Fehler beim Laden weiterer Ergebnisse:", error);
+            isLoadingResults = false;
+            loadingSpinner.style.display = "none";
+          });
       }
     });
   </script>
