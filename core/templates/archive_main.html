@@ -830,13 +830,13 @@
           currentTopicTitle = this.querySelector('span').textContent;
           debugLog(`Themenkachel geklickt: ${currentTopicTitle}, Suchbegriffe: ${searchTerms}, Hat Unterthemen: ${hasSubtopics}`);
           
-          // Bei Kacheln mit Unterthemen zur Unterthemen-Ansicht navigieren
-          if (hasSubtopics && tileId) {
+          // Alle Themenkacheln leiten zu /subtopics um, unabhängig davon, ob sie Unterordner haben
+          if (tileId) {
             window.location.href = `/archive/subtopics/${tileId}/`;
             return;
           }
           
-          // Normale Verarbeitung für Kacheln ohne Unterthemen
+          // Fallback-Verarbeitung für den Fall, dass kein tileId existiert (sollte nicht vorkommen)
           if (searchTerms) {
             // Aktiviere Themenfilterung
             isThemeFilterActive = true;

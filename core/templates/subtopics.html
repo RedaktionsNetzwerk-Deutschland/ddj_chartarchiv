@@ -453,12 +453,6 @@
         </div>
       {% endfor %}
     </div>
-  {% else %}
-    <div style="text-align: center; margin: 30px auto; color: #666; max-width: 600px;">
-      <i class="fas fa-info-circle" style="font-size: 2em; color: #4f80ff; margin-bottom: 15px;"></i>
-      <h3>Keine Unterthemen definiert</h3>
-      <p>Für dieses Thema wurden noch keine Unterthemen angelegt. Du kannst direkt nach Grafiken im Hauptthema suchen.</p>
-    </div>
   {% endif %}
   
   <div class="charts-table-container">
@@ -519,14 +513,15 @@
           const hasSubtopics = this.hasAttribute('data-has-subtopics');
           const tileTitle = this.querySelector('span').textContent;
           
-          // Bei Kacheln mit eigenen Unterthemen zur Unterthemen-Ansicht navigieren
-          if (hasSubtopics && tileId) {
+          // Alle Unterkacheln mit einer ID leiten zu einer weiteren Unterthemen-Seite weiter
+          if (tileId) {
             window.location.href = `/archive/subtopics/${tileId}/`;
             return;
           }
           
           debugLog(`Unterkachel geklickt: ${tileTitle} mit Suchbegriffen: ${searchTerms}`);
           
+          // Fallback, falls keine ID vorhanden ist (sollte nicht vorkommen)
           // Ändere Suchfeld-Placeholder
           searchInput.placeholder = `Grafiken im Unterthema '${tileTitle}' durchsuchen...`;
           
