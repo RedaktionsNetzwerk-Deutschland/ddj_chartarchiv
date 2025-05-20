@@ -105,6 +105,28 @@ class Command(BaseCommand):
                     archive = custom_fields.get('archiv', False)
                     archive = True if str(archive).lower() == 'true' else False
                     
+                    # 6. Responsive iframe URL aus embed-method-responsive
+                    embed_codes = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {})
+                    iframe_url = embed_codes.get('embed-method-responsive', '')
+                    
+                    # Fallbacks für iframe_url, falls embed-method-responsive nicht gefunden wird
+                    if not iframe_url:
+                        # Versuche zuerst den alten responsive-Key
+                        iframe_url = embed_codes.get('responsive', '')
+                        
+                        # Dann den alten API-Pfad
+                        if not iframe_url:
+                            iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-responsive', '')
+                            
+                            # Schließlich die publicUrl als letzten Fallback
+                            if not iframe_url:
+                                iframe_url = chart_details.get('publicUrl', '')
+                    
+                    # Stelle sicher, dass iframe_url nicht zu lang ist (max 990 Zeichen)
+                    if len(iframe_url) > 990:
+                        self.stdout.write(f"  Warnung: iframe_url für Chart {chart.chart_id} wurde gekürzt (Originallänge: {len(iframe_url)})")
+                        iframe_url = iframe_url[:990]
+                    
                     # Wenn URLs mit // beginnen, füge https: hinzu
                     if pic_url_full and pic_url_full.startswith('//'):
                         pic_url_full = f"https:{pic_url_full}"
@@ -119,6 +141,7 @@ class Command(BaseCommand):
                     chart.pic_url_full = pic_url_full
                     chart.pic_url_small = pic_url_small
                     chart.archive = archive
+                    chart.iframe_url = iframe_url
                     chart.save()
                     
                     updated_count += 1

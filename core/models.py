@@ -17,7 +17,7 @@ class Chart(models.Model):
     tags = models.TextField(blank=True)
     patch = models.BooleanField(default=False)
     thumbnail = models.ImageField(upload_to='thumbnails/', blank=True, null=True)
-    iframe_url = models.URLField(blank=True)
+    iframe_url = models.URLField(max_length=1000, blank=True)
     embed_js = models.TextField(blank=True)
     evergreen = models.BooleanField(default=False)
     regional = models.BooleanField(default=False)
