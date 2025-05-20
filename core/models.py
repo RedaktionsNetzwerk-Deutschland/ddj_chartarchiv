@@ -24,6 +24,9 @@ class Chart(models.Model):
     archive = models.BooleanField(default=False, verbose_name="Archiviert", help_text="Wert des custom-fields 'archiv' aus den Datawrapper-Metadaten")
     author = models.CharField(max_length=255, blank=True, verbose_name="Autor", help_text="Name des Autors aus den Datawrapper-Metadaten")
     author_email = models.EmailField(blank=True, verbose_name="Autor E-Mail", help_text="E-Mail-Adresse des Autors aus den Datawrapper-Metadaten")
+    preview_url = models.URLField(blank=True, verbose_name="Vorschau-URL", help_text="URL zur Vorschau der Grafik (publicUrl)")
+    pic_url_full = models.URLField(blank=True, verbose_name="Bild-URL (Vollbild)", help_text="URL zum vollständigen Thumbnail-Bild")
+    pic_url_small = models.URLField(blank=True, verbose_name="Bild-URL (Klein)", help_text="URL zum kleinen Thumbnail-Bild")
 
     def __str__(self):
         return self.title

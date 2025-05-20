@@ -197,9 +197,23 @@ class Command(BaseCommand):
                 # Basisdaten extrahieren
                 title = chart_details.get('title', '')
                 description = chart_details.get('metadata', {}).get('describe', {}).get('intro', '')
-                notes = chart_details.get('metadata', {}).get('describe', {}).get('notes', '')
+                notes = chart_details.get('metadata', {}).get('annotate', {}).get('notes', '')
                 published_at_str = chart_details.get('publishedAt')
                 lastModified_at_str = chart_details.get('lastModifiedAt')
+                
+                # Preview URL extrahieren
+                preview_url = chart_details.get('publicUrl', '')
+                
+                # Thumbnail-URLs extrahieren
+                thumbnails = chart_details.get('thumbnails', {})
+                pic_url_full = thumbnails.get('full', '')
+                pic_url_small = thumbnails.get('plain', '')
+                
+                # Wenn die URLs mit // beginnen, füge https: hinzu
+                if pic_url_full and pic_url_full.startswith('//'):
+                    pic_url_full = f"https:{pic_url_full}"
+                if pic_url_small and pic_url_small.startswith('//'):
+                    pic_url_small = f"https:{pic_url_small}"
                 
                 # Autor aus den Metadaten extrahieren
                 author_name = chart_details.get('author', {}).get('name', '')
@@ -312,6 +326,9 @@ class Command(BaseCommand):
                         chart_obj.embed_js = embed_js
                         chart_obj.author = author_name
                         chart_obj.author_email = author_email
+                        chart_obj.preview_url = preview_url
+                        chart_obj.pic_url_full = pic_url_full
+                        chart_obj.pic_url_small = pic_url_small
                         chart_obj.save()
                         
                         logger.info(f"Bestehendes Chart aktualisiert: {title} (ID: {chart_id})")
@@ -334,6 +351,9 @@ class Command(BaseCommand):
                             embed_js=embed_js,
                             author=author_name,
                             author_email=author_email,
+                            preview_url=preview_url,
+                            pic_url_full=pic_url_full,
+                            pic_url_small=pic_url_small,
                         )
                         logger.info(f"Neues Chart gespeichert: {title} (ID: {chart_id})")
                 except Exception as e:

@@ -58,14 +58,27 @@ def debug_chart_metadata(chart_id):
         print(f"Name: {author.get('name', 'N/A')}")
         print(f"E-Mail: {author.get('email', 'N/A')}")
         
-        print(f"\nÖffentliche URL: {chart_details.get('publicUrl', 'N/A')}")
+        # Bild-URLs anzeigen
+        print("\n--- Bild-URLs ---")
+        thumbnails = chart_details.get('thumbnails', {})
+        full_url = thumbnails.get('full', 'N/A')
+        print(f"Vollbild-URL: {full_url}")
+        small_url = thumbnails.get('plain', 'N/A')
+        print(f"Kleinbild-URL: {small_url}")
+        
+        # URLs anzeigen
+        print("\n--- URLs ---")
+        print(f"Öffentliche URL (Preview-URL): {chart_details.get('publicUrl', 'N/A')}")
         print(f"Eingebettete URL: {chart_details.get('publicUrl', 'N/A')}")
+        
         print("\n--- Beschreibende Metadaten ---")
         
         # Beschreibung und Notizen
         describe = chart_details.get('metadata', {}).get('describe', {})
         print(f"Einleitung: {describe.get('intro', 'N/A')}")
-        print(f"Notizen: {describe.get('notes', 'N/A')}")
+        # Notizen jetzt aus dem annotate-Feld
+        annotate = chart_details.get('metadata', {}).get('annotate', {})
+        print(f"Notizen (aus annotate/notes): {annotate.get('notes', 'N/A')}")
         print(f"Quellen: {describe.get('byline', 'N/A')}")
         
         # Veröffentlichungs-Metadaten
