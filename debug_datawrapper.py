@@ -72,6 +72,23 @@ def debug_chart_metadata(chart_id):
             print("Verfügbare Embed-Codes:")
             for key in embed_codes:
                 print(f"  - {key}")
+                
+            # Besondere Hervorhebung für embed-method-responsive
+            embed_method_responsive = embed_codes.get('embed-method-responsive', '')
+            if embed_method_responsive:
+                print("\nEmbed-Method-Responsive URL (für iframe_url in DB):")
+                print(f"  {embed_method_responsive}")
+            else:
+                print("\nEmbed-Method-Responsive URL: Nicht vorhanden")
+                
+            # Fallback-Wert für responsive anzeigen
+            responsive = embed_codes.get('responsive', '')
+            if responsive:
+                print("\nFallback Responsive URL:")
+                print(f"  {responsive}")
+        
+        # Public URL anzeigen
+        print(f"\nÖffentliche URL (Fallback): {chart_details.get('publicUrl', 'N/A')}")
         
         # Custom fields
         print("\n--- Benutzerdefinierte Felder ---")

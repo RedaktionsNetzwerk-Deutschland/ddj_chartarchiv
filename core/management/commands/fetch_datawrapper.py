@@ -201,21 +201,25 @@ class Command(BaseCommand):
                 published_at_str = chart_details.get('publishedAt')
                 lastModified_at_str = chart_details.get('lastModifiedAt')
                 
-                # Responsive Iframe aus den Metadaten extrahieren
-                iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {}).get('responsive', '')
+                # Responsive Iframe aus den Metadaten extrahieren (korrigierter Pfad)
+                iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {}).get('embed-method-responsive', '')
                 
                 # Debug-Ausgabe der Metadaten-Struktur für embed-codes
                 embed_codes = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {})
                 logger.debug(f"Embed-Codes Struktur für Chart {chart_id}: {json.dumps(embed_codes, indent=2)[:500] + '...' if embed_codes else 'Keine embed-codes gefunden'}")
                 
-                # Fallback zur alten API-Struktur oder zur publicUrl, falls der responsive Iframe nicht gefunden wird
+                # Fallbacks, falls embed-method-responsive nicht gefunden wird
                 if not iframe_url:
-                    # Versuche zuerst, den alten Pfad zu nutzen
-                    iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-responsive', '')
+                    # Versuche zuerst den alten responsive-Key
+                    iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {}).get('responsive', '')
                     
-                    # Wenn auch das nicht funktioniert, verwende die publicUrl als Fallback
+                    # Dann den alten API-Pfad
                     if not iframe_url:
-                        iframe_url = chart_details.get('publicUrl', '')
+                        iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-responsive', '')
+                        
+                        # Schließlich die publicUrl als letzten Fallback
+                        if not iframe_url:
+                            iframe_url = chart_details.get('publicUrl', '')
                 
                 # Debug-Ausgabe für iframe_url
                 if iframe_url:
