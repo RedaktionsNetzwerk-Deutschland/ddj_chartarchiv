@@ -21,6 +21,9 @@ class Chart(models.Model):
     embed_js = models.TextField(blank=True)
     evergreen = models.BooleanField(default=False)
     regional = models.BooleanField(default=False)
+    archive = models.BooleanField(default=False, verbose_name="Archiviert", help_text="Wert des custom-fields 'archiv' aus den Datawrapper-Metadaten")
+    author = models.CharField(max_length=255, blank=True, verbose_name="Autor", help_text="Name des Autors aus den Datawrapper-Metadaten")
+    author_email = models.EmailField(blank=True, verbose_name="Autor E-Mail", help_text="E-Mail-Adresse des Autors aus den Datawrapper-Metadaten")
 
     def __str__(self):
         return self.title

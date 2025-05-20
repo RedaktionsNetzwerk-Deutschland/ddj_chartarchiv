@@ -201,6 +201,10 @@ class Command(BaseCommand):
                 published_at_str = chart_details.get('publishedAt')
                 lastModified_at_str = chart_details.get('lastModifiedAt')
                 
+                # Autor aus den Metadaten extrahieren
+                author_name = chart_details.get('author', {}).get('name', '')
+                author_email = chart_details.get('author', {}).get('email', '')
+                
                 # Responsive Iframe aus den Metadaten extrahieren (korrigierter Pfad)
                 iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {}).get('embed-method-responsive', '')
                 
@@ -270,6 +274,7 @@ class Command(BaseCommand):
                 patch = custom_fields.get("patch", "false")
                 evergreen = custom_fields.get("evergreen", "false")
                 regional = custom_fields.get("regional", "false")
+                archive = custom_fields.get("archiv", "false")
                 
                 # Datumswerte konvertieren
                 published_date = None
@@ -301,9 +306,12 @@ class Command(BaseCommand):
                         chart_obj.patch = True if patch.lower() == 'true' else False
                         chart_obj.evergreen = True if evergreen.lower() == 'true' else False
                         chart_obj.regional = True if regional.lower() == 'true' else False
+                        chart_obj.archive = True if archive.lower() == 'true' else False
                         chart_obj.last_modified_date = last_modified_date
                         chart_obj.iframe_url = iframe_url or ''
                         chart_obj.embed_js = embed_js
+                        chart_obj.author = author_name
+                        chart_obj.author_email = author_email
                         chart_obj.save()
                         
                         logger.info(f"Bestehendes Chart aktualisiert: {title} (ID: {chart_id})")
@@ -320,9 +328,12 @@ class Command(BaseCommand):
                             patch=True if patch.lower() == 'true' else False,
                             evergreen=True if evergreen.lower() == 'true' else False,
                             regional=True if regional.lower() == 'true' else False,
+                            archive=True if archive.lower() == 'true' else False,
                             last_modified_date=last_modified_date,
                             iframe_url=iframe_url or '',
                             embed_js=embed_js,
+                            author=author_name,
+                            author_email=author_email,
                         )
                         logger.info(f"Neues Chart gespeichert: {title} (ID: {chart_id})")
                 except Exception as e:
@@ -619,7 +630,8 @@ class Command(BaseCommand):
             "tags": "",
             "patch": "false",
             "evergreen": "false",
-            "regional": "false"
+            "regional": "false",
+            "archiv": "false"
         }
         
         # Metadaten holen

@@ -51,8 +51,14 @@ def debug_chart_metadata(chart_id):
         print(f"Erstellt am: {chart_details.get('createdAt', 'N/A')}")
         print(f"Zuletzt geändert: {chart_details.get('lastModifiedAt', 'N/A')}")
         print(f"Veröffentlicht am: {chart_details.get('publishedAt', 'N/A') or 'Nicht veröffentlicht'}")
-        print(f"Autor: {chart_details.get('author', {}).get('name', 'N/A')}")
-        print(f"Öffentliche URL: {chart_details.get('publicUrl', 'N/A')}")
+        
+        # Autor-Informationen detaillierter darstellen
+        author = chart_details.get('author', {})
+        print("\n--- Autor-Informationen ---")
+        print(f"Name: {author.get('name', 'N/A')}")
+        print(f"E-Mail: {author.get('email', 'N/A')}")
+        
+        print(f"\nÖffentliche URL: {chart_details.get('publicUrl', 'N/A')}")
         print(f"Eingebettete URL: {chart_details.get('publicUrl', 'N/A')}")
         print("\n--- Beschreibende Metadaten ---")
         
@@ -94,12 +100,20 @@ def debug_chart_metadata(chart_id):
         print("\n--- Benutzerdefinierte Felder ---")
         custom_fields = chart_details.get('metadata', {}).get('custom', {})
         if custom_fields:
+            # Besonders wichtige custom-fields hervorheben
+            important_fields = ['archiv', 'patch', 'evergreen', 'regional']
+            print("Wichtige Flags:")
+            for field in important_fields:
+                value = custom_fields.get(field, False)
+                print(f"  - {field}: {value}")
+                
+            print("\nAlle benutzerdefinierten Felder:")
             for key, value in custom_fields.items():
                 # Für bessere Lesbarkeit kurz fassen, wenn es sich um lange Inhalte handelt
                 if isinstance(value, str) and len(value) > 100:
-                    print(f"{key}: {value[:100]}... (gekürzt)")
+                    print(f"  {key}: {value[:100]}... (gekürzt)")
                 else:
-                    print(f"{key}: {value}")
+                    print(f"  {key}: {value}")
         
         # Datenwerte
         print("\n--- Datenstruktur (erste 5 Zeilen) ---")
