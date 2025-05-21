@@ -320,10 +320,14 @@
     .back-button i {
       margin-right: 10px;
     }
+    .export-buttons {
+      display: flex;
+      gap: 15px;
+    }
   </style>
 {% endblock %}
 
-{% block title %}Printexport - {{ chart.title }}{% endblock %}
+{% block title %}RND-Grafikarchiv{% endblock %}
 
 {% block content %}
   {% include 'partials/header.html' %}
@@ -340,7 +344,10 @@
     
     <div class="print-header">
       <h1 class="print-title">Printexport</h1>
-      <button class="export-button" onclick="handleExport()">Export</button>
+      <div class="export-buttons">
+        <button class="export-button" onclick="handleDcxExport()">Export DCX</button>
+        <button class="export-button" onclick="handleExport()">Export lokal</button>
+      </div>
     </div>
     
     <div class="print-layout">
@@ -857,6 +864,97 @@
         exportButton.disabled = false;
         exportButton.classList.remove('loading');
         exportButton.textContent = 'Export';
+      }
+    }
+
+    async function handleDcxExport() {
+      const exportButton = document.querySelector('.export-buttons button:first-child');
+      exportButton.disabled = true;
+      exportButton.classList.add('loading');
+      exportButton.textContent = 'Exportiere...';
+      
+      try {
+        const hasModifications = hasChanges();
+        const chartId = '{{ chart.chart_id }}';
+        
+        // Ähnliche Parameter wie beim lokalen Export
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        const currentHeadline = document.getElementById('headline').value;
+        const currentSubheadline = document.getElementById('subheadline').value;
+        const currentWidth = document.getElementById('width').value;
+        const currentHeight = document.getElementById('height').value;
+        
+        formData.append('title', currentHeadline);
+        formData.append('description', currentSubheadline);
+        formData.append('width', currentWidth);
+        formData.append('height', currentHeight);
+        
+        // Export-Parameter
+        formData.append('unit', 'mm');
+        formData.append('mode', 'rgb');
+        formData.append('plain', 'false');
+        formData.append('scale', '0.7');
+        formData.append('zoom', '1');
+        formData.append('fullVector', 'false');
+        formData.append('ligatures', 'true');
+        formData.append('transparent', 'true');
+        formData.append('logo', 'auto');
+        formData.append('dark', 'false');
+        
+        // Farben sammeln
+        const currentColors = {};
+        document.querySelectorAll('.color-item').forEach(item => {
+          const colorLabel = item.querySelector('.color-label');
+          const colorCode = item.querySelector('.color-code');
+          if (colorLabel && colorCode) {
+            const label = colorLabel.textContent.trim();
+            const color = colorCode.textContent.trim();
+            if (label && color) {
+              currentColors[label] = color;
+            }
+          }
+        });
+        
+        if (Object.keys(currentColors).length > 0) {
+          formData.append('colors', JSON.stringify(currentColors));
+        }
+        
+        // Spezieller Parameter für FTP-Upload statt Download
+        formData.append('upload_to_ftp', 'true');
+        formData.append('ftp_folder', 'Grafik');
+        
+        // Sende Anfrage an Server-Endpunkt für DCX-Export
+        const response = await fetch(`/chart/${chartId}/export-to-dcx/`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Server Antwort:', errorText);
+          throw new Error(`DCX Export fehlgeschlagen: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert(`Export erfolgreich: Die Grafik wurde in den DCX-Ordner "${result.destination}" hochgeladen.`);
+        } else {
+          throw new Error(result.error || 'Unbekannter Fehler beim DCX-Export');
+        }
+        
+      } catch (error) {
+        console.error('DCX Export Fehler:', error);
+        alert(`Beim DCX-Export ist ein Fehler aufgetreten: ${error.message}`);
+      } finally {
+        exportButton.disabled = false;
+        exportButton.classList.remove('loading');
+        exportButton.textContent = 'Export DCX';
       }
     }
   </script>

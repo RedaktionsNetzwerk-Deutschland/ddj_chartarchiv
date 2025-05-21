@@ -27,6 +27,7 @@ try:
 except ImportError:
     print("WARNUNG: PIL/Pillow ist nicht installiert, die Thumbnail-Generierung wird nicht funktionieren")
 import re
+from ftplib import FTP, FTP_TLS
 
 # Create your views here.
 
@@ -1897,3 +1898,206 @@ def clear_registration(request, email=None):
         return redirect('admin:index')
     
     return render(request, 'clear_registration.html', {'email': email})
+
+@custom_login_required(login_url='index')
+def export_chart_to_dcx(request, chart_id):
+    """Exportiert eine Grafik als PDF und lädt sie auf den DCX-FTP-Server hoch"""
+    try:
+        # FTP-Zugangsdaten aus Umgebungsvariablen holen
+        ftp_server = os.getenv('FTP_SERVER')
+        ftp_user = os.getenv('FTP_USER')
+        ftp_password = os.getenv('FTP_PASSWORD')
+        
+        # Prüfen, ob alle erforderlichen Zugangsdaten vorhanden sind
+        if not all([ftp_server, ftp_user, ftp_password]):
+            return JsonResponse({
+                'success': False,
+                'error': 'FTP-Zugangsdaten sind nicht vollständig konfiguriert.'
+            }, status=500)
+        
+        # Parameter aus der Anfrage auslesen
+        data = request.POST
+        width_mm = data.get('width')
+        height_mm = data.get('height', 'auto')
+        title = data.get('title', '')
+        description = data.get('description', '')
+        ftp_folder = data.get('ftp_folder', 'Grafik')
+        
+        # API-Schlüssel und Header für Datawrapper-API
+        api_key = os.getenv('DATAWRAPPER_API_KEY')
+        headers = {"Authorization": f"Bearer {api_key}"}
+        
+        # 1. Grafik duplizieren, um Änderungen zu übernehmen
+        duplicate_url = f"https://api.datawrapper.de/v3/charts/{chart_id}/copy"
+        
+        duplicate_response = requests.post(duplicate_url, headers=headers)
+        duplicate_response.raise_for_status()
+        
+        duplicate_data = duplicate_response.json()
+        new_chart_id = duplicate_data.get('id')
+        
+        # 2. Eigenschaften der duplizierten Grafik aktualisieren
+        properties_to_update = {}
+        
+        # Titel aktualisieren, falls vorhanden
+        if title:
+            properties_to_update['title'] = title
+            properties_to_update['metadata'] = {
+                'describe': {
+                    'title': title
+                }
+            }
+        
+        # Beschreibung aktualisieren, falls vorhanden
+        if description:
+            if 'metadata' not in properties_to_update:
+                properties_to_update['metadata'] = {}
+            if 'describe' not in properties_to_update['metadata']:
+                properties_to_update['metadata']['describe'] = {}
+            properties_to_update['metadata']['describe']['intro'] = description
+        
+        # Dimensionen aktualisieren
+        if width_mm or height_mm:
+            if 'metadata' not in properties_to_update:
+                properties_to_update['metadata'] = {}
+            if 'publish' not in properties_to_update['metadata']:
+                properties_to_update['metadata']['publish'] = {}
+            
+            # Berechne Pixel aus mm (96 DPI / 25.4 mm/inch)
+            pixels_per_mm = 96 / 25.4
+            
+            chart_dimensions = {}
+            if width_mm:
+                if width_mm.isdigit() or (width_mm.replace('.', '', 1).isdigit() and width_mm.count('.') < 2):
+                    chart_dimensions['width'] = round(float(width_mm) * pixels_per_mm)
+            
+            if height_mm and height_mm != 'auto':
+                if height_mm.isdigit() or (height_mm.replace('.', '', 1).isdigit() and height_mm.count('.') < 2):
+                    chart_dimensions['height'] = round(float(height_mm) * pixels_per_mm)
+            
+            if chart_dimensions:
+                properties_to_update['metadata']['publish']['chart-dimensions'] = chart_dimensions
+        
+        # Farben aktualisieren
+        if data.get('colors'):
+            try:
+                colors = json.loads(data.get('colors'))
+                if 'metadata' not in properties_to_update:
+                    properties_to_update['metadata'] = {}
+                if 'visualize' not in properties_to_update['metadata']:
+                    properties_to_update['metadata']['visualize'] = {}
+                properties_to_update['metadata']['visualize']['color-category'] = {
+                    'map': colors
+                }
+            except json.JSONDecodeError as e:
+                print(f"Error decoding colors JSON: {e}")
+                print("Raw colors data:", data.get('colors'))
+        
+        # 3. Grafik aktualisieren
+        if properties_to_update:
+            update_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}"
+            
+            update_response = requests.patch(
+                update_url,
+                headers={**headers, 'Content-Type': 'application/json'},
+                json=properties_to_update
+            )
+            update_response.raise_for_status()
+        
+        # 4. Grafik publishen
+        publish_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}/publish"
+        
+        publish_response = requests.post(publish_url, headers=headers)
+        publish_response.raise_for_status()
+        
+        # 5. PDF exportieren mit den korrekten Parametern
+        export_params = {
+            'unit': 'mm',
+            'mode': 'rgb',
+            'plain': 'false',
+            'scale': '0.7',
+            'zoom': '1',
+            'fullVector': 'true',
+            'ligatures': 'true',
+            'transparent': 'true',
+            'logo': 'auto',
+            'dark': 'false'
+        }
+        
+        # Füge Dimensionen in mm hinzu
+        try:
+            if width_mm:
+                export_params['width'] = width_mm
+            if height_mm:
+                export_params['height'] = height_mm
+        except Exception as e:
+            print(f"Fehler beim Setzen der Export-Parameter: {e}")
+            export_params['width'] = '210'  # A4 Breite
+            export_params['height'] = 'auto'
+            
+        export_url = f"https://api.datawrapper.de/v3/charts/{new_chart_id}/export/pdf"
+        
+        export_response = requests.get(
+            export_url,
+            headers=headers,
+            params=export_params
+        )
+        export_response.raise_for_status()
+        
+        # PDF-Inhalt als Binärdaten
+        pdf_content = export_response.content
+        
+        # 6. PDF auf FTP-Server hochladen
+        # Erstelle einen sinnvollen Dateinamen
+        safe_title = "".join([c if c.isalnum() or c in ['-', '_'] else '_' for c in title])
+        if len(safe_title) > 30:
+            safe_title = safe_title[:30]
+        
+        filename = f"{safe_title}_{chart_id}.pdf"
+        
+        # Verbindung zum FTP-Server herstellen mit FTPS (FTP mit TLS)
+        ftps = FTP_TLS(ftp_server)
+        ftps.login(ftp_user, ftp_password)
+        ftps.prot_p()  # Daten-Verschlüsselung aktivieren
+        
+        # Prüfen, ob der Zielordner existiert
+        try:
+            # Versuche in den Zielordner zu wechseln
+            ftps.cwd(ftp_folder)
+        except Exception as e:
+            # Ordner existiert nicht, versuche ihn zu erstellen
+            try:
+                ftps.mkd(ftp_folder)
+                ftps.cwd(ftp_folder)
+            except Exception as mkdir_error:
+                ftps.quit()
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Fehler beim Erstellen des FTP-Ordners: {str(mkdir_error)}'
+                }, status=500)
+        
+        # PDF hochladen
+        try:
+            ftps.storbinary(f'STOR {filename}', io.BytesIO(pdf_content))
+            ftps.quit()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'PDF wurde erfolgreich auf den FTP-Server hochgeladen',
+                'filename': filename,
+                'destination': f'{ftp_folder}/{filename}'
+            })
+        except Exception as upload_error:
+            ftps.quit()
+            return JsonResponse({
+                'success': False,
+                'error': f'Fehler beim Hochladen des PDFs: {str(upload_error)}'
+            }, status=500)
+            
+    except Exception as e:
+        error_msg = str(e)
+        if isinstance(e, requests.exceptions.RequestException) and hasattr(e, 'response'):
+            error_msg = f"{error_msg} - API Response: {e.response.text}"
+        
+        print(f"Error during DCX export: {error_msg}")
+        return JsonResponse({'success': False, 'error': error_msg}, status=500)

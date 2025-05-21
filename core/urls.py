@@ -17,6 +17,7 @@ urlpatterns = [
     path('chart/<str:chart_id>/republish/', views.republish_chart, name='republish_chart'),
     path('chart/<str:chart_id>/export-pdf/', views.export_chart_pdf, name='export_chart_pdf'),
     path('chart/<str:chart_id>/duplicate-and-export/', views.duplicate_and_export_chart, name='duplicate_and_export_chart'),
+    path('chart/<str:chart_id>/export-to-dcx/', views.export_chart_to_dcx, name='export_chart_to_dcx'),
     path('chartmaker/', views.chartmaker, name='chartmaker'),
     path('databuddies/', views.databuddies, name='databuddies'),
     path('analyze-data/', views.analyze_data, name='analyze_data'),
