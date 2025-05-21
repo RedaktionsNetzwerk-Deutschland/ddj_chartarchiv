@@ -15,8 +15,7 @@ Das RND-Grafikarchiv ist eine Django-basierte Webanwendung für die zentrale Ver
 - **Grafik-Detailansicht**: Umfassende Metadaten und Export-Optionen
 - **Export-Funktionen**: Print-Export (PDF, DCX), Online-Export (Einbettungscode)
 - **Chartmaker**: KI-gestütztes Tool zur Erstellung neuer Grafiken
-- **Databuddies**: Spezielle Funktionen für Datenanalyse und -visualisierung
-- **Datawrapper-Integration**: API-Anbindung für professionelle Datengrafiken
+
 
 ## Technischer Stack
 
@@ -181,18 +180,4 @@ Für den Einsatz in einer Produktionsumgebung beachte diese zusätzlichen Schrit
 python manage.py test
 ```
 
-## Beitragen
 
-Wir freuen uns über Beiträge zum Projekt! Folge diesen Schritten:
-
-1. Fork des Repositories erstellen
-2. Feature-Branch anlegen (`git checkout -b feature/meine-neue-funktion`)
-3. Änderungen committen (`git commit -am 'Neue Funktion: XYZ'`)
-4. Branch pushen (`git push origin feature/meine-neue-funktion`)
-5. Pull Request erstellen
-
-## Lizenz
-
-Dieses Projekt ist urheberrechtlich geschützt. Alle Rechte vorbehalten.
-
-© 2024 RND - RedaktionsNetzwerk Deutschland GmbH
