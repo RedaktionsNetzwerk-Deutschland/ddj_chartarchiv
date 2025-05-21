@@ -299,6 +299,15 @@
       
       <p class="chart-description">{{ chart.description }}</p>
       
+      <!-- Autor und E-Mail Informationen -->
+      {% if chart.author or chart.author_email %}
+      <p class="chart-author-info" style="font-size: 0.9em; color: #777; margin-top: -20px; margin-bottom: 30px; font-style: italic;">
+        {% if chart.author %}Autor/-in: {{ chart.author }}{% endif %}
+        {% if chart.author and chart.author_email %}, {% endif %}
+        {% if chart.author_email %}E-Mail: <a href="mailto:{{ chart.author_email }}" style="color: #4f80ff; text-decoration: none;">{{ chart.author_email }}</a>{% endif %}
+      </p>
+      {% endif %}
+      
       <div class="action-buttons">
         <button class="action-button" id="codeButton" onclick="handleJS()"><i class="fas fa-code"></i>Code</button>
         <button class="action-button" id="iframeButton" onclick="handleIframe()"><i class="fas fa-window-maximize"></i>iframe</button>
@@ -326,7 +335,7 @@
         color: #666;
         line-height: 1.4;
       ">
-        Für Digital-Export bitte ein Format auswählen. JS spielt einen Javascript-Code aus, unter iframe finden sich die gewohnten Ausspielvarianten.
+        Für Digital-Export bitte ein Format auswählen. "Code" spielt einen Javascript-Code aus, unter "iframe" finden sich die gewohnten Ausspielvarianten als responsives Iframe.
       </div>
     </div>
   </div>
