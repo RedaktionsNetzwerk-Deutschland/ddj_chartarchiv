@@ -252,7 +252,7 @@
   
   <div class="chart-detail-container">
     <div class="back-button-container">
-      <a href="{% url 'archive_main' %}" class="back-button" onclick="return goBack()">
+      <a href="{% url 'archive_main' %}" class="back-button">
         <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
       </a>
     </div>
@@ -455,12 +455,9 @@
     }
     
     function goBack() {
-      // Wenn möglich, die letzte Seite aus dem Browser-Verlauf laden
-      if (window.history.length > 1) {
-        window.history.back();
-        return false;
-      }
-      return true;
+      // Direkte Weiterleitung zur archive_main URL, ignoriert den Browser-Verlauf
+      window.location.href = "{% url 'archive_main' %}";
+      return false;
     }
     
     // Überprüfung der Chart-ID
