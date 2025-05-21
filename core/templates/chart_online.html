@@ -329,9 +329,12 @@
   {% include 'partials/header.html' %}
   
   <div class="print-container">
-    <div class="back-button-container">
+    <div class="back-button-container" style="display: flex; gap: 15px;">
       <a href="{% url 'chart_detail' chart.chart_id %}" class="back-button">
         <i class="fas fa-arrow-left"></i> Zurück zur Detailseite
+      </a>
+      <a href="{% url 'archive_main' %}" class="back-button">
+        <i class="fas fa-home"></i> Zurück zur Hauptansicht
       </a>
     </div>
     
