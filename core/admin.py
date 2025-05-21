@@ -122,8 +122,9 @@ class ChartAdminForm(forms.ModelForm):
 # Admin-Klasse für Chart
 class ChartAdmin(admin.ModelAdmin):
     form = ChartAdminForm
-    list_display = ('title', 'chart_id', 'published_date', 'display_thumbnail', 'evergreen', 'regional')
-    list_filter = ('published_date', 'evergreen', 'regional')
+    list_display = ('title', 'chart_id', 'published_date', 'display_small_thumbnail', 'evergreen', 'regional', 'patch', 'archive')
+    list_editable = ('evergreen', 'regional', 'patch', 'archive')
+    list_filter = ('published_date', 'evergreen', 'regional', 'patch', 'archive')
     search_fields = ('title', 'chart_id', 'description', 'tags')
     readonly_fields = ('last_modified_date', 'display_thumbnail')
     fieldsets = (
@@ -138,7 +139,7 @@ class ChartAdmin(admin.ModelAdmin):
             'description': 'Du kannst ein Bild hochladen oder per Strg+V einfügen.'
         }),
         ('Eigenschaften', {
-            'fields': ('evergreen', 'regional', 'patch')
+            'fields': ('evergreen', 'regional', 'patch', 'archive')
         }),
         ('Embed-Code', {
             'fields': ('iframe_url', 'embed_js'),
@@ -153,7 +154,15 @@ class ChartAdmin(admin.ModelAdmin):
                                obj.thumbnail.url)
         return "Kein Bild hochgeladen."
     
+    def display_small_thumbnail(self, obj):
+        """Zeigt eine kleine Vorschau des Thumbnails in der Listendarstellung"""
+        if obj.thumbnail:
+            return format_html('<img src="{}" style="max-height: 30px; max-width: 60px;" />', 
+                              obj.thumbnail.url)
+        return "Kein Bild"
+    
     display_thumbnail.short_description = 'Bildvorschau'
+    display_small_thumbnail.short_description = 'Bild'
     
     def save_model(self, request, obj, form, change):
         """Aktualisiert das last_modified_date beim Speichern"""
