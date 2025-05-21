@@ -39,7 +39,7 @@ Das RND-Grafikarchiv ist eine Django-basierte Webanwendung für die zentrale Ver
 1. Repository klonen:
    ```bash
    git clone https://https://github.com/RedaktionsNetzwerk-Deutschland/ddj_chartarchiv.git
-   cd archive_production
+   cd ddj_chartarchiv
    ```
 
 2. Umgebungsvariablen konfigurieren:
@@ -174,10 +174,5 @@ Für den Einsatz in einer Produktionsumgebung beachte diese zusätzlichen Schrit
    python manage.py runserver
    ```
 
-### Tests ausführen
-
-```bash
-python manage.py test
-```
 
 
