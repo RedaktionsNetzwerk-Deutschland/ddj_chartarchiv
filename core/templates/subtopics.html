@@ -1061,7 +1061,8 @@
       
       // Modifizierte Funktion zum Erstellen der Fetch-URL mit den aktiven Suchfeldern
       function createSearchUrl(query, limit = 50, offset = 0, logicalOp = 'OR') {
-        let url = `/chart-search/?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}&logical_op=${logicalOp}`;
+        // Füge parent_scope immer hinzu, um den Themenbereich zu spezifizieren
+        let url = `/chart-search/?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}&logical_op=${logicalOp}&parent_scope=${parentTile.id}`;
         
         // Füge Suchfelder-Parameter hinzu, wenn spezifische Felder ausgewählt sind
         if (!activeSearchFields.includes('all')) {
@@ -1081,13 +1082,8 @@
         // Neue Seite laden
         currentPage++;
         
-        // URL für die nächste Seite erstellen - immer mit parent_scope
-        let fetchUrl = `/chart-search/?q=${encodeURIComponent(searchQuery)}&limit=50&offset=${currentPage * 50}&parent_scope=${parentTile.id}`;
-        
-        // Füge Suchfelder-Parameter hinzu, wenn spezifische Felder ausgewählt sind
-        if (!activeSearchFields.includes('all')) {
-          fetchUrl += `&search_fields=${activeSearchFields.join(',')}`;
-        }
+        // Verwende createSearchUrl für konsistentes URL-Format
+        let fetchUrl = createSearchUrl(searchQuery, 50, currentPage * 50);
         
         debugLog(`Lade mehr Ergebnisse: ${fetchUrl}`);
         

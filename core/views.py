@@ -26,6 +26,7 @@ try:
     from PIL import Image
 except ImportError:
     print("WARNUNG: PIL/Pillow ist nicht installiert, die Thumbnail-Generierung wird nicht funktionieren")
+import re
 
 # Create your views here.
 
@@ -365,21 +366,19 @@ def chart_search(request):
     
     # Wenn ein Themenbereich angegeben ist, wende zuerst einen Filter für die Themen-Suchbegriffe an
     if parent_scope and parent_search_terms:
-        # Teile die Themensuchbegriffe in einzelne Wörter auf
-        parent_terms = parent_search_terms.strip().split()
+        # Teile die Themensuchbegriffe in einzelne Wörter/Begriffe auf
+        # Hier beachten wir Kommas und behandeln jede Phrase als separaten Suchbegriff
+        parent_terms = [term.strip() for term in parent_search_terms.split(',') if term.strip()]
+        print(f"DEBUG[SERVER]: Themenkachel-Suchbegriffe: {parent_terms}")
         
         # Erstelle eine OR-Abfrage für die Themensuchbegriffe
         parent_query = Q()
+        
+        # Wir verarbeiten jeden Suchbegriff durch die create_field_query-Funktion, um feldspezifische Suchen zu ermöglichen
         for term in parent_terms:
-            if len(term) > 2:  # Ignoriere sehr kurze Wörter
-                # Suche in allen Standardfeldern für Themenbegriffe
-                parent_query |= Q(chart_id__icontains=term) | \
-                               Q(title__icontains=term) | \
-                               Q(description__icontains=term) | \
-                               Q(notes__icontains=term) | \
-                               Q(comments__icontains=term) | \
-                               Q(embed_js__icontains=term) | \
-                               Q(tags__icontains=term)
+            # Verwende dieselbe Funktion wie für Benutzer-Suchanfragen
+            term_query = create_field_query(term, [])
+            parent_query |= term_query
         
         # Filtere die Basisdatenbank-Abfrage mit den Themensuchbegriffen
         base_query = base_query.filter(parent_query)
@@ -546,6 +545,42 @@ def create_field_query(term, selected_fields):
     Returns:
         Django Q-Objekt für die Datenbankabfrage
     """
+    # Überprüfe, ob es sich um einen Feldspezifischen Filter handelt (z.B. "tag: Bildung")
+    field_specific_match = re.match(r'^(\w+):\s*(.+)$', term)
+    
+    if field_specific_match:
+        field_type = field_specific_match.group(1).lower()
+        search_value = field_specific_match.group(2).strip()
+        
+        print(f"DEBUG[SERVER]: Feldspezifische Suche erkannt - Feld: {field_type}, Wert: {search_value}")
+        
+        # Zuordnung der benutzerfreundlichen Feldnamen zu den tatsächlichen Datenbankfeldnamen
+        field_mapping = {
+            'tag': 'tags',
+            'tags': 'tags',
+            'titel': 'title',
+            'title': 'title',
+            'beschreibung': 'description',
+            'description': 'description',
+            'notiz': 'notes',
+            'notes': 'notes',
+            'kommentar': 'comments',
+            'comment': 'comments',
+            'comments': 'comments',
+            'autor': 'author',
+            'author': 'author',
+            'id': 'chart_id',
+            'chart_id': 'chart_id'
+        }
+        
+        # Wenn das Feld im Mapping existiert, erstelle eine spezifische Abfrage
+        if field_type in field_mapping:
+            db_field = field_mapping[field_type]
+            return Q(**{f"{db_field}__icontains": search_value})
+        else:
+            # Wenn das Feld nicht erkannt wird, führe eine Standardsuche durch
+            print(f"DEBUG[SERVER]: Unbekanntes Feldspezifisches Suchfeld: {field_type}, verwende Standardsuche")
+    
     # Wenn keine spezifischen Felder ausgewählt sind, suche in allen Standardfeldern
     if not selected_fields:
         return Q(chart_id__icontains=term) | \

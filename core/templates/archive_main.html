@@ -871,6 +871,7 @@
   <div class="load-more-indicator" id="load-more-indicator"></div>
 
   <script>
+
     document.addEventListener("DOMContentLoaded", function() {
       var searchInput = document.getElementById("search-input");
       var searchResults = document.getElementById("search-results");
@@ -997,7 +998,8 @@
         headerText.textContent = 'Alle Grafiken';
         
         // Wir holen die Gesamtanzahl der Grafiken separat, um sie sofort anzuzeigen
-        fetch("/chart-search/")
+        // Füge den exclude_tags Parameter hinzu
+        fetch("/chart-search/?exclude_tags=Wöchentliche%20Updates,Tägliche%20Updates")
           .then(response => response.json())
           .then(data => {
             if (data.total_count) {
@@ -1156,17 +1158,17 @@
             const headerText = document.querySelector('.charts-table-container h2');
             headerText.textContent = 'Alle Grafiken';
             
-            // Wir holen die Gesamtanzahl der Grafiken separat, um sie sofort anzuzeigen
-            fetch("/chart-search/")
-              .then(response => response.json())
-              .then(data => {
-                if (data.total_count) {
-                  headerText.textContent = `Alle Grafiken (${data.total_count})`;
-                }
-              })
-              .catch(error => {
-                console.error('Fehler beim Laden der Gesamtanzahl:', error);
-              });
+                    // Wir holen die Gesamtanzahl der Grafiken separat, um sie sofort anzuzeigen
+        fetch("/chart-search/?exclude_tags=Wöchentliche%20Updates,Tägliche%20Updates")
+          .then(response => response.json())
+          .then(data => {
+            if (data.total_count) {
+              headerText.textContent = `Alle Grafiken (${data.total_count})`;
+            }
+          })
+          .catch(error => {
+            console.error('Fehler beim Laden der Gesamtanzahl:', error);
+          });
           }
         }, 500); // 500ms Verzögerung (erhöht von 300ms)
 
@@ -1565,7 +1567,8 @@
         loadingSpinner.classList.add('visible');
         
         try {
-          const response = await fetch(`/chart-search/?page=${currentTablePage}`);
+          // Setze den exclude_tags Parameter explizit im Frontend
+          const response = await fetch(`/chart-search/?page=${currentTablePage}&exclude_tags=Wöchentliche%20Updates,Tägliche%20Updates`);
           const data = await response.json();
           
           // Aktualisiere die Überschrift mit der Gesamtanzahl der Grafiken
@@ -1688,7 +1691,7 @@
           hasMoreCharts = false;
           
           // Füge Limit-Parameter hinzu, aber verwende OR für Themenkacheln, damit mehr Ergebnisse gefunden werden
-          fetch("/chart-search/?q=" + encodeURIComponent(searchTerms) + "&limit=25")
+          fetch("/chart-search/?q=" + encodeURIComponent(searchTerms) + "&limit=25&exclude_tags=Wöchentliche%20Updates,Tägliche%20Updates")
             .then(response => response.json())
             .then(data => {
               // Cache die Ergebnisse, die wir bereits geladen haben

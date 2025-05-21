@@ -20,13 +20,14 @@ class ChartService:
         """
         self.datawrapper = DatawrapperService()
     
-    def search_charts(self, query='', tags=None, is_published=None, is_archived=None, limit=100, offset=0, sort='-published_date'):
+    def search_charts(self, query='', tags=None, exclude_tags=None, is_published=None, is_archived=None, limit=100, offset=0, sort='-published_date'):
         """
         Sucht nach Grafiken basierend auf verschiedenen Kriterien.
         
         Args:
             query: Suchbegriff
             tags: Liste von Tags
+            exclude_tags: Liste von Tags, die ausgeschlossen werden sollen
             is_published: Filter nach Veröffentlichungsstatus
             is_archived: Filter nach Archivierungsstatus
             limit: Maximale Anzahl von Ergebnissen
@@ -61,8 +62,26 @@ class ChartService:
         if is_archived is not None:
             queryset = queryset.filter(is_archived=is_archived)
         
-        # Ausschluss von Grafiken mit dem Tag "Tägliche Updates"
-        queryset = queryset.exclude(tags__icontains="Tägliche Updates")
+        # Ausschluss von Grafiken mit den Tags "Tägliche Updates" und "Wöchentliche Updates"
+        # Immer diese Tags ausschließen, es sei denn, sie werden explizit in der Suche gefordert
+        default_exclude_tags = ["Tägliche Updates", "Wöchentliche Updates"]
+        
+        # Ausschluss der Standard-Tags und zusätzlich übergebener Tags
+        exclude_tags_set = set(default_exclude_tags) if exclude_tags is None else set(default_exclude_tags + exclude_tags)
+        
+        # Ausschluss von Tags, aber nur wenn sie nicht explizit in tags gesucht werden
+        if tags:
+            exclude_tags_set = exclude_tags_set - set(tags)
+            
+        # Debug-Ausgabe
+        print(f"Auszuschließende Tags: {exclude_tags_set}")
+        
+        # Ausschluss der Tags aus der Abfrage
+        for tag in exclude_tags_set:
+            queryset = queryset.exclude(tags__icontains=tag)
+        
+        # Debug-Ausgabe - temporär für Fehlerbehebung
+        print(f"SQL-Query nach Ausschluss von Tags: {queryset.query}")
         
         # Ausschluss von Grafiken auf der Blacklist
         blacklisted_chart_ids = ChartBlacklist.objects.values_list('chart_id', flat=True)

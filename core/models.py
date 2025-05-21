@@ -175,7 +175,9 @@ class TopicTile(models.Model):
     )
     search_terms = models.TextField(
         verbose_name="Suchbegriffe",
-        help_text="Kommagetrennte Liste von Suchbegriffen, die beim Klick gesucht werden sollen"
+        help_text="Kommagetrennte Liste von Suchbegriffen, die beim Klick gesucht werden sollen. "
+                 "Spezielle Feldfilter können mit der Syntax 'feld: Wert' angegeben werden, z.B. 'tag: Bildung' "
+                 "filtert nur nach dem Tag 'Bildung'. Unterstützte Felder: tag, title, description, notes, author, chart_id."
     )
     order = models.PositiveIntegerField(
         default=0,
@@ -223,7 +225,8 @@ class TopicTile(models.Model):
         if not self.search_terms:
             own_terms = []
         else:
-            own_terms = [term.strip() for term in self.search_terms.split(',')]
+            # Komma als Trennzeichen für Suchbegriffe verwenden
+            own_terms = [term.strip() for term in self.search_terms.split(',') if term.strip()]
         
         # Füge eigene Begriffe hinzu
         terms.extend(own_terms)
