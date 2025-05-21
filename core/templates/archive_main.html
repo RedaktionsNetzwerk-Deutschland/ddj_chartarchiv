@@ -1519,7 +1519,7 @@
           results.forEach(chart => {
             const row = document.createElement('tr');
             row.style.cursor = 'pointer';
-            row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
+            row.setAttribute('data-href', `/chart/${chart.chart_id}/`);
             
             // Generiere die Flags für die Tabelle
             let flagsHTML = '';
@@ -1549,21 +1549,29 @@
             }
             
             const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
-            row.innerHTML = `
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formattedDate}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
-                <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                  <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
-                </div>
-              </td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${chart.title}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${chart.description || ''}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
-            `;
             
-            row.style.cursor = 'pointer';
+            // Erstellung der Tabellenzeile mit Link in jeder Zelle
+            const cells = [
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${formattedDate}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;"><div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;"></div></a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.title}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.chart_id}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.description || ''}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${tagsHTML}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${flagsHTML}</a></td>`
+            ];
+            
+            row.innerHTML = cells.join('');
+            
+            // Event-Listener hinzufügen, um die Zeile klickbar zu machen
+            row.addEventListener('click', function(e) {
+              // Verhindern des Klick-Events, wenn der Benutzer auf einen Link geklickt hat
+              if (e.target.tagName === 'A' || e.target.closest('a')) {
+                return;
+              }
+              window.location.href = this.getAttribute('data-href');
+            });
+            
             row.style.transition = 'background-color 0.2s ease';
             
             row.addEventListener('mouseover', function() {
@@ -1577,12 +1585,6 @@
             // Versteckt hinzufügen, wird später mit der Animation sichtbar
             row.style.opacity = "0";
             chartsTableBody.appendChild(row);
-            
-            // Verzögert einblenden
-            setTimeout(() => {
-              row.style.opacity = "1";
-              row.classList.add('visible');
-            }, 20);
           });
           
           loadingSpinner.classList.remove('visible');
@@ -1633,7 +1635,7 @@
           data.results.forEach((chart, index) => {
             const row = document.createElement('tr');
             row.style.cursor = 'pointer';
-            row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
+            row.setAttribute('data-href', `/chart/${chart.chart_id}/`);
             
             // Generiere die Flags für die Tabelle
             let flagsHTML = '';
@@ -1662,21 +1664,28 @@
               }
             }
             
-            row.innerHTML = `
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formatDate(chart.published_date)}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
-                <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                  <img src="${chart.thumbnail}" alt="${chart.title}" loading="lazy" style="object-fit: cover; width: 100%; height: 100%;">
-                </div>
-              </td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${chart.title}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${chart.description || ''}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
-              <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
-            `;
+            // Erstellung der Tabellenzeile mit Link in jeder Zelle
+            const cells = [
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${formatDate(chart.published_date)}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;"><div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><img src="${chart.thumbnail}" alt="${chart.title}" loading="lazy" style="object-fit: cover; width: 100%; height: 100%;"></div></a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.title}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.chart_id}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.description || ''}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${tagsHTML}</a></td>`,
+              `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${flagsHTML}</a></td>`
+            ];
             
-            row.style.cursor = 'pointer';
+            row.innerHTML = cells.join('');
+            
+            // Event-Listener hinzufügen, um die Zeile klickbar zu machen
+            row.addEventListener('click', function(e) {
+              // Verhindern des Klick-Events, wenn der Benutzer auf einen Link geklickt hat
+              if (e.target.tagName === 'A' || e.target.closest('a')) {
+                return;
+              }
+              window.location.href = this.getAttribute('data-href');
+            });
+            
             row.style.transition = 'background-color 0.2s ease';
             
             row.addEventListener('mouseover', function() {
@@ -2169,7 +2178,7 @@
         results.forEach(chart => {
           const row = document.createElement('tr');
           row.style.cursor = 'pointer';
-          row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
+          row.setAttribute('data-href', `/chart/${chart.chart_id}/`);
           
           // Generiere die Flags für die Tabelle
           let flagsHTML = '';
@@ -2199,21 +2208,29 @@
           }
           
           const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
-          row.innerHTML = `
-            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${formattedDate}</td>
-            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">
-              <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
-              </div>
-            </td>
-            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;">${chart.title}</td>
-            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
-            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;">${chart.description || ''}</td>
-            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${tagsHTML}</td>
-            <td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;">${flagsHTML}</td>
-          `;
           
-          row.style.cursor = 'pointer';
+          // Erstellung der Tabellenzeile mit Link in jeder Zelle
+          const cells = [
+            `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${formattedDate}</a></td>`,
+            `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;"><div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;"></div></a></td>`,
+            `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-weight: 500; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.title}</a></td>`,
+            `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: monospace; font-size: 0.9em;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.chart_id}</a></td>`,
+            `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; color: #666; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.description || ''}</a></td>`,
+            `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${tagsHTML}</a></td>`,
+            `<td style="padding: 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-family: 'DINNextLTPro', sans-serif;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${flagsHTML}</a></td>`
+          ];
+          
+          row.innerHTML = cells.join('');
+          
+          // Event-Listener hinzufügen, um die Zeile klickbar zu machen
+          row.addEventListener('click', function(e) {
+            // Verhindern des Klick-Events, wenn der Benutzer auf einen Link geklickt hat
+            if (e.target.tagName === 'A' || e.target.closest('a')) {
+              return;
+            }
+            window.location.href = this.getAttribute('data-href');
+          });
+          
           row.style.transition = 'background-color 0.2s ease';
           
           row.addEventListener('mouseover', function() {

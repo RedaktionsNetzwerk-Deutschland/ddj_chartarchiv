@@ -565,7 +565,7 @@
       function renderChartRow(chart) {
         const row = document.createElement('tr');
         row.style.cursor = 'pointer';
-        row.onclick = () => window.location.href = `/chart/${chart.chart_id}/`;
+        row.setAttribute('data-href', `/chart/${chart.chart_id}/`);
         
         // Generiere die Flags für die Tabelle
         let flagsHTML = '';
@@ -597,19 +597,31 @@
         // Formatiere das Datum
         const formattedDate = chart.published_date ? formatDate(chart.published_date) : '';
         
-        row.innerHTML = `
-          <td>${formattedDate}</td>
-          <td>
+        // Erstellung der Tabellenzeile mit Link in jeder Zelle
+        const cells = [
+          `<td><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${formattedDate}</a></td>`,
+          `<td><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">
             <div style="position: relative; width: 80px; height: 50px; overflow: hidden; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
               <img src="${chart.thumbnail}" alt="${chart.title}" width="80" style="object-fit: cover; width: 100%; height: 100%;">
-            </div>
-          </td>
-          <td style="font-weight: 500;">${chart.title}</td>
-          <td style="font-family: monospace; font-size: 0.9em;">${chart.chart_id}</td>
-          <td>${chart.description || ''}</td>
-          <td>${tagsHTML}</td>
-          <td>${flagsHTML}</td>
-        `;
+            </div></a>
+          </td>`,
+          `<td style="font-weight: 500;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.title}</a></td>`,
+          `<td style="font-family: monospace; font-size: 0.9em;"><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.chart_id}</a></td>`,
+          `<td><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${chart.description || ''}</a></td>`,
+          `<td><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${tagsHTML}</a></td>`,
+          `<td><a href="/chart/${chart.chart_id}/" style="text-decoration: none; color: inherit; display: block;">${flagsHTML}</a></td>`
+        ];
+        
+        row.innerHTML = cells.join('');
+        
+        // Event-Listener hinzufügen, um die Zeile klickbar zu machen
+        row.addEventListener('click', function(e) {
+          // Verhindern des Klick-Events, wenn der Benutzer auf einen Link geklickt hat
+          if (e.target.tagName === 'A' || e.target.closest('a')) {
+            return;
+          }
+          window.location.href = this.getAttribute('data-href');
+        });
         
         chartsTableBody.appendChild(row);
       }
