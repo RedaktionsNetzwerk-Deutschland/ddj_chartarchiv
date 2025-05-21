@@ -29,7 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-)ey3pj9ivs8dg2)+de(vn!8&oq^=8rng0inq)@k4lgjy-k402='
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -154,8 +154,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-#LANGUAGE_CODE = 'de-de'
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'de-de'
+#LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Europe/Berlin'
 
 USE_I18N = True
