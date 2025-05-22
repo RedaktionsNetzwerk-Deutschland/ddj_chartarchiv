@@ -242,6 +242,22 @@
       border-radius: 6px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
+    
+    /* Neuer Stil für den Alters-Warnhinweis */
+    .chart-age-warning {
+      text-align: center;
+      margin: 20px auto;
+      font-size: 1em;
+      color: #721c24;
+      font-family: 'DINNextLTPro', sans-serif;
+      max-width: 650px;
+      background-color: #f8d7da;
+      padding: 12px 20px;
+      border-radius: 6px;
+      border-left: 4px solid #dc3545;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      display: none; /* Standard: ausgeblendet */
+    }
   </style>
 {% endblock %}
 
@@ -261,6 +277,11 @@
     <div class="chart-dates" style="background-color: #f0f0f0; padding: 10px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
       {% if chart.published_date %}
       Erstellung: {{ chart.published_date|date:"d.m.Y" }}{% endif %}{% if chart.last_modified_date %}, letzte Bearbeitung: {{ chart.last_modified_date|date:"d.m.Y" }}{% endif %}
+    </div>
+    
+    <!-- Neuer Warnhinweis für alte Grafiken -->
+    <div id="chartAgeWarning" class="chart-age-warning">
+      <!-- Wird dynamisch gefüllt -->
     </div>
     
     <div class="chart-image-container">
@@ -504,6 +525,40 @@
           featureUnavailableMessage.style.display = 'block';
         }
       }
+      
+      // Überprüfung des Alters der Grafik
+      {% if chart.published_date %}
+      const publishedDateStr = "{{ chart.published_date|date:'Y-m-d' }}";
+      const publishedDate = new Date(publishedDateStr);
+      const currentDate = new Date();
+      
+      // Berechne die Differenz in Tagen
+      const diffTime = Math.abs(currentDate - publishedDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Überprüfe, ob die Grafik älter als 30 Tage ist
+      if (diffDays > 30) {
+        const warningElement = document.getElementById('chartAgeWarning');
+        
+        {% if chart.last_modified_date %}
+        const modifiedDateStr = "{{ chart.last_modified_date|date:'Y-m-d' }}";
+        const modifiedDate = new Date(modifiedDateStr);
+        const modifiedDiffTime = Math.abs(currentDate - modifiedDate);
+        const modifiedDiffDays = Math.ceil(modifiedDiffTime / (1000 * 60 * 60 * 24));
+        
+        // Wenn das Bearbeitungsdatum innerhalb der letzten 30 Tage liegt
+        if (modifiedDiffDays <= 30) {
+          warningElement.innerHTML = "Achtung, diese Grafik ist älter als ein Monat. Zwar wurde sie am {{ chart.last_modified_date|date:'d.m.Y' }} bearbeitet, überprüfe trotzdem die Daten.";
+        } else {
+          warningElement.innerHTML = "Achtung, diese Grafik wurde vor mehr als einem Monat erstellt, bitte Daten überprüfen.";
+        }
+        {% else %}
+        warningElement.innerHTML = "Achtung, diese Grafik wurde vor mehr als einem Monat erstellt, bitte Daten überprüfen.";
+        {% endif %}
+        
+        warningElement.style.display = 'block';
+      }
+      {% endif %}
     });
   </script>
 {% endblock %} 
