@@ -40,7 +40,7 @@
         <form method="post" action="{% url 'logout' %}" style="display: inline;">
           {% csrf_token %}
           <button type="submit" class="header-button" title="Abmelden" style="font-size: 1em; padding: 8px 12px; line-height: 1em; display: inline-flex; align-items: center; justify-content: center; background-color: white; color: #4f80ff; border: none; cursor: pointer;">
-            ⏻
+            <i class="fas fa-power-off"></i>
           </button>
         </form>
       {% endif %}
