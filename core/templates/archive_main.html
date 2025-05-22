@@ -942,6 +942,27 @@
       var selectedTopicName = document.getElementById("selected-topic-name");
       var backToMainButton = document.getElementById("back-to-main");
       
+      // Prüfe, ob ein Suchbegriff in der URL vorhanden ist und stelle die Suche wieder her
+      const searchQueryFromUrl = getSearchParamFromUrl();
+      if (searchQueryFromUrl) {
+        // Suchfeld mit dem Wert aus der URL füllen
+        searchInput.value = searchQueryFromUrl;
+        
+        // Suche direkt ausführen
+        debugLog(`Stelle Suche aus URL wieder her: ${searchQueryFromUrl}`);
+        normalSearch(searchQueryFromUrl);
+        
+        // Animiere die Kacheln aus
+        if (defaultTiles.style.display !== 'none') {
+          defaultTiles.classList.add('fade-out');
+          defaultTiles.classList.remove('fade-in');
+          
+          setTimeout(() => {
+            defaultTiles.style.display = "none";
+          }, 400);
+        }
+      }
+      
       // Debug-Logger
       function debugLog(message) {
         console.log(`[DEBUG] ${message}`);
@@ -1118,10 +1139,34 @@
         };
       }
 
+      // Funktion zum Aktualisieren der URL mit dem Suchparameter
+      function updateUrlWithSearchParam(query) {
+        if (query) {
+          // Suchbegriff zur URL hinzufügen ohne die Seite neu zu laden
+          const url = new URL(window.location);
+          url.searchParams.set('q', query);
+          window.history.pushState({query: query}, '', url);
+        } else {
+          // Wenn die Suche leer ist, Parameter entfernen
+          const url = new URL(window.location);
+          url.searchParams.delete('q');
+          window.history.pushState({query: ''}, '', url);
+        }
+      }
+      
+      // Funktion zum Abrufen der Suchparameter aus der URL
+      function getSearchParamFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('q') || '';
+      }
+
       // Modifizierte Event Listener für die Suche mit Debouncing
       if (searchInput) {
         const debouncedSearch = debounce(function(query) {
           debugLog(`Suche nach: "${query}" in Feldern: ${activeSearchFields.join(', ')}`);
+          
+          // URL mit Suchparameter aktualisieren
+          updateUrlWithSearchParam(query);
           
           // Wenn ein Themenfilter aktiv ist und der Suchbegriff nicht leer ist
           if (isThemeFilterActive && currentTopicTitle && query.trim() !== '') {
@@ -2255,6 +2300,76 @@
           });
         });
       }
+
+      // Event-Handler für den Browser-Back-Button und Forward-Button
+      window.addEventListener('popstate', function(event) {
+        // Lese den Suchbegriff aus der URL
+        const searchQueryFromUrl = getSearchParamFromUrl();
+        
+        // Debug-Ausgabe
+        debugLog(`Browser-Navigation erkannt, Suchbegriff aus URL: ${searchQueryFromUrl}`);
+        
+        // Aktualisiere das Suchfeld
+        if (searchInput) {
+          searchInput.value = searchQueryFromUrl;
+        }
+        
+        if (searchQueryFromUrl) {
+          // Stelle die Suche wieder her
+          normalSearch(searchQueryFromUrl);
+          
+          // Animiere die Kacheln aus
+          if (defaultTiles.style.display !== 'none') {
+            defaultTiles.classList.add('fade-out');
+            defaultTiles.classList.remove('fade-in');
+            
+            setTimeout(() => {
+              defaultTiles.style.display = "none";
+            }, 400);
+          }
+        } else {
+          // Keine Suchanfrage, zeige die Standardansicht
+          // Deaktiviere Themenfilter
+          isThemeFilterActive = false;
+          currentTopicTitle = '';
+          topicCachedResults = [];
+          
+          // Zeige die Tabelle mit allen Grafiken
+          const chartsTable = document.querySelector('.charts-table-container');
+          chartsTable.style.display = "block";
+          
+          // Verstecke den Bereichsanzeiger
+          topicIndicator.style.display = 'none';
+          
+          // Zeige die Themenkacheln wieder an
+          defaultTiles.style.display = "grid";
+          defaultTiles.classList.remove('fade-out');
+          defaultTiles.classList.add('fade-in');
+          
+          // Lade alle Grafiken neu
+          currentTablePage = 0;
+          hasMoreCharts = true;
+          chartsTableBody.innerHTML = "";
+          loadingSpinner.classList.remove('visible');
+          loadChartData();
+          
+          // Aktualisiere die Überschrift
+          const headerText = document.querySelector('.charts-table-container h2');
+          headerText.textContent = 'Alle Grafiken';
+          
+          // Wir holen die Gesamtanzahl der Grafiken separat, um sie sofort anzuzeigen
+          fetch("/chart-search/?exclude_tags=Wöchentliche%20Updates,Tägliche%20Updates")
+            .then(response => response.json())
+            .then(data => {
+              if (data.total_count) {
+                headerText.textContent = `Alle Grafiken (${data.total_count})`;
+              }
+            })
+            .catch(error => {
+              console.error('Fehler beim Laden der Gesamtanzahl:', error);
+            });
+        }
+      });
     });
   </script>
 {% endblock %} 

@@ -268,8 +268,8 @@
   
   <div class="chart-detail-container">
     <div class="back-button-container">
-      <a href="{% url 'archive_main' %}" class="back-button">
-        <i class="fas fa-arrow-left"></i> Zurück zur Hauptansicht
+      <a href="{% url 'archive_main' %}" class="back-button" id="backToResults">
+        <i class="fas fa-arrow-left"></i> Zurück zu den Suchergebnissen
       </a>
     </div>
     
@@ -489,6 +489,26 @@
       window.location.href = "{% url 'archive_main' %}";
       return false;
     }
+    
+    // Funktion für den Zurück-Button mit Erhaltung des Suchzustands
+    document.addEventListener('DOMContentLoaded', function() {
+      const backButton = document.getElementById('backToResults');
+      if (backButton) {
+        backButton.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          // Referrer prüfen, um zu sehen ob wir von der Suchseite kommen
+          const referrer = document.referrer;
+          if (referrer && referrer.includes('/archive_main') || referrer.includes('/archive')) {
+            // Zurück zum vorherigen Zustand mit dem Browser-Back-Button
+            history.back();
+          } else {
+            // Falls kein Referrer oder nicht von der Suchseite, zur Hauptseite
+            window.location.href = "{% url 'archive_main' %}";
+          }
+        });
+      }
+    });
     
     // Überprüfung der Chart-ID
     document.addEventListener("DOMContentLoaded", function() {
