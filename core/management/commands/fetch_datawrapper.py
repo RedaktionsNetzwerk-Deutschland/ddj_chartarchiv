@@ -290,6 +290,23 @@ class Command(BaseCommand):
                 regional = custom_fields.get("regional", "false")
                 archive = custom_fields.get("archiv", "false")
                 
+                # Tags basierend auf Boolean-Feldern hinzufügen
+                def add_tag(tags_string, tag_to_add):
+                    if not tags_string.strip():
+                        return tag_to_add
+                    tags_list = [tag.strip() for tag in tags_string.split(",")]
+                    if tag_to_add not in tags_list:
+                        tags_list.append(tag_to_add)
+                    return ", ".join(tags_list)
+                
+                # Füge entsprechende Tags hinzu, wenn Boolean-Felder true sind
+                if patch.lower() == 'true' or patch == '1':
+                    tags = add_tag(tags, "patch")
+                if evergreen.lower() == 'true' or evergreen == '1':
+                    tags = add_tag(tags, "evergreen")
+                if regional.lower() == 'true' or regional == '1':
+                    tags = add_tag(tags, "regional")
+                
                 # Datumswerte konvertieren
                 published_date = None
                 last_modified_date = None
