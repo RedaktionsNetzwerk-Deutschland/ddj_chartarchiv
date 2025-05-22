@@ -726,6 +726,125 @@ class Command(BaseCommand):
         except Exception as e:
             raise Exception(f"Fehler beim Erstellen des Thumbnails: {e}") 
 
+    def update_all_chart_fields(self, batch_size=100, sleep_time=0.5):
+        """
+        Aktualisiert alle Chart-Einträge mit neuen Feldern aus der Datawrapper-API.
+        Diese Funktion übernimmt die Kernfunktionalität von update_chart_fields.py.
+        
+        Args:
+            batch_size (int): Anzahl der Charts, die pro Batch verarbeitet werden
+            sleep_time (float): Wartezeit zwischen API-Aufrufen in Sekunden
+        """
+        logger.info("Starte Aktualisierung aller Chart-Felder...")
+        
+        # Hole alle Charts aus der Datenbank
+        charts = Chart.objects.all()
+        logger.info(f"Aktualisiere {charts.count()} Charts")
+        
+        updated_count = 0
+        error_count = 0
+        
+        # Verarbeite die Charts in Batches
+        for i in range(0, charts.count(), batch_size):
+            batch = charts[i:i+batch_size]
+            logger.info(f"Verarbeite Batch {i//batch_size + 1} ({len(batch)} Charts)")
+            
+            for chart in batch:
+                try:
+                    # API-Anfrage für die Chart-Details
+                    url = f"https://api.datawrapper.de/v3/charts/{chart.chart_id}?expand=true"
+                    response = requests.get(url, headers=self.headers)
+                    response.raise_for_status()
+                    chart_details = response.json()
+                    
+                    # Extrahiere die benötigten Felder
+                    # 1. Preview URL (publicURL)
+                    preview_url = chart_details.get('publicUrl', '')
+                    
+                    # 2. Notes aus annotate statt describe
+                    notes = chart_details.get('metadata', {}).get('annotate', {}).get('notes', '')
+                    
+                    # 3. Autor und E-Mail
+                    author = chart_details.get('author', {}).get('name', '')
+                    author_email = chart_details.get('author', {}).get('email', '')
+                    
+                    # Stelle sicher, dass author und author_email nicht None sind
+                    author = author or ''
+                    author_email = author_email or ''
+                    
+                    # 4. Thumbnail URLs
+                    thumbnails = chart_details.get('thumbnails', {})
+                    pic_url_full = thumbnails.get('full', '')
+                    pic_url_small = thumbnails.get('plain', '')
+                    
+                    # 5. Responsive iframe URL aus embed-method-responsive
+                    embed_codes = chart_details.get('metadata', {}).get('publish', {}).get('embed-codes', {})
+                    iframe_url = embed_codes.get('embed-method-responsive', '')
+                    
+                    # Fallbacks für iframe_url, falls embed-method-responsive nicht gefunden wird
+                    if not iframe_url:
+                        # Versuche zuerst den alten responsive-Key
+                        iframe_url = embed_codes.get('responsive', '')
+                        
+                        # Dann den alten API-Pfad
+                        if not iframe_url:
+                            iframe_url = chart_details.get('metadata', {}).get('publish', {}).get('embed-responsive', '')
+                            
+                            # Schließlich die publicUrl als letzten Fallback
+                            if not iframe_url:
+                                iframe_url = chart_details.get('publicUrl', '')
+                    
+                    # Stelle sicher, dass iframe_url nicht zu lang ist (max 990 Zeichen)
+                    if len(iframe_url) > 990:
+                        logger.warning(f"Iframe URL für Chart {chart.chart_id} wurde gekürzt (Originallänge: {len(iframe_url)})")
+                        iframe_url = iframe_url[:990]
+                    
+                    # Wenn URLs mit // beginnen, füge https: hinzu
+                    if pic_url_full and pic_url_full.startswith('//'):
+                        pic_url_full = f"https:{pic_url_full}"
+                    if pic_url_small and pic_url_small.startswith('//'):
+                        pic_url_small = f"https:{pic_url_small}"
+                    
+                    # Aktualisiere das Chart-Objekt
+                    chart.preview_url = preview_url
+                    chart.notes = notes
+                    chart.author = author
+                    chart.author_email = author_email
+                    chart.pic_url_full = pic_url_full
+                    chart.pic_url_small = pic_url_small
+                    chart.iframe_url = iframe_url
+                    
+                    chart.save()
+                    
+                    updated_count += 1
+                    if updated_count % 10 == 0:
+                        logger.info(f"{updated_count} Charts aktualisiert")
+                    
+                    # Kurze Pause einlegen, um Rate-Limits zu vermeiden
+                    time.sleep(sleep_time)
+                    
+                except requests.exceptions.RequestException as e:
+                    error_count += 1
+                    err_msg = f"API-Fehler bei Chart {chart.chart_id}: {str(e)}"
+                    logger.error(err_msg)
+                    
+                    # Bei HTTP-Fehler 429 (Too Many Requests) längere Pause einlegen
+                    if hasattr(e, 'response') and e.response and e.response.status_code == 429:
+                        wait_time = 30
+                        logger.info(f"Rate-Limit erreicht. Warte {wait_time} Sekunden...")
+                        time.sleep(wait_time)
+                        
+                except Exception as e:
+                    error_count += 1
+                    err_msg = f"Fehler bei Chart {chart.chart_id}: {str(e)}"
+                    logger.error(err_msg)
+        
+        # Ausgabe der Zusammenfassung
+        logger.info(f'Chart-Feld-Aktualisierung abgeschlossen.')
+        logger.info(f'Erfolgreich aktualisierte Charts: {updated_count}')
+        logger.info(f'Fehler: {error_count}')
+        return updated_count
+
     def handle(self, *args, **kwargs):
         """
         Hauptmethode zur Ausführung des Management-Commands.
@@ -784,6 +903,10 @@ class Command(BaseCommand):
                 
                 # Neue Charts verarbeiten
                 self.process_charts(new_chart_ids, folders_df, filtered_charts)
+                
+                # Nach der vollständigen Synchronisierung alle Chart-Felder aktualisieren
+                logger.info("Starte Aktualisierung aller Chart-Felder...")
+                self.update_all_chart_fields()
                 
                 # Cache aktualisieren
                 self.update_cache(filtered_charts)
