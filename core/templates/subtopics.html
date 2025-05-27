@@ -495,6 +495,63 @@
         grid-template-columns: 1fr;
       }
     }
+    
+    /* Styling für Benutzernachrichten */
+    .user-message {
+      max-width: 1200px;
+      margin: 15px auto 0;
+      padding: 0 20px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.3s ease;
+    }
+    
+    .user-message.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    .user-message-content {
+      background-color: #fff3cd;
+      border: 1px solid #f6e05e;
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'DINNextLTPro', sans-serif;
+      color: #856404;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    
+    .user-message-content i.fas.fa-info-circle {
+      font-size: 1.2em;
+      color: #d69e2e;
+      flex-shrink: 0;
+    }
+    
+    .user-message-content span {
+      flex: 1;
+      line-height: 1.4;
+      font-size: 1em;
+    }
+    
+    .close-message-btn {
+      background: none;
+      border: none;
+      color: #856404;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+      font-size: 1.1em;
+      flex-shrink: 0;
+    }
+    
+    .close-message-btn:hover {
+      background-color: rgba(133, 100, 4, 0.1);
+    }
   </style>
 {% endblock %}
 
@@ -560,6 +617,17 @@
     <a href="{% url 'archive_main' %}" class="back-button">Zurück zur Hauptansicht</a>
   </div>
   
+  <!-- Benutzernachricht für Themenkachel -->
+  <div id="user-message" class="user-message" style="display: none;">
+    <div class="user-message-content">
+      <i class="fas fa-info-circle"></i>
+      <span id="user-message-text"></span>
+      <button id="close-user-message" class="close-message-btn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+  
   {% if subtopic_tiles %}
     <div class="tiles fade-in">
       {% for tile in subtopic_tiles %}
@@ -571,6 +639,7 @@
              {% endif %}
              data-search-terms="{{ tile.get_combined_search_terms }}"
              data-tile-id="{{ tile.id }}"
+             data-user-message="{{ tile.user_message|default:'' }}"
              {% if tile.children.exists %}data-has-subtopics="true"{% endif %}>
           <span>{{ tile.title }}</span>
           {% if tile.children.exists %}
@@ -632,6 +701,12 @@
         console.log(`[DEBUG] ${message}`);
       }
       
+      // Zeige Benutzernachricht für die Haupt-Themenkachel, wenn vorhanden
+      const parentUserMessage = "{{ parent_tile.user_message|default:'' }}";
+      if (parentUserMessage.trim()) {
+        showUserMessage(parentUserMessage);
+      }
+      
       // Lade automatisch die Ergebnisse für die Haupt-Themenkachel beim Laden der Seite
       loadParentResults();
       
@@ -643,6 +718,12 @@
           const tileId = this.getAttribute('data-tile-id');
           const hasSubtopics = this.hasAttribute('data-has-subtopics');
           const tileTitle = this.querySelector('span').textContent;
+          const userMessage = this.getAttribute('data-user-message');
+          
+          // Zeige Benutzernachricht für diese Kachel, wenn vorhanden
+          if (userMessage && userMessage.trim()) {
+            showUserMessage(userMessage);
+          }
           
           // Alle Unterkacheln mit einer ID leiten zu einer weiteren Unterthemen-Seite weiter
           if (tileId) {
@@ -1119,6 +1200,33 @@
             loadingSpinner.classList.remove('visible');
           });
       }
+      
+      // Funktionen für Benutzernachrichten
+      function showUserMessage(message) {
+        const userMessage = document.getElementById('user-message');
+        const userMessageText = document.getElementById('user-message-text');
+        
+        userMessageText.textContent = message;
+        userMessage.style.display = 'block';
+        
+        // Animation mit kleiner Verzögerung
+        requestAnimationFrame(() => {
+          userMessage.classList.add('visible');
+        });
+      }
+      
+      function hideUserMessage() {
+        const userMessage = document.getElementById('user-message');
+        
+        userMessage.classList.remove('visible');
+        
+        setTimeout(() => {
+          userMessage.style.display = 'none';
+        }, 300); // Warte auf Animation
+      }
+      
+      // Event-Handler für das Schließen der Benutzernachricht
+      document.getElementById('close-user-message').addEventListener('click', hideUserMessage);
     });
   </script>
 {% endblock %} 

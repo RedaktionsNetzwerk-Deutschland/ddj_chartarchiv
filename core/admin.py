@@ -204,6 +204,11 @@ class TopicTileAdmin(admin.ModelAdmin):
             'fields': ('search_terms', 'exact_tag_search', 'display_combined_search_terms'),
             'description': 'Kommagetrennte Liste von Suchbegriffen, die beim Klick auf die Kachel verwendet werden.'
         }),
+        ('Benutzerhinweise', {
+            'fields': ('user_message',),
+            'description': 'Optionale Nachricht, die Benutzern angezeigt wird, wenn sie diesen Themenbereich betreten.',
+            'classes': ('collapse',)
+        }),
         ('Anzeige-Optionen', {
             'fields': ('order',),
         }),

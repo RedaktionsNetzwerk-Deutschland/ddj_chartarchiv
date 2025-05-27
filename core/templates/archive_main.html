@@ -790,6 +790,63 @@
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    
+    /* Styling für Benutzernachrichten */
+    .user-message {
+      max-width: 1200px;
+      margin: 15px auto 0;
+      padding: 0 20px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.3s ease;
+    }
+    
+    .user-message.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    .user-message-content {
+      background-color: #fff3cd;
+      border: 1px solid #f6e05e;
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'DINNextLTPro', sans-serif;
+      color: #856404;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    
+    .user-message-content i.fas.fa-info-circle {
+      font-size: 1.2em;
+      color: #d69e2e;
+      flex-shrink: 0;
+    }
+    
+    .user-message-content span {
+      flex: 1;
+      line-height: 1.4;
+      font-size: 1em;
+    }
+    
+    .close-message-btn {
+      background: none;
+      border: none;
+      color: #856404;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+      font-size: 1.1em;
+      flex-shrink: 0;
+    }
+    
+    .close-message-btn:hover {
+      background-color: rgba(133, 100, 4, 0.1);
+    }
   </style>
 {% endblock %}
 
@@ -857,6 +914,17 @@
     <button class="back-button" id="back-to-main">Zurück zur Hauptansicht</button>
   </div>
 
+  <!-- Benutzernachricht für Themenkachel -->
+  <div id="user-message" class="user-message" style="display: none;">
+    <div class="user-message-content">
+      <i class="fas fa-info-circle"></i>
+      <span id="user-message-text"></span>
+      <button id="close-user-message" class="close-message-btn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
   <div id="selected-charts" class="selected-charts" style="display: none;"></div>
 
   <div id="default-tiles" class="tiles">
@@ -869,6 +937,7 @@
            {% endif %}
            data-search-terms="{{ tile.search_terms }}"
            data-tile-id="{{ tile.id }}"
+           data-user-message="{{ tile.user_message|default:'' }}"
            {% if tile.children.exists %}data-has-subtopics="true"{% endif %}>
         <span>{{ tile.title }}</span>
         {% if tile.children.exists %}

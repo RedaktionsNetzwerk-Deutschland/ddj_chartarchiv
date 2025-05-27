@@ -213,6 +213,11 @@ class TopicTile(models.Model):
         verbose_name="Exakte Tag-Suche",
         help_text="Wenn aktiviert, werden Tag-Suchbegriffe exakt gesucht (z.B. 'Sachsen' findet nicht 'Niedersachsen')"
     )
+    user_message = models.TextField(
+        blank=True,
+        verbose_name="Benutzerhinweis",
+        help_text="Optionale Nachricht, die Benutzern angezeigt wird, wenn sie diesen Themenbereich betreten"
+    )
     
     class Meta:
         verbose_name = "Themenkachel"
