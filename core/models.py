@@ -208,6 +208,11 @@ class TopicTile(models.Model):
         verbose_name="Eltern-Suchbegriffe erben",
         help_text="Wenn aktiviert, werden die Suchbegriffe der übergeordneten Kachel zu den eigenen hinzugefügt"
     )
+    exact_tag_search = models.BooleanField(
+        default=False,
+        verbose_name="Exakte Tag-Suche",
+        help_text="Wenn aktiviert, werden Tag-Suchbegriffe exakt gesucht (z.B. 'Sachsen' findet nicht 'Niedersachsen')"
+    )
     
     class Meta:
         verbose_name = "Themenkachel"

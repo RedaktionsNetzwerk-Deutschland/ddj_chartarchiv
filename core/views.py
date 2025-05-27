@@ -331,12 +331,14 @@ def chart_search(request):
     parent_search_terms = None
     
     # Bei Verwendung von parent_scope, lade die Themenkachel und ihre Suchbegriffe
+    parent_tile = None
     if parent_scope:
         try:
             from core.models import TopicTile
             parent_tile = TopicTile.objects.get(id=parent_scope)
             parent_search_terms = parent_tile.search_terms
             print(f"DEBUG[SERVER]: Suche innerhalb des Themenbereichs: {parent_tile.title} mit Suchbegriffen: {parent_search_terms}")
+            print(f"DEBUG[SERVER]: Exakte Tag-Suche aktiviert: {parent_tile.exact_tag_search}")
         except Exception as e:
             print(f"DEBUG[SERVER]: Fehler beim Laden der Themenkachel: {e}")
     
@@ -377,8 +379,8 @@ def chart_search(request):
         
         # Wir verarbeiten jeden Suchbegriff durch die create_field_query-Funktion, um feldspezifische Suchen zu ermöglichen
         for term in parent_terms:
-            # Verwende dieselbe Funktion wie für Benutzer-Suchanfragen
-            term_query = create_field_query(term, [])
+            # Verwende dieselbe Funktion wie für Benutzer-Suchanfragen, aber mit der exact_tag_search-Option
+            term_query = create_field_query(term, [], parent_tile.exact_tag_search if parent_tile else False)
             parent_query &= term_query  # AND-Verknüpfung statt OR
         
         # Filtere die Basisdatenbank-Abfrage mit den Themensuchbegriffen
@@ -404,7 +406,7 @@ def chart_search(request):
                 for term in search_terms:
                     if len(term) > 2:  # Ignoriere sehr kurze Wörter
                         # Erstelle eine Teil-Query abhängig von den ausgewählten Feldern
-                        term_query = create_field_query(term, selected_fields)
+                        term_query = create_field_query(term, selected_fields, False)
                         # Füge diesen Suchbegriff mit UND hinzu
                         query &= term_query
                 
@@ -415,7 +417,7 @@ def chart_search(request):
                 for term in search_terms:
                     if len(term) > 2:  # Ignoriere sehr kurze Wörter
                         # Erstelle eine Teil-Query abhängig von den ausgewählten Feldern
-                        term_query = create_field_query(term, selected_fields)
+                        term_query = create_field_query(term, selected_fields, False)
                         # Füge diesen Suchbegriff mit ODER hinzu
                         query |= term_query
                 
@@ -450,7 +452,7 @@ def chart_search(request):
         else:
             # Bei einem einzelnen Suchbegriff OR-Verknüpfung verwenden (wie bisher)
             # Erstelle Query abhängig von den ausgewählten Feldern
-            query = create_field_query(q, selected_fields)
+            query = create_field_query(q, selected_fields, False)
             
             # Filter Ergebnisse auf der bereits gefilterten Basisdatenbank-Abfrage
             charts_queryset = base_query.filter(query)
@@ -535,13 +537,14 @@ def chart_search(request):
     return JsonResponse(data)
 
 # Hilfsfunktion zum Erstellen der Feldabfrage basierend auf den ausgewählten Feldern
-def create_field_query(term, selected_fields):
+def create_field_query(term, selected_fields, exact_tag_search=False):
     """
     Erstellt eine Datenbankabfrage basierend auf dem Suchbegriff und den ausgewählten Feldern.
     
     Args:
         term: Der Suchbegriff
         selected_fields: Liste der Feldnamen, die durchsucht werden sollen
+        exact_tag_search: Wenn True, werden Tag-Suchbegriffe exakt gesucht
     
     Returns:
         Django Q-Objekt für die Datenbankabfrage
@@ -577,7 +580,17 @@ def create_field_query(term, selected_fields):
         # Wenn das Feld im Mapping existiert, erstelle eine spezifische Abfrage
         if field_type in field_mapping:
             db_field = field_mapping[field_type]
-            return Q(**{f"{db_field}__icontains": search_value})
+            
+            # Für Tag-Felder: Prüfe, ob exakte Suche aktiviert ist
+            if db_field == 'tags' and exact_tag_search:
+                print(f"DEBUG[SERVER]: Verwende exakte Tag-Suche für '{search_value}'")
+                # Exakte Tag-Suche: Der Tag muss als ganzes Wort vorkommen
+                # Verwende reguläre Ausdrücke für exakte Übereinstimmung
+                # Der Tag kann am Anfang stehen, am Ende stehen oder von Kommas umgeben sein
+                regex_pattern = f'(^|,)\\s*{re.escape(search_value)}\\s*(,|$)'
+                return Q(**{f"{db_field}__iregex": regex_pattern})
+            else:
+                return Q(**{f"{db_field}__icontains": search_value})
         else:
             # Wenn das Feld nicht erkannt wird, führe eine Standardsuche durch
             print(f"DEBUG[SERVER]: Unbekanntes Feldspezifisches Suchfeld: {field_type}, verwende Standardsuche")

@@ -201,7 +201,7 @@ class TopicTileAdmin(admin.ModelAdmin):
             'description': 'Wähle entweder ein bestehendes Bild aus oder lade ein neues hoch.'
         }),
         ('Suchoptionen', {
-            'fields': ('search_terms', 'display_combined_search_terms'),
+            'fields': ('search_terms', 'exact_tag_search', 'display_combined_search_terms'),
             'description': 'Kommagetrennte Liste von Suchbegriffen, die beim Klick auf die Kachel verwendet werden.'
         }),
         ('Anzeige-Optionen', {
