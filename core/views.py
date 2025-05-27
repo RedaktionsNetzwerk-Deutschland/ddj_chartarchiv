@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .forms import RegistrationForm, LoginForm, PasswordResetRequestForm, CustomSetPasswordForm
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
-from .models import Chart, RegistrationConfirmation, PasswordResetToken, TopicTile, ChartBlacklist
+from .models import Chart, RegistrationConfirmation, PasswordResetToken, TopicTile, ChartBlacklist, SystemMessage
 import os
 import requests
 from openai import OpenAI
@@ -37,7 +37,24 @@ def index(request):
         login_form = request._login_form
     else:
         login_form = LoginForm()
-    return render(request, 'index.html', {'login_form': login_form})
+    
+    # Lade aktive Systemnachrichten für die Startseite
+    from django.utils import timezone
+    from django.db import models as db_models
+    current_time = timezone.now()
+    
+    system_messages = SystemMessage.objects.filter(
+        is_active=True,
+        show_on_index=True
+    ).filter(
+        # Nachrichten die entweder kein Ablaufdatum haben oder noch gültig sind
+        db_models.Q(valid_until__isnull=True) | db_models.Q(valid_until__gte=current_time)
+    ).order_by('-created_at')
+    
+    return render(request, 'index.html', {
+        'login_form': login_form,
+        'system_messages': system_messages
+    })
 
 def register(request):
     print("DEBUG: register VIEW - ANFANG")
@@ -270,7 +287,24 @@ def set_password(request, token):
 def archive_main(request):
     # Lade aktive Themenkacheln aus der Datenbank (nur Hauptkacheln)
     topic_tiles = TopicTile.objects.filter(is_active=True, show_in_main=True).order_by('order')
-    return render(request, 'archive_main.html', {'topic_tiles': topic_tiles})
+    
+    # Lade aktive Systemnachrichten für die Hauptarchiv-Seite
+    from django.utils import timezone
+    from django.db import models as db_models
+    current_time = timezone.now()
+    
+    system_messages = SystemMessage.objects.filter(
+        is_active=True,
+        show_on_main_archive=True
+    ).filter(
+        # Nachrichten die entweder kein Ablaufdatum haben oder noch gültig sind
+        db_models.Q(valid_until__isnull=True) | db_models.Q(valid_until__gte=current_time)
+    ).order_by('-created_at')
+    
+    return render(request, 'archive_main.html', {
+        'topic_tiles': topic_tiles,
+        'system_messages': system_messages
+    })
 
 @custom_login_required(login_url='index')
 def subtopics_view(request, parent_id):

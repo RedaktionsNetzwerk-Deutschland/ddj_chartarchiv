@@ -6,6 +6,7 @@
     {% load static %}
     <link rel="icon" type="image/x-icon" href="{% static 'core/img/favicon.ico' %}">
     <link rel="icon" type="image/png" href="{% static 'core/img/favicon.png' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         @font-face {
             font-family: 'DINNextLTPro';
@@ -271,6 +272,98 @@
             color: #0c5460;
             border-left: 4px solid #17a2b8;
         }
+        
+        /* Styling für Systemnachrichten auf der Startseite */
+        .system-message {
+            width: 90%;
+            max-width: 600px;
+            margin: 0 auto 15px;
+            z-index: 5;
+            position: relative;
+            animation: slideInFromTop 0.4s ease-out;
+        }
+        
+        .system-message-content {
+            border-radius: 8px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-family: 'DINNextLTPro', sans-serif;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            position: relative;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .system-message-content i {
+            font-size: 1.3em;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        
+        .system-message-text {
+            flex: 1;
+        }
+        
+        .system-message-text strong {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .close-system-message-btn {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 1.2em;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-system-message-btn:hover {
+            opacity: 1;
+        }
+        
+        /* Farbstile für verschiedene Nachrichtentypen */
+        .system-message.info .system-message-content {
+            background-color: rgba(209, 236, 241, 0.95);
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .system-message.warning .system-message-content {
+            background-color: rgba(255, 243, 205, 0.95);
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .system-message.error .system-message-content {
+            background-color: rgba(248, 215, 218, 0.95);
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .system-message.success .system-message-content {
+            background-color: rgba(212, 237, 218, 0.95);
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        @keyframes slideInFromTop {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -283,6 +376,22 @@
             <img src="{% static 'img/rnd_logo.png' %}" alt="Logo" class="logo">
             <h1 class="slogan">Willkommen zur RND-Grafik-Bibliothek!</h1>
         </header>
+        
+        <!-- Systemnachrichten für die Startseite -->
+        {% for message in system_messages %}
+          <div class="system-message {{ message.message_type }}">
+            <div class="system-message-content">
+              <i class="{% if message.message_type == 'info' %}fas fa-info-circle{% elif message.message_type == 'warning' %}fas fa-exclamation-triangle{% elif message.message_type == 'error' %}fas fa-exclamation-circle{% else %}fas fa-check-circle{% endif %}"></i>
+              <div class="system-message-text">
+                <strong>{{ message.title }}</strong>
+                {{ message.message|linebreaks }}
+              </div>
+              <button class="close-system-message-btn">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+        {% endfor %}
         
         <!-- Django Messages -->
         {% if messages %}
@@ -388,6 +497,22 @@
                 loginForm.setAttribute('data-login-form', 'login');
                 loginForm.setAttribute('name', 'login');
             }
+            
+            // Event-Handler für das Schließen von Systemnachrichten
+            document.querySelectorAll('.close-system-message-btn').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    var messageElement = this.closest('.system-message');
+                    
+                    // Animation zum Ausblenden
+                    messageElement.style.transform = 'translateY(-20px)';
+                    messageElement.style.opacity = '0';
+                    
+                    // Entferne das Element nach der Animation
+                    setTimeout(function() {
+                        messageElement.remove();
+                    }, 300);
+                });
+            });
         });
         
         function openLoginModal() {

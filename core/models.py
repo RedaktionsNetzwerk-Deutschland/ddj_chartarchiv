@@ -374,3 +374,76 @@ class AllowedEmailAddress(models.Model):
     
     def __str__(self):
         return self.email
+
+class SystemMessage(models.Model):
+    """
+    Speichert systemweite Nachrichten, die auf der Hauptarchiv-Seite angezeigt werden.
+    """
+    title = models.CharField(
+        max_length=200,
+        verbose_name="Titel",
+        help_text="Kurzer Titel für die Nachricht"
+    )
+    message = models.TextField(
+        verbose_name="Nachricht",
+        help_text="Die Nachricht, die den Benutzern angezeigt werden soll"
+    )
+    message_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('info', 'Information'),
+            ('warning', 'Warnung'),
+            ('error', 'Fehler'),
+            ('success', 'Erfolg')
+        ],
+        default='info',
+        verbose_name="Nachrichtentyp",
+        help_text="Bestimmt die Farbe und das Icon der Nachricht"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="Aktiv",
+        help_text="Legt fest, ob die Nachricht angezeigt werden soll"
+    )
+    show_on_main_archive = models.BooleanField(
+        default=True,
+        verbose_name="Auf Hauptarchiv anzeigen",
+        help_text="Zeigt die Nachricht auf der Hauptarchiv-Seite (/archive) an"
+    )
+    show_on_index = models.BooleanField(
+        default=False,
+        verbose_name="Auf Startseite anzeigen",
+        help_text="Zeigt die Nachricht auf der Startseite (Login/Registrierung) an"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Erstellt am"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_system_messages',
+        verbose_name="Erstellt von"
+    )
+    valid_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Gültig bis",
+        help_text="Optional: Datum bis wann die Nachricht angezeigt werden soll"
+    )
+    
+    class Meta:
+        verbose_name = "Systemnachricht"
+        verbose_name_plural = "Systemnachrichten"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.title} ({self.get_message_type_display()})"
+    
+    def is_valid(self):
+        """Prüft, ob die Nachricht noch gültig ist"""
+        if self.valid_until:
+            return timezone.now() <= self.valid_until
+        return True

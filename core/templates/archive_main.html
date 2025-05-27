@@ -847,6 +847,146 @@
     .close-message-btn:hover {
       background-color: rgba(133, 100, 4, 0.1);
     }
+    
+    /* Styling für Systemnachrichten */
+    .system-message {
+      max-width: 1200px;
+      margin: 15px auto 0;
+      padding: 0 20px;
+      animation: slideInFromTop 0.4s ease-out;
+    }
+    
+    .system-message-content {
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-family: 'DINNextLTPro', sans-serif;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    
+    .system-message-content i {
+      font-size: 1.3em;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    
+    .system-message-text {
+      flex: 1;
+    }
+    
+    .system-message-text strong {
+      display: block;
+      font-size: 1.1em;
+      margin-bottom: 4px;
+    }
+    
+    .system-message-text p {
+      margin: 0;
+      line-height: 1.4;
+      font-size: 1em;
+    }
+    
+    .close-system-message-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+      font-size: 1.1em;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    
+    /* Info-Nachrichten (blau) */
+    .system-message-info .system-message-content {
+      background-color: #e6f3ff;
+      border: 1px solid #91c9ff;
+      color: #1e3a8a;
+    }
+    
+    .system-message-info i {
+      color: #3b82f6;
+    }
+    
+    .system-message-info .close-system-message-btn {
+      color: #1e3a8a;
+    }
+    
+    .system-message-info .close-system-message-btn:hover {
+      background-color: rgba(30, 58, 138, 0.1);
+    }
+    
+    /* Warn-Nachrichten (orange/gelb) */
+    .system-message-warning .system-message-content {
+      background-color: #fff3cd;
+      border: 1px solid #f6e05e;
+      color: #856404;
+    }
+    
+    .system-message-warning i {
+      color: #d69e2e;
+    }
+    
+    .system-message-warning .close-system-message-btn {
+      color: #856404;
+    }
+    
+    .system-message-warning .close-system-message-btn:hover {
+      background-color: rgba(133, 100, 4, 0.1);
+    }
+    
+    /* Fehler-Nachrichten (rot) */
+    .system-message-error .system-message-content {
+      background-color: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #991b1b;
+    }
+    
+    .system-message-error i {
+      color: #dc2626;
+    }
+    
+    .system-message-error .close-system-message-btn {
+      color: #991b1b;
+    }
+    
+    .system-message-error .close-system-message-btn:hover {
+      background-color: rgba(153, 27, 27, 0.1);
+    }
+    
+    /* Erfolgs-Nachrichten (grün) */
+    .system-message-success .system-message-content {
+      background-color: #dcfce7;
+      border: 1px solid #86efac;
+      color: #166534;
+    }
+    
+    .system-message-success i {
+      color: #16a34a;
+    }
+    
+    .system-message-success .close-system-message-btn {
+      color: #166534;
+    }
+    
+    .system-message-success .close-system-message-btn:hover {
+      background-color: rgba(22, 101, 52, 0.1);
+    }
+    
+    @keyframes slideInFromTop {
+      0% {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
   </style>
 {% endblock %}
 
@@ -924,6 +1064,30 @@
       </button>
     </div>
   </div>
+
+  <!-- Systemnachrichten für die Hauptseite -->
+  {% for message in system_messages %}
+    <div class="system-message system-message-{{ message.message_type }}">
+      <div class="system-message-content">
+        {% if message.message_type == 'info' %}
+          <i class="fas fa-info-circle"></i>
+        {% elif message.message_type == 'warning' %}
+          <i class="fas fa-exclamation-triangle"></i>
+        {% elif message.message_type == 'error' %}
+          <i class="fas fa-exclamation-circle"></i>
+        {% elif message.message_type == 'success' %}
+          <i class="fas fa-check-circle"></i>
+        {% endif %}
+        <div class="system-message-text">
+          <strong>{{ message.title }}</strong>
+          <p>{{ message.message }}</p>
+        </div>
+        <button class="close-system-message-btn" data-message-id="{{ message.id }}">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+  {% endfor %}
 
   <div id="selected-charts" class="selected-charts" style="display: none;"></div>
 
@@ -2439,6 +2603,52 @@
             });
         }
       });
+      
+      // Event-Handler für das Schließen von Systemnachrichten
+      document.querySelectorAll('.close-system-message-btn').forEach(button => {
+        button.addEventListener('click', function() {
+          const messageElement = this.closest('.system-message');
+          
+          // Animation zum Ausblenden
+          messageElement.style.transform = 'translateY(-20px)';
+          messageElement.style.opacity = '0';
+          
+          // Entferne das Element nach der Animation
+          setTimeout(() => {
+            messageElement.remove();
+          }, 300);
+        });
+      });
+      
+      // Funktionen für Benutzernachrichten (bestehend)
+      function showUserMessage(message) {
+        const userMessage = document.getElementById('user-message');
+        const userMessageText = document.getElementById('user-message-text');
+        
+        userMessageText.textContent = message;
+        userMessage.style.display = 'block';
+        
+        // Animation mit kleiner Verzögerung
+        requestAnimationFrame(() => {
+          userMessage.classList.add('visible');
+        });
+      }
+      
+      function hideUserMessage() {
+        const userMessage = document.getElementById('user-message');
+        
+        userMessage.classList.remove('visible');
+        
+        setTimeout(() => {
+          userMessage.style.display = 'none';
+        }, 300); // Warte auf Animation
+      }
+      
+      // Event-Handler für das Schließen der Benutzernachricht
+      const closeUserMessageBtn = document.getElementById('close-user-message');
+      if (closeUserMessageBtn) {
+        closeUserMessageBtn.addEventListener('click', hideUserMessage);
+      }
     });
   </script>
 {% endblock %} 

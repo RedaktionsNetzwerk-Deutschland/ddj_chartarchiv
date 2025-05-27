@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from .models import Chart, ChartData, RegistrationConfirmation, PasswordResetToken, TopicTile, ChartBlacklist, AllowedEmailDomain, AllowedEmailAddress
+from .models import Chart, ChartData, RegistrationConfirmation, PasswordResetToken, TopicTile, ChartBlacklist, AllowedEmailDomain, AllowedEmailAddress, SystemMessage
 from django.utils.html import format_html
 from django.conf import settings
 import os, base64, uuid
@@ -340,6 +340,35 @@ class AllowedEmailAddressAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 admin.site.register(AllowedEmailAddress, AllowedEmailAddressAdmin)
+
+# Admin-Klasse für SystemMessage
+class SystemMessageAdmin(admin.ModelAdmin):
+    list_display = ('title', 'message_type', 'is_active', 'show_on_main_archive', 'show_on_index', 'created_at', 'valid_until', 'created_by')
+    list_filter = ('message_type', 'is_active', 'show_on_main_archive', 'show_on_index', 'created_at')
+    search_fields = ('title', 'message')
+    list_editable = ('is_active', 'show_on_main_archive', 'show_on_index')
+    readonly_fields = ('created_at',)
+    fieldsets = (
+        (None, {
+            'fields': ('title', 'message', 'message_type')
+        }),
+        ('Anzeigeoptionen', {
+            'fields': ('is_active', 'show_on_main_archive', 'show_on_index', 'valid_until')
+        }),
+        ('Metadaten', {
+            'fields': ('created_at', 'created_by'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        # Automatisch den aktuellen Benutzer als Ersteller setzen, wenn nicht angegeben
+        if not change:  # Nur beim Erstellen, nicht beim Bearbeiten
+            if not obj.created_by:
+                obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+admin.site.register(SystemMessage, SystemMessageAdmin)
 
 # Benutzeradmin erweitern, um Gruppenzuordnungen zu vereinfachen
 class CustomUserAdmin(UserAdmin):
