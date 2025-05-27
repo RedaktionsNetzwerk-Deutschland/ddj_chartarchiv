@@ -1,0 +1,686 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .tree-view {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .tree-header {
+            background: linear-gradient(135deg, #4f80ff, #3a6cd9);
+            color: white;
+            padding: 16px 20px;
+            font-weight: 600;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .tree-content {
+            padding: 0;
+        }
+        
+        .tree-item {
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .tree-item:last-child {
+            border-bottom: none;
+        }
+        
+        .tree-item:hover {
+            background-color: #f8f9ff;
+        }
+        
+        .tree-item-content {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            min-height: 48px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .tree-item-content:hover {
+            background-color: #f0f4ff;
+        }
+        
+        .tree-indent {
+            width: 24px;
+            flex-shrink: 0;
+        }
+        
+        .tree-expand {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        
+        .tree-expand:hover {
+            background: #4f80ff;
+            color: white;
+        }
+        
+        .tree-expand.expanded {
+            background: #4f80ff;
+            color: white;
+        }
+        
+        .tree-expand i {
+            font-size: 12px;
+            transition: transform 0.2s ease;
+        }
+        
+        .tree-expand.expanded i {
+            transform: rotate(90deg);
+        }
+        
+        .tree-expand:empty {
+            visibility: hidden;
+        }
+        
+        .tree-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            flex-shrink: 0;
+            font-size: 14px;
+            color: white;
+        }
+        
+        .tree-icon.root {
+            background: linear-gradient(135deg, #4f80ff, #3a6cd9);
+        }
+        
+        .tree-icon.child {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+        }
+        
+        .tree-details {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .tree-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        
+        .tree-meta {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .tree-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .tree-actions {
+            display: flex;
+            gap: 8px;
+            margin-left: 12px;
+        }
+        
+        .tree-add-child {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #28a745;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            margin-right: 8px;
+            flex-shrink: 0;
+            color: white;
+        }
+        
+        .tree-add-child:hover {
+            background: #218838;
+            transform: scale(1.1);
+        }
+        
+        .tree-add-child i {
+            font-size: 12px;
+        }
+        
+        .tree-action {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            color: #666;
+            text-decoration: none;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .tree-action:hover {
+            border-color: #4f80ff;
+            color: #4f80ff;
+            text-decoration: none;
+        }
+        
+        .tree-action.primary {
+            background: #4f80ff;
+            color: white;
+            border-color: #4f80ff;
+        }
+        
+        .tree-action.primary:hover {
+            background: #3a6cd9;
+            border-color: #3a6cd9;
+            color: white;
+        }
+        
+        .tree-children {
+            display: none;
+            background: #fafbff;
+        }
+        
+        .tree-children.expanded {
+            display: block;
+        }
+        
+        .tree-children .tree-item-content {
+            padding-left: 44px;
+        }
+        
+        .tree-children .tree-children .tree-item-content {
+            padding-left: 68px;
+        }
+        
+        .tree-children .tree-children .tree-children .tree-item-content {
+            padding-left: 92px;
+        }
+        
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.active {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-badge.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .search-terms-preview {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .toolbar {
+            background: white;
+            padding: 16px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .toolbar-left {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .toolbar-button {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            color: #666;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .toolbar-button:hover {
+            border-color: #4f80ff;
+            color: #4f80ff;
+            text-decoration: none;
+        }
+        
+        .toolbar-button.primary {
+            background: #4f80ff;
+            color: white;
+            border-color: #4f80ff;
+        }
+        
+        .toolbar-button.primary:hover {
+            background: #3a6cd9;
+            border-color: #3a6cd9;
+            color: white;
+        }
+        
+        .expand-all-button {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+        
+        .expand-all-button:hover {
+            background: #218838;
+            border-color: #218838;
+            color: white;
+        }
+        
+        .collapse-all-button {
+            background: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+        
+        .collapse-all-button:hover {
+            background: #c82333;
+            border-color: #c82333;
+            color: white;
+        }
+        
+        /* Verstecke die Standard-Tabelle */
+        .results {
+            display: none;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .tree-actions {
+                flex-direction: column;
+                margin-left: 8px;
+            }
+            
+            .tree-meta {
+                flex-direction: column;
+                gap: 4px;
+            }
+            
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .toolbar-left {
+                justify-content: center;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block result_list %}
+    <div class="tree-view">
+        <div class="tree-header">
+            <i class="fas fa-sitemap"></i>
+            Themenkacheln-Hierarchie
+        </div>
+        
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <button class="toolbar-button expand-all-button" onclick="expandAll()">
+                    <i class="fas fa-expand-arrows-alt"></i>
+                    Alle aufklappen
+                </button>
+                <button class="toolbar-button collapse-all-button" onclick="collapseAll()">
+                    <i class="fas fa-compress-arrows-alt"></i>
+                    Alle zuklappen
+                </button>
+            </div>
+            <a href="{% url 'admin:core_topictile_add' %}" class="toolbar-button primary">
+                <i class="fas fa-plus"></i>
+                Neue Themenkachel
+            </a>
+        </div>
+        
+        <div class="tree-content" id="tree-content">
+            <!-- Die Baumstruktur wird hier mit JavaScript generiert -->
+        </div>
+    </div>
+
+    <script>
+        // TopicTile-Daten vom Server laden
+        const topicTiles = [
+            {% for obj in cl.result_list %}
+            {
+                id: {{ obj.id }},
+                title: "{{ obj.title|escapejs }}",
+                parent_id: {{ obj.parent.id|default:"null" }},
+                is_active: {{ obj.is_active|yesno:"true,false" }},
+                show_in_main: {{ obj.show_in_main|yesno:"true,false" }},
+                order: {{ obj.order }},
+                search_terms: "{{ obj.search_terms|escapejs }}",
+                has_user_message: {% if obj.user_message %}true{% else %}false{% endif %},
+                children_count: {{ obj.children.count }}
+            }{% if not forloop.last %},{% endif %}
+            {% empty %}
+            // Keine Themenkacheln in cl.result_list gefunden - versuche result_list
+            {% endfor %}
+            {% if not cl.result_list %}
+                {% for obj in result_list %}
+                {
+                    id: {{ obj.id }},
+                    title: "{{ obj.title|escapejs }}",
+                    parent_id: {{ obj.parent.id|default:"null" }},
+                    is_active: {{ obj.is_active|yesno:"true,false" }},
+                    show_in_main: {{ obj.show_in_main|yesno:"true,false" }},
+                    order: {{ obj.order }},
+                    search_terms: "{{ obj.search_terms|escapejs }}",
+                    has_user_message: {% if obj.user_message %}true{% else %}false{% endif %},
+                    children_count: {{ obj.children.count }}
+                }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            {% endif %}
+        ];
+        
+        console.log('DEBUG: Anzahl result_list:', {{ result_list|length }});
+        console.log('DEBUG: Anzahl cl.result_list:', {{ cl.result_list|length }});
+        console.log('DEBUG: cl verfügbar:', typeof {{ cl|yesno:"true,false" }});
+        console.log('DEBUG: cl.result_list content:', [
+            {% for obj in cl.result_list %}
+            {
+                id: {{ obj.id }},
+                title: "{{ obj.title|escapejs }}",
+                parent_id: {{ obj.parent.id|default:"null" }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]);
+        console.log('DEBUG: result_list content (fallback):', [
+            {% for obj in result_list %}
+            {
+                id: {{ obj.id }},
+                title: "{{ obj.title|escapejs }}",
+                parent_id: {{ obj.parent.id|default:"null" }}
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]);
+
+        // Hierarchische Struktur aufbauen
+        function buildTree(items) {
+            const itemMap = {};
+            const roots = [];
+
+            // Alle Items in Map einordnen
+            items.forEach(item => {
+                item.children = [];
+                itemMap[item.id] = item;
+            });
+
+            // Hierarchie aufbauen
+            items.forEach(item => {
+                if (item.parent_id) {
+                    if (itemMap[item.parent_id]) {
+                        itemMap[item.parent_id].children.push(item);
+                    }
+                } else {
+                    roots.push(item);
+                }
+            });
+
+            // Nach order sortieren
+            function sortByOrder(a, b) {
+                return a.order - b.order;
+            }
+
+            roots.sort(sortByOrder);
+            roots.forEach(function sortChildren(item) {
+                item.children.sort(sortByOrder);
+                item.children.forEach(sortChildren);
+            });
+
+            return roots;
+        }
+
+        // Tree-Item HTML generieren
+        function createTreeItem(item, level = 0) {
+            const hasChildren = item.children && item.children.length > 0;
+            const indent = level * 24;
+            
+            const searchTermsPreview = item.search_terms ? 
+                (item.search_terms.length > 50 ? item.search_terms.substring(0, 50) + '...' : item.search_terms) : 
+                'Keine Suchbegriffe';
+
+            let html = `
+                <div class="tree-item" data-id="${item.id}">
+                    <div class="tree-item-content" style="padding-left: ${20 + indent}px;" onclick="openDetail(${item.id}, event)">
+                        ${hasChildren ? 
+                            `<button class="tree-expand" onclick="toggleExpand(${item.id}, event)">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>` : 
+                            '<div style="width: 28px;"></div>'
+                        }
+                        
+                        <div class="tree-icon ${level === 0 ? 'root' : 'child'}">
+                            <i class="fas ${level === 0 ? 'fa-layer-group' : 'fa-folder'}"></i>
+                        </div>
+                        
+                        <div class="tree-details">
+                            <div class="tree-title">${item.title}</div>
+                            <div class="tree-meta">
+                                <div class="tree-meta-item">
+                                    <i class="fas fa-sort-numeric-up"></i>
+                                    Reihenfolge: ${item.order}
+                                </div>
+                                <div class="tree-meta-item">
+                                    <span class="status-badge ${item.is_active ? 'active' : 'inactive'}">
+                                        ${item.is_active ? 'Aktiv' : 'Inaktiv'}
+                                    </span>
+                                </div>
+                                ${item.show_in_main ? 
+                                    '<div class="tree-meta-item"><i class="fas fa-home"></i> Hauptseite</div>' : ''
+                                }
+                                ${item.has_user_message ? 
+                                    '<div class="tree-meta-item"><i class="fas fa-comment"></i> Nachricht</div>' : ''
+                                }
+                                <div class="tree-meta-item search-terms-preview">
+                                    <i class="fas fa-search"></i>
+                                    ${searchTermsPreview}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tree-actions">
+                            <button class="tree-add-child" onclick="addChild(${item.id}, event)" title="Unterkachel hinzufügen">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <a href="/admin/core/topictile/${item.id}/change/" class="tree-action primary" onclick="event.stopPropagation();">
+                                <i class="fas fa-edit"></i>
+                                Bearbeiten
+                            </a>
+                            <a href="/admin/core/topictile/${item.id}/delete/" class="tree-action" onclick="event.stopPropagation();">
+                                <i class="fas fa-trash"></i>
+                                Löschen
+                            </a>
+                        </div>
+                    </div>
+                    
+                    ${hasChildren ? `<div class="tree-children" id="children-${item.id}"></div>` : ''}
+                </div>
+            `;
+
+            return html;
+        }
+
+        // Baum rendern
+        function renderTree(items, container, level = 0) {
+            items.forEach(item => {
+                container.innerHTML += createTreeItem(item, level);
+                
+                if (item.children && item.children.length > 0) {
+                    const childContainer = document.getElementById(`children-${item.id}`);
+                    if (childContainer) {
+                        renderTree(item.children, childContainer, level + 1);
+                    }
+                }
+            });
+        }
+
+        // Toggle Expand/Collapse
+        function toggleExpand(itemId, event) {
+            // Event-Propagation stoppen, um Konflikte zu vermeiden
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            
+            const childrenContainer = document.getElementById(`children-${itemId}`);
+            const expandButton = document.querySelector(`[data-id="${itemId}"] .tree-expand`);
+            
+            console.log('toggleExpand called for item:', itemId);
+            console.log('childrenContainer found:', !!childrenContainer);
+            console.log('expandButton found:', !!expandButton);
+            
+            if (childrenContainer && expandButton) {
+                const isExpanded = childrenContainer.classList.contains('expanded');
+                console.log('Current state expanded:', isExpanded);
+                
+                if (isExpanded) {
+                    childrenContainer.classList.remove('expanded');
+                    expandButton.classList.remove('expanded');
+                    console.log('Collapsed item:', itemId);
+                } else {
+                    childrenContainer.classList.add('expanded');
+                    expandButton.classList.add('expanded');
+                    console.log('Expanded item:', itemId);
+                }
+            }
+        }
+
+        // Alle aufklappen
+        function expandAll() {
+            console.log('expandAll called');
+            const children = document.querySelectorAll('.tree-children');
+            const buttons = document.querySelectorAll('.tree-expand');
+            
+            console.log('Found children containers:', children.length);
+            console.log('Found expand buttons:', buttons.length);
+            
+            children.forEach(child => {
+                child.classList.add('expanded');
+            });
+            buttons.forEach(button => {
+                button.classList.add('expanded');
+            });
+            
+            console.log('expandAll completed');
+        }
+
+        // Alle zuklappen
+        function collapseAll() {
+            console.log('collapseAll called');
+            const children = document.querySelectorAll('.tree-children');
+            const buttons = document.querySelectorAll('.tree-expand');
+            
+            console.log('Found children containers:', children.length);
+            console.log('Found expand buttons:', buttons.length);
+            
+            children.forEach(child => {
+                child.classList.remove('expanded');
+            });
+            buttons.forEach(button => {
+                button.classList.remove('expanded');
+            });
+            
+            console.log('collapseAll completed');
+        }
+        
+        // Zeile klicken → Detailansicht öffnen
+        function openDetail(itemId, event) {
+            // Event-Propagation stoppen, um Konflikte zu vermeiden
+            if (event) {
+                event.stopPropagation();
+            }
+            
+            console.log('openDetail called for item:', itemId);
+            window.location.href = `/admin/core/topictile/${itemId}/change/`;
+        }
+        
+        // Plus-Button → Neue Unterkachel erstellen
+        function addChild(parentId, event) {
+            // Event-Propagation stoppen, um Konflikte zu vermeiden
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            
+            console.log('addChild called for parent:', parentId);
+            
+            // URL für neue Kachel mit parent-Parameter
+            const addUrl = `/admin/core/topictile/add/?parent=${parentId}`;
+            window.location.href = addUrl;
+        }
+
+        // Initialisierung
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('TopicTiles Daten:', topicTiles);
+            const tree = buildTree(topicTiles);
+            console.log('Gebauter Baum:', tree);
+            const container = document.getElementById('tree-content');
+            
+            if (tree.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 60px 40px; text-align: center; color: #666;">
+                        <i class="fas fa-layer-group" style="font-size: 48px; color: #ddd; margin-bottom: 20px;"></i>
+                        <h3 style="color: #666; margin-bottom: 10px;">Keine Themenkacheln vorhanden</h3>
+                        <p style="margin-bottom: 20px;">Erstellen Sie Ihre erste Themenkachel, um zu beginnen.</p>
+                        <a href="/admin/core/topictile/add/" class="toolbar-button primary">
+                            <i class="fas fa-plus"></i>
+                            Erste Themenkachel erstellen
+                        </a>
+                    </div>
+                `;
+            } else {
+                renderTree(tree, container);
+            }
+        });
+    </script>
+{% endblock %} 

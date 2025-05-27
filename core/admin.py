@@ -255,6 +255,28 @@ class TopicTileAdmin(admin.ModelAdmin):
             ', '.join(combined_terms)
         )
     
+    def get_form(self, request, obj=None, **kwargs):
+        """Überschreibe get_form, um parent aus URL-Parameter zu setzen"""
+        form = super().get_form(request, obj, **kwargs)
+        
+        # Wenn es sich um eine neue Kachel handelt und parent-Parameter in der URL steht
+        if obj is None and 'parent' in request.GET:
+            try:
+                parent_id = int(request.GET['parent'])
+                parent_tile = TopicTile.objects.get(id=parent_id)
+                
+                # Setze den Parent als Initial-Wert
+                form.base_fields['parent'].initial = parent_tile
+                
+                # Deaktiviere "show_in_main" für Unterkacheln
+                form.base_fields['show_in_main'].initial = False
+                
+                print(f"DEBUG: Setze parent für neue Kachel: {parent_tile.title}")
+            except (ValueError, TopicTile.DoesNotExist):
+                print(f"DEBUG: Ungültiger parent-Parameter: {request.GET['parent']}")
+        
+        return form
+    
     class Media:
         js = ('core/js/admin_image_preview.js',)
     
