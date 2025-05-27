@@ -8,6 +8,10 @@ import requests
 from typing import Dict, List, Optional, Union
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from dotenv import load_dotenv
+
+# Lade .env-Datei
+load_dotenv()
 
 class DatawrapperAPIError(Exception):
     """Basisklasse für Datawrapper-API-Fehler."""
@@ -21,9 +25,9 @@ class DatawrapperService:
     
     def __init__(self):
         """Initialisiert den Service mit API-Konfiguration."""
-        self.api_key = settings.DATAWRAPPER_API_KEY
+        self.api_key = os.getenv('DATAWRAPPER_API_KEY')
         if not self.api_key:
-            raise ValueError("Datawrapper API-Key nicht konfiguriert")
+            raise ValueError("Datawrapper API-Key nicht konfiguriert. Bitte DATAWRAPPER_API_KEY in .env-Datei setzen.")
             
         self.base_url = "https://api.datawrapper.de/v3"
         self.headers = {
