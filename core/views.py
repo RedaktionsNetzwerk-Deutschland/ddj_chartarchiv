@@ -372,18 +372,18 @@ def chart_search(request):
         parent_terms = [term.strip() for term in parent_search_terms.split(',') if term.strip()]
         print(f"DEBUG[SERVER]: Themenkachel-Suchbegriffe: {parent_terms}")
         
-        # Erstelle eine OR-Abfrage für die Themensuchbegriffe
-        parent_query = Q()
+        # Erstelle eine AND-Abfrage für die Themensuchbegriffe
+        parent_query = Q(pk__isnull=False)  # Grundfilter, der alle Einträge einschließt
         
         # Wir verarbeiten jeden Suchbegriff durch die create_field_query-Funktion, um feldspezifische Suchen zu ermöglichen
         for term in parent_terms:
             # Verwende dieselbe Funktion wie für Benutzer-Suchanfragen
             term_query = create_field_query(term, [])
-            parent_query |= term_query
+            parent_query &= term_query  # AND-Verknüpfung statt OR
         
         # Filtere die Basisdatenbank-Abfrage mit den Themensuchbegriffen
         base_query = base_query.filter(parent_query)
-        print(f"DEBUG[SERVER]: Themenfilter angewendet, verbleibende Ergebnisse: {base_query.count()}")
+        print(f"DEBUG[SERVER]: Themenfilter mit AND-Verknüpfung angewendet, verbleibende Ergebnisse: {base_query.count()}")
     
     # Jetzt wende den benutzerdefinierten Suchbegriff an, wenn vorhanden
     if q:
