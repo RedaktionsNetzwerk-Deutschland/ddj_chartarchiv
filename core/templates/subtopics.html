@@ -639,7 +639,7 @@
              {% endif %}
              data-search-terms="{{ tile.get_combined_search_terms }}"
              data-tile-id="{{ tile.id }}"
-             data-user-message="{{ tile.user_message|default:'' }}"
+             data-user-message="{{ tile.user_message|default:''|escape }}"
              {% if tile.children.exists %}data-has-subtopics="true"{% endif %}>
           <span>{{ tile.title }}</span>
           {% if tile.children.exists %}
@@ -702,7 +702,7 @@
       }
       
       // Zeige Benutzernachricht für die Haupt-Themenkachel, wenn vorhanden
-      const parentUserMessage = "{{ parent_tile.user_message|default:'' }}";
+      const parentUserMessage = "{{ parent_tile.user_message|default:''|escapejs }}";
       if (parentUserMessage.trim()) {
         showUserMessage(parentUserMessage);
       }

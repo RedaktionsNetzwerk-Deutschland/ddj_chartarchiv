@@ -1101,7 +1101,7 @@
            {% endif %}
            data-search-terms="{{ tile.search_terms }}"
            data-tile-id="{{ tile.id }}"
-           data-user-message="{{ tile.user_message|default:'' }}"
+           data-user-message="{{ tile.user_message|default:''|escape }}"
            {% if tile.children.exists %}data-has-subtopics="true"{% endif %}>
         <span>{{ tile.title }}</span>
         {% if tile.children.exists %}
